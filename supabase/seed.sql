@@ -147,3 +147,11 @@ insert into public.decisions ("id", "meeting_id", "project_id", "text", "owner_i
 insert into public.decisions ("id", "meeting_id", "project_id", "text", "owner_id", "due", "status") values ('dc2', 'mt1', 'p3', 'Soumettre le rapport succinct d''activités au MEAE', 'u1', '2026-02-28', 'fait');
 insert into public.decisions ("id", "meeting_id", "project_id", "text", "owner_id", "due", "status") values ('dc3', 'mt1', 'p3', 'Préparer le rapport intermédiaire de septembre (narratif + financier)', 'u1', '2026-09-30', 'en_cours');
 insert into public.decisions ("id", "meeting_id", "project_id", "text", "owner_id", "due", "status") values ('dc4', 'mt2', 'p1', 'Retenir le paysagiste et faire valider le devis par LEY', 'u2', '2026-07-10', 'en_cours');
+
+-- Liaison des comptes auth déjà existants aux profils (au cas où l'utilisateur
+-- s'est connecté avant le seed : le trigger on_auth_user_created ne se déclenche
+-- que lors de la création du compte auth, pas aux connexions suivantes).
+update public.profiles p
+set auth_user_id = u.id
+from auth.users u
+where lower(p.email) = lower(u.email) and p.auth_user_id is null;
