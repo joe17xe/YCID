@@ -3,7 +3,7 @@ module.exports = {
     name: 'ycid',
     script: 'node_modules/.bin/next',
     args: 'start -p 5001',
-    cwd: '/opt/ycid-app',
+    cwd: '/opt/ycid-app/web',
     env: {
       NODE_ENV: 'production',
       PORT: 5001,
