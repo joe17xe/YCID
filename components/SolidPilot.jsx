@@ -567,7 +567,10 @@ export default function App() {
   const [showNotifs, setShowNotifs] = useState(false);
 
   const [orgs, setOrgs] = usePersistedList("organizations", seedOrgs);
-  const [projects, setProjects] = usePersistedList("projects", seedProjects);
+  const [projectsRaw, setProjects] = usePersistedList("projects", seedProjects);
+  /* Le schéma live peut ne pas exposer les colonnes orgs / validation_roles :
+     on garantit toujours des tableaux pour éviter les crashs (.some/.map/.filter). */
+  const projects = projectsRaw.map((p) => ({ ...p, orgs: p.orgs || [], validationRoles: p.validationRoles || [] }));
   const [members, setMembers] = usePersistedList("project_members", seedMembers);
   const [phases, setPhases] = usePersistedList("phases", seedPhases);
   const [tasks, setTasks] = usePersistedList("tasks", seedTasks);
