@@ -512,7 +512,7 @@ function Login({ onLogin }) {
   const [err, setErr] = useState("");
   const doGoogle = () => {
     if (DEMO) return onLogin("google");
-    supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo: window.location.origin } });
+    supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo: window.location.origin + "/auth/callback" } });
   };
   const doEmail = async () => {
     if (DEMO) return onLogin("email");
