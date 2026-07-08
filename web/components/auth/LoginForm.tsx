@@ -33,7 +33,7 @@ export default function LoginForm() {
   async function handleGoogle() {
     await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: location.origin + "/auth/callback?next=/dashboard" },
+      options: { redirectTo: "https://ycid.joefr.cloud/auth/callback?next=/dashboard" },
     })
   }
 
