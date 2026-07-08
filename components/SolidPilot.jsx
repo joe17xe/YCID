@@ -3124,6 +3124,32 @@ function ProjectsMap({ projects, phases, tasks, indicators, measures, decisions,
   const hqX = X(HQ.lng), hqY = Y(HQ.lat);
   const selectedProject = located.find((p) => p.id === selected);
 
+  /* Anti-chevauchement : on écarte les marqueurs trop proches
+     (ex. le siège YCID et le projet Yvelines au même point). */
+  const nodes = [
+    { id: "__hq__", x: hqX, y: hqY, ox: hqX, oy: hqY, label: HQ.name, kind: "hq" },
+    ...located.map((p) => {
+      const px = X(p.lng), py = Y(p.lat);
+      return { id: p.id, x: px, y: py, ox: px, oy: py, label: p.zone, kind: "project", project: p };
+    }),
+  ];
+  const MIN = 30;
+  for (let iter = 0; iter < 80; iter++) {
+    for (let a = 0; a < nodes.length; a++)
+      for (let b = a + 1; b < nodes.length; b++) {
+        const dx = nodes[b].x - nodes[a].x, dy = nodes[b].y - nodes[a].y;
+        const d = Math.hypot(dx, dy) || 0.01;
+        if (d < MIN) {
+          const push = (MIN - d) / 2, ux = dx / d, uy = dy / d;
+          nodes[a].x -= ux * push; nodes[a].y -= uy * push;
+          nodes[b].x += ux * push; nodes[b].y += uy * push;
+        }
+      }
+  }
+  nodes.forEach((n) => { n.x = Math.max(PAD, Math.min(W - PAD, n.x)); n.y = Math.max(26, Math.min(H - 20, n.y)); });
+  const nodeById = Object.fromEntries(nodes.map((n) => [n.id, n]));
+  const hqNode = nodeById["__hq__"];
+
   return (
     <Card className="p-4 sm:p-5">
       <div className="flex items-center justify-between mb-1">
@@ -3143,23 +3169,33 @@ function ProjectsMap({ projects, phases, tasks, indicators, measures, decisions,
         {lngLines.map((l) => <line key={"g" + l} x1={X(l)} y1={0} x2={X(l)} y2={H} stroke="#DFE5E0" strokeWidth="1" />)}
         {latLines.map((l) => <line key={"h" + l} x1={0} y1={Y(l)} x2={W} y2={Y(l)} stroke="#DFE5E0" strokeWidth="1" />)}
 
-        {/* Arcs de coopération depuis le siège */}
+        {/* Arcs de coopération depuis le siège (positions anti-chevauchement) */}
         {located.filter((p) => Math.abs(p.lng - HQ.lng) > 0.5 || Math.abs(p.lat - HQ.lat) > 0.5).map((p) => {
-          const x2 = X(p.lng), y2 = Y(p.lat);
-          const mx = (hqX + x2) / 2, my = Math.min(hqY, y2) - 55;
-          return <path key={"arc" + p.id} d={`M ${hqX} ${hqY} Q ${mx} ${my} ${x2} ${y2}`}
+          const n = nodeById[p.id];
+          const mx = (hqNode.x + n.x) / 2, my = Math.max(8, Math.min(hqNode.y, n.y) - 55);
+          return <path key={"arc" + p.id} d={`M ${hqNode.x} ${hqNode.y} Q ${mx} ${my} ${n.x} ${n.y}`}
             fill="none" stroke={C.accent} strokeWidth="1.5" strokeDasharray="4 4" opacity="0.5" />;
         })}
 
+        {/* Petits traits reliant chaque marqueur déplacé à son point géographique réel */}
+        {nodes.filter((n) => Math.hypot(n.x - n.ox, n.y - n.oy) > 2).map((n) => (
+          <g key={"leader" + n.id}>
+            <circle cx={n.ox} cy={n.oy} r="1.6" fill={C.muted} opacity="0.55" />
+            <line x1={n.ox} y1={n.oy} x2={n.x} y2={n.y} stroke={C.muted} strokeWidth="0.9" strokeDasharray="2 2" opacity="0.45" />
+          </g>
+        ))}
+
         {/* Siège */}
-        <rect x={hqX - 5} y={hqY - 5} width="10" height="10" rx="2.5" fill={C.blue} stroke="#fff" strokeWidth="2" transform={`rotate(45 ${hqX} ${hqY})`} />
-        <text x={hqX} y={hqY - 12} textAnchor="middle" fontSize="10.5" fontWeight="600" fill={C.blue} fontFamily={FONT_BODY}>{HQ.name}</text>
+        <rect x={hqNode.x - 5} y={hqNode.y - 5} width="10" height="10" rx="2.5" fill={C.blue} stroke="#fff" strokeWidth="2" transform={`rotate(45 ${hqNode.x} ${hqNode.y})`} />
+        <text x={hqNode.x <= W / 2 ? hqNode.x + 11 : hqNode.x - 11} y={hqNode.y + 3.6}
+          textAnchor={hqNode.x <= W / 2 ? "start" : "end"} fontSize="10.5" fontWeight="600" fill={C.blue} fontFamily={FONT_BODY}>{HQ.name}</text>
 
         {/* Marqueurs projets */}
-        {located.map((p, i) => {
-          const x = X(p.lng), y = Y(p.lat);
+        {located.map((p) => {
+          const n = nodeById[p.id];
+          const x = n.x, y = n.y;
           const h = health(p);
-          const labelAbove = i % 2 === 0;
+          const side = x <= W / 2;
           const active = selected === p.id;
           return (
             <g key={p.id} onClick={() => setSelected(active ? null : p.id)} style={{ cursor: "pointer" }}>
@@ -3168,7 +3204,7 @@ function ProjectsMap({ projects, phases, tasks, indicators, measures, decisions,
               <text x={x} y={y + 3.2} textAnchor="middle" fontSize="8.5" fontWeight="700" fill="#fff" fontFamily={FONT_BODY}>
                 {projectProgress(p.id)}
               </text>
-              <text x={x} y={labelAbove ? y - 14 : y + 22} textAnchor="middle" fontSize="10.5" fontWeight="600" fill={C.ink} fontFamily={FONT_BODY}>
+              <text x={side ? x + 12 : x - 12} y={y + 3.6} textAnchor={side ? "start" : "end"} fontSize="10.5" fontWeight="600" fill={C.ink} fontFamily={FONT_BODY}>
                 {p.zone}
               </text>
             </g>
