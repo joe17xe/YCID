@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server"
 import { redirect, notFound } from "next/navigation"
 import Link from "next/link"
 import { PROJECT_STATUS, PROJECT_ROLES, TASK_STATUS, REVIEW_STATES, fmtEur, fmtDate, LINE_STATUS, LINE_CATEGORIES, IND_KINDS, DECISION_STATUS, MEETING_KINDS } from "@/lib/constants"
+import { canEditCompletedTasks } from "@/lib/permissions"
+import EditCompletedTaskDialog from "@/components/tasks/EditCompletedTaskDialog"
 import { ChevronLeft } from "lucide-react"
 
 function Badge({ label, fg, bg }: { label: string; fg: string; bg: string }) {
@@ -24,13 +26,14 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/")
 
-  const [{ data: project }, { data: phases }, { data: budgetLines }, { data: indicators }, { data: meetings }, { data: audit }] = await Promise.all([
+  const [{ data: project }, { data: phases }, { data: budgetLines }, { data: indicators }, { data: meetings }, { data: audit }, canEditCompleted] = await Promise.all([
     supabase.from("projects").select("*, project_organizations(org_id, role, organizations(id, name, type)), project_members(user_id, role, profiles(id, full_name, email)), validation_rules(id, role, doc_type)").eq("id", id).single(),
     supabase.from("phases").select("*, tasks(*, profiles:assignee_id(full_name), documents(*))").eq("project_id", id).order("position"),
     supabase.from("budget_lines").select("*, funder:funder_org_id(name), owner:owner_org_id(name), phase:phase_id(name)").eq("project_id", id).order("year"),
     supabase.from("indicators").select("*, measures:indicator_measures(*)").eq("project_id", id),
     supabase.from("meetings").select("*, decisions(*, owner:owner_user_id(full_name))").eq("project_id", id).order("date", { ascending: false }),
     supabase.from("audit_log").select("*, profiles:user_id(full_name)").eq("project_id", id).order("at", { ascending: false }).limit(20),
+    canEditCompletedTasks(supabase, user.id),
   ])
 
   if (!project) notFound()
@@ -175,6 +178,18 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                           <div className="flex flex-col items-end gap-1">
                             <Badge label={ts.label} fg={ts.fg} bg={ts.bg} />
                             {rv && <Badge label={rv.label} fg={rv.fg} bg={rv.bg} />}
+                            {t.status === "terminee" && canEditCompleted && (
+                              <EditCompletedTaskDialog task={{
+                                id: t.id,
+                                title: t.title,
+                                description: t.description ?? null,
+                                status: t.status,
+                                progress: t.progress,
+                                start_date: t.start_date ?? null,
+                                end_date: t.end_date ?? null,
+                                comment: t.comment ?? null,
+                              }} />
+                            )}
                           </div>
                         </div>
                         <div className="mt-2 flex items-center gap-3">
