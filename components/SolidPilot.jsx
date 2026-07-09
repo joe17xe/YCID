@@ -1,13 +1,14 @@
 "use client";
 import React, { useState, useMemo, useEffect } from "react";
 import { supabase, DEMO } from "../lib/supabaseClient";
-import { usePersistedList, useProfiles } from "../lib/data";
+import { usePersistedList } from "../lib/data";
 import Papa from "papaparse";
 import {
   LayoutDashboard, FolderKanban, Building2, Upload, Search, LogOut, Download, Bell,
   Plus, ChevronDown, ChevronRight, ChevronLeft, FileText, Camera, Receipt, Package,
   ClipboardList, AlertTriangle, X, Check, Wallet, ShieldCheck, ThumbsDown, Users, Eye, Lock,
-  FileSignature, StickyNote, BadgeCheck, Send, History, PieChart, CalendarClock, HelpCircle, BookOpen
+  FileSignature, StickyNote, BadgeCheck, Send, History, PieChart, CalendarClock, HelpCircle, BookOpen,
+  Trash2, Pencil, UserPlus, Shield
 } from "lucide-react";
 
 /* ============================================================
@@ -37,6 +38,7 @@ const PROJECT_ROLES = {
   partenaire_medical: { label: "Partenaire médical", bg: "#E7F1F4", fg: "#2C6B7E" },
 };
 const ACCESS_ROLES = {
+  admin: { label: "Administrateur", short: "Admin", fg: "#8A3B3B", bg: "#F5E6E6" },
   chef_projet: { label: "Chef de projet · Comité", short: "Comité", fg: "#0E6B5C", bg: "#E4F0EC" },
   resp_financier: { label: "Responsable financier", short: "Finances", fg: "#3B5488", bg: "#E8ECF5" },
   contributeur: { label: "Contributeur · Terrain", short: "Terrain", fg: "#8A6A1F", bg: "#F5EFE2" },
@@ -582,8 +584,9 @@ export default function App() {
   const [measures, setMeasures] = usePersistedList("indicator_measures", seedMeasures);
   const [meetings, setMeetings] = usePersistedList("meetings", seedMeetings);
   const [decisions, setDecisions] = usePersistedList("decisions", seedDecisions);
-  const users = useProfiles(seedUsers);
+  const [users, setUsers] = usePersistedList("profiles", seedUsers);
   const user = users.find((u) => u.id === userId);
+  const isAdmin = !!user?.isOrgAdmin;
 
   /* Authentification réelle : la session Supabase est reliée au profil
      par email (le lien serveur auth_user_id est posé par trigger SQL). */
@@ -603,19 +606,22 @@ export default function App() {
     members.find((m) => m.projectId === projectId && m.userId === uId)?.role || null;
   const perms = (projectId) => {
     const r = accessRole(projectId);
+    const admin = !!user?.isOrgAdmin;
     const hasValidator = members.some((m) => m.projectId === projectId && m.role === "validateur");
     return {
-      role: r,
-      manage: r === "chef_projet",
-      finance: r === "chef_projet" || r === "resp_financier",
-      contribute: r === "chef_projet" || r === "contributeur" || r === "resp_financier",
-      validate: r === "validateur" || (r === "chef_projet" && !hasValidator),
+      role: admin && !r ? "admin" : r,
+      admin,
+      manage: admin || r === "chef_projet",
+      finance: admin || r === "chef_projet" || r === "resp_financier",
+      contribute: admin || r === "chef_projet" || r === "contributeur" || r === "resp_financier",
+      validate: admin || r === "validateur" || (r === "chef_projet" && !hasValidator),
       audit: r === "auditeur",
-      read: r !== null,
+      read: admin || r !== null,
     };
   };
-  const canCreateProjects = user?.isOrgAdmin;
-  const visibleProjects = projects.filter((p) =>
+  const canCreateProjects = isAdmin;
+  /* Un administrateur d'organisation voit et pilote tous les projets. */
+  const visibleProjects = isAdmin ? projects : projects.filter((p) =>
     members.some((m) => m.projectId === p.id && m.userId === userId) ||
     p.orgs.some((po) => po.orgId === user?.orgId)
   );
@@ -679,7 +685,7 @@ export default function App() {
     return items;
   }, [user, visibleProjects, tasks, docs, budgetLines, validations, phases, members, decisions]);
 
-  const helpers = { orgs, projects: visibleProjects, allProjects: projects, members, phases, tasks, docs, budgetLines, users, validations, audit, indicators, measures, meetings, decisions, user, accessRole, perms, log, setOrgs, setProjects, setMembers, setPhases, setTasks, setDocs, setBudgetLines, setValidations, setIndicators, setMeasures, setMeetings, setDecisions };
+  const helpers = { orgs, projects: visibleProjects, allProjects: projects, members, phases, tasks, docs, budgetLines, users, validations, audit, indicators, measures, meetings, decisions, user, isAdmin, accessRole, perms, log, setOrgs, setProjects, setMembers, setPhases, setTasks, setDocs, setBudgetLines, setValidations, setIndicators, setMeasures, setMeetings, setDecisions, setUsers };
 
   const fonts = <style>{`
     @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=Inter:wght@400;500;600&display=swap');
@@ -961,6 +967,11 @@ function ProjectForm({ orgs, initial, onSave, onClose }) {
           <Field label="Devise du projet">
             <select style={inputStyle} value={f.currency} onChange={(e) => set("currency", e.target.value)}>
               <option value="EUR">€ Euro</option><option value="XOF">FCFA</option><option value="USD">$ Dollar</option>
+            </select>
+          </Field>
+          <Field label="Statut">
+            <select style={inputStyle} value={f.status} onChange={(e) => set("status", e.target.value)}>
+              {Object.entries(PROJECT_STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
             </select>
           </Field>
         </div>
@@ -2037,10 +2048,16 @@ function ProjectDetail({ projectId, allProjects, orgs, members, phases, tasks, d
                         onChange={(e) => setMembers((ms) => ms.map((x) => x.projectId === project.id && x.userId === m.userId ? { ...x, role: e.target.value } : x))}
                         className="text-xs rounded-lg outline-none flex-shrink-0"
                         style={{ border: `1px solid ${C.border}`, padding: "6px 8px", color: C.ink, backgroundColor: C.surface }}>
-                        {Object.entries(ACCESS_ROLES).map(([k, v]) => <option key={k} value={k}>{v.short}</option>)}
+                        {Object.entries(ACCESS_ROLES).filter(([k]) => k !== "admin").map(([k, v]) => <option key={k} value={k}>{v.short}</option>)}
                       </select>
                     ) : (
                       <Badge {...ACCESS_ROLES[m.role]} label={ACCESS_ROLES[m.role].short} />
+                    )}
+                    {P.manage && (
+                      <button aria-label="Retirer le membre" className="flex-shrink-0 p-1"
+                        onClick={() => { if (confirm(`Retirer ${u?.name} du projet ?`)) setMembers((ms) => ms.filter((x) => !(x.projectId === project.id && x.userId === m.userId))); }}>
+                        <Trash2 size={15} color={C.danger} />
+                      </button>
                     )}
                   </div>
                 );
@@ -2186,57 +2203,169 @@ function ProjectDetail({ projectId, allProjects, orgs, members, phases, tasks, d
 /* ============================================================
    ORGANISATIONS
    ============================================================ */
-function Organizations({ orgs, user, setOrgs }) {
-  const [showForm, setShowForm] = useState(false);
-  const [f, setF] = useState({ name: "", type: "association", country: "", email: "", status: "active" });
-  const canCreate = user.isOrgAdmin;
+function Organizations({ orgs, user, setOrgs, users, setUsers, isAdmin, projects }) {
+  const [orgForm, setOrgForm] = useState(null);       // null | {new} | org(edit)
+  const [personForm, setPersonForm] = useState(null); // null | {orgId} | user(edit)
+  const [expanded, setExpanded] = useState(null);
+
+  const orgInUse = (id) =>
+    users.some((u) => u.orgId === id) ||
+    (projects || []).some((p) => p.leadOrgId === id || (p.orgs || []).some((po) => po.orgId === id));
+
+  const saveOrg = (data) => {
+    if (data.id) setOrgs((os) => os.map((o) => o.id === data.id ? { ...o, ...data } : o));
+    else setOrgs((os) => [...os, { ...data, id: uid() }]);
+    setOrgForm(null);
+  };
+  const deleteOrg = (o) => {
+    if (orgInUse(o.id)) { alert("Suppression impossible : des personnes ou des projets sont rattachés à cette organisation."); return; }
+    if (confirm(`Supprimer l'organisation « ${o.name} » ?`)) setOrgs((os) => os.filter((x) => x.id !== o.id));
+  };
+  const savePerson = (data) => {
+    if (data.id) setUsers((us) => us.map((u) => u.id === data.id ? { ...u, ...data } : u));
+    else setUsers((us) => [...us, { ...data, id: uid() }]);
+    setPersonForm(null);
+  };
+  const deletePerson = (u) => {
+    if (confirm(`Retirer ${u.name} ? Ses accès aux projets seront supprimés.`)) setUsers((us) => us.filter((x) => x.id !== u.id));
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold" style={{ fontFamily: FONT_HEAD }}>Organisations</h1>
-        {canCreate && <div className="hidden lg:block"><Btn onClick={() => setShowForm(true)}><Plus size={15} /> Nouvelle organisation</Btn></div>}
+        {isAdmin && <div className="hidden lg:block"><Btn onClick={() => setOrgForm({})}><Plus size={15} /> Nouvelle organisation</Btn></div>}
       </div>
       <div className="space-y-2.5">
-        {orgs.map((o) => (
-          <Card key={o.id} className="p-4">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <div className="font-medium">{o.name}</div>
-                <div className="text-xs mt-0.5" style={{ color: C.muted }}>{ORG_TYPES[o.type]} · {o.country}</div>
-                <div className="text-xs mt-0.5 truncate" style={{ color: C.muted }}>{o.email}</div>
+        {orgs.map((o) => {
+          const people = users.filter((u) => u.orgId === o.id);
+          const open = expanded === o.id;
+          return (
+            <Card key={o.id} className="p-4">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="font-medium">{o.name}</div>
+                  <div className="text-xs mt-0.5" style={{ color: C.muted }}>{ORG_TYPES[o.type]} · {o.country}</div>
+                  <div className="text-xs mt-0.5 truncate" style={{ color: C.muted }}>{o.email}</div>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <Badge label={o.status === "active" ? "Active" : "Inactive"}
+                    fg={o.status === "active" ? C.accent : C.muted} bg={o.status === "active" ? C.accentSoft : "#EEF0EE"} />
+                  {isAdmin && (
+                    <>
+                      <button aria-label="Modifier" className="p-1" onClick={() => setOrgForm(o)}><Pencil size={15} color={C.muted} /></button>
+                      <button aria-label="Supprimer" className="p-1" onClick={() => deleteOrg(o)}><Trash2 size={15} color={C.danger} /></button>
+                    </>
+                  )}
+                </div>
               </div>
-              <Badge label={o.status === "active" ? "Active" : "Inactive"}
-                fg={o.status === "active" ? C.accent : C.muted} bg={o.status === "active" ? C.accentSoft : "#EEF0EE"} />
-            </div>
-          </Card>
-        ))}
+
+              <button onClick={() => setExpanded(open ? null : o.id)}
+                className="flex items-center gap-1.5 mt-3 text-xs font-medium" style={{ color: C.accent }}>
+                {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                Personnes ({people.length})
+              </button>
+
+              {open && (
+                <div className="mt-2.5 space-y-2 border-t pt-3" style={{ borderColor: C.border }}>
+                  {people.length === 0 && <p className="text-xs" style={{ color: C.muted }}>Aucune personne rattachée.</p>}
+                  {people.map((u) => (
+                    <div key={u.id} className="flex items-center gap-3 text-sm">
+                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0"
+                        style={{ backgroundColor: C.accentSoft, color: C.accent }}>
+                        {(u.name || "?").split(" ").map((n) => n[0]).join("").slice(0, 2)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium truncate flex items-center gap-1.5">
+                          {u.name}
+                          {u.isOrgAdmin && <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{ color: "#8A3B3B", backgroundColor: "#F5E6E6" }}><Shield size={10} /> Admin</span>}
+                        </div>
+                        <div className="text-xs truncate" style={{ color: C.muted }}>{u.email}</div>
+                      </div>
+                      {isAdmin && (
+                        <>
+                          <button aria-label="Modifier" className="p-1" onClick={() => setPersonForm(u)}><Pencil size={14} color={C.muted} /></button>
+                          <button aria-label="Retirer" className="p-1" onClick={() => deletePerson(u)}><Trash2 size={14} color={C.danger} /></button>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                  {isAdmin && (
+                    <button onClick={() => setPersonForm({ orgId: o.id })}
+                      className="flex items-center gap-1.5 mt-1 text-xs font-medium" style={{ color: C.accent }}>
+                      <UserPlus size={14} /> Ajouter une personne
+                    </button>
+                  )}
+                </div>
+              )}
+            </Card>
+          );
+        })}
       </div>
-      {canCreate && <Fab onClick={() => setShowForm(true)} label="Nouvelle organisation" />}
-      {showForm && (
-        <Sheet title="Nouvelle organisation" onClose={() => setShowForm(false)}>
-          <div className="space-y-4">
-            <Field label="Nom *"><input style={inputStyle} value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Type">
-                <select style={inputStyle} value={f.type} onChange={(e) => setF({ ...f, type: e.target.value })}>
-                  {Object.entries(ORG_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                </select>
-              </Field>
-              <Field label="Pays"><input style={inputStyle} value={f.country} onChange={(e) => setF({ ...f, country: e.target.value })} /></Field>
-            </div>
-            <Field label="Email"><input style={inputStyle} value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></Field>
-            <div className="flex gap-2">
-              <Btn variant="ghost" full onClick={() => setShowForm(false)}>Annuler</Btn>
-              <Btn full disabled={!f.name} onClick={() => {
-                setOrgs((os) => [...os, { ...f, id: uid() }]);
-                setF({ name: "", type: "association", country: "", email: "", status: "active" });
-                setShowForm(false);
-              }}><Check size={15} /> Créer</Btn>
-            </div>
-          </div>
-        </Sheet>
-      )}
+
+      {isAdmin && <Fab onClick={() => setOrgForm({})} label="Nouvelle organisation" />}
+      {orgForm && <OrgForm initial={orgForm.id ? orgForm : null} onSave={saveOrg} onClose={() => setOrgForm(null)} />}
+      {personForm && <PersonForm orgs={orgs} initial={personForm.id ? personForm : null} defaultOrgId={personForm.orgId} onSave={savePerson} onClose={() => setPersonForm(null)} />}
     </div>
+  );
+}
+
+function OrgForm({ initial, onSave, onClose }) {
+  const [f, setF] = useState(initial || { name: "", type: "association", country: "", email: "", status: "active" });
+  const set = (k, v) => setF({ ...f, [k]: v });
+  return (
+    <Sheet title={initial ? "Modifier l'organisation" : "Nouvelle organisation"} onClose={onClose}>
+      <div className="space-y-4">
+        <Field label="Nom *"><input style={inputStyle} value={f.name} onChange={(e) => set("name", e.target.value)} /></Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Type">
+            <select style={inputStyle} value={f.type} onChange={(e) => set("type", e.target.value)}>
+              {Object.entries(ORG_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
+          </Field>
+          <Field label="Pays"><input style={inputStyle} value={f.country} onChange={(e) => set("country", e.target.value)} /></Field>
+          <Field label="Email"><input style={inputStyle} value={f.email} onChange={(e) => set("email", e.target.value)} /></Field>
+          <Field label="Statut">
+            <select style={inputStyle} value={f.status} onChange={(e) => set("status", e.target.value)}>
+              <option value="active">Active</option><option value="inactive">Inactive</option>
+            </select>
+          </Field>
+        </div>
+        <div className="flex gap-2">
+          <Btn variant="ghost" full onClick={onClose}>Annuler</Btn>
+          <Btn full disabled={!f.name} onClick={() => onSave(f)}><Check size={15} /> Enregistrer</Btn>
+        </div>
+      </div>
+    </Sheet>
+  );
+}
+
+function PersonForm({ orgs, initial, defaultOrgId, onSave, onClose }) {
+  const [f, setF] = useState(initial || { name: "", email: "", orgId: defaultOrgId || orgs[0]?.id || "", isOrgAdmin: false });
+  const set = (k, v) => setF({ ...f, [k]: v });
+  return (
+    <Sheet title={initial ? "Modifier la personne" : "Ajouter une personne"} onClose={onClose}>
+      <div className="space-y-4">
+        <Field label="Nom *"><input style={inputStyle} value={f.name} onChange={(e) => set("name", e.target.value)} /></Field>
+        <Field label="Email *"><input style={inputStyle} value={f.email} onChange={(e) => set("email", e.target.value)} placeholder="prenom.nom@exemple.fr" /></Field>
+        <Field label="Organisation">
+          <select style={inputStyle} value={f.orgId} onChange={(e) => set("orgId", e.target.value)}>
+            {orgs.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+          </select>
+        </Field>
+        <label className="flex items-center gap-2.5 text-sm cursor-pointer">
+          <input type="checkbox" className="w-4 h-4" style={{ accentColor: C.accent }} checked={!!f.isOrgAdmin} onChange={(e) => set("isOrgAdmin", e.target.checked)} />
+          <span>Administrateur de l'organisation (peut tout éditer)</span>
+        </label>
+        <p className="text-xs" style={{ color: C.muted }}>
+          La personne accède à l'application en se connectant avec cet email (Google ou mot de passe). Le lien avec son compte se fait automatiquement à la première connexion.
+        </p>
+        <div className="flex gap-2">
+          <Btn variant="ghost" full onClick={onClose}>Annuler</Btn>
+          <Btn full disabled={!f.name || !f.email} onClick={() => onSave({ ...f, email: f.email.trim().toLowerCase() })}><Check size={15} /> Enregistrer</Btn>
+        </div>
+      </div>
+    </Sheet>
   );
 }
 
