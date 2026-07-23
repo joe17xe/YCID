@@ -1,7 +1,7 @@
 "use client"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { LayoutDashboard, FolderKanban, Building2, Upload, PieChart, LogOut, ChevronLeft, ChevronRight } from "lucide-react"
+import { LayoutDashboard, FolderKanban, Building2, Upload, PieChart, Users, LogOut, ChevronLeft, ChevronRight } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { useState } from "react"
 
@@ -13,7 +13,11 @@ const NAV = [
   { href: "/pilotage", label: "Pilotage", Icon: PieChart },
 ]
 
-export default function Sidebar() {
+const ADMIN_NAV = [
+  { href: "/admin/utilisateurs", label: "Utilisateurs", Icon: Users },
+]
+
+export default function Sidebar({ showAdmin = false }: { showAdmin?: boolean }) {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
@@ -60,6 +64,34 @@ export default function Sidebar() {
             </Link>
           )
         })}
+        {showAdmin && (
+          <>
+            {!collapsed && (
+              <div className="px-3 pt-4 pb-1 text-xs font-semibold tracking-wider" style={{ color: "#66716B" }}>
+                ADMINISTRATION
+              </div>
+            )}
+            {ADMIN_NAV.map(({ href, label, Icon }) => {
+              const active = pathname === href || pathname.startsWith(href + "/")
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors"
+                  style={{
+                    background: active ? "#E4F0EC" : "transparent",
+                    color: active ? "#0E6B5C" : "#66716B",
+                    fontFamily: "var(--font-inter)",
+                    fontWeight: active ? 600 : 400,
+                  }}
+                >
+                  <Icon size={18} className="flex-shrink-0" />
+                  {!collapsed && <span className="text-sm">{label}</span>}
+                </Link>
+              )
+            })}
+          </>
+        )}
       </nav>
 
       {/* Footer */}

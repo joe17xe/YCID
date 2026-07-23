@@ -1,8 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-// Modifier une tâche terminée est réservé aux admins plateforme
-// et aux admins d'organisation YCID / LEY.
-export async function canEditCompletedTasks(supabase: SupabaseClient, userId: string): Promise<boolean> {
+// Admins de la plateforme : admins plateforme (is_platform_admin)
+// et admins d'organisation YCID / LEY.
+export async function isUserAdmin(supabase: SupabaseClient, userId: string): Promise<boolean> {
   const [{ data: profile }, { data: adminOrgs }] = await Promise.all([
     supabase.from('profiles').select('is_platform_admin').eq('id', userId).single(),
     supabase.from('memberships').select('role, organizations:org_id(name)').eq('user_id', userId).eq('role', 'admin_org'),
@@ -14,4 +14,9 @@ export async function canEditCompletedTasks(supabase: SupabaseClient, userId: st
     const name = String(org?.name ?? '').toUpperCase()
     return name.includes('YCID') || name.includes('LEY')
   })
+}
+
+// Modifier une tâche terminée est réservé aux mêmes admins.
+export async function canEditCompletedTasks(supabase: SupabaseClient, userId: string): Promise<boolean> {
+  return isUserAdmin(supabase, userId)
 }
