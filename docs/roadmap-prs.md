@@ -90,11 +90,19 @@ alertes (retards, échéances proches, budget engagé).
 
 ### PR 17 — Navigation par domaines + mobile
 Sidebar par sections (Pilotage / Projets / Budget / Administration),
-footer version + date de mise à jour, responsive mobile.
+responsive mobile, et **pied de page dynamique sur toutes les pages** :
+`Solid'Pilot · Version X.Y.Z[-alpha] · Mis à jour le JJ mois AAAA, HH:MM`.
+La version (tag Git) et l'horodatage sont injectés au build (variables
+d'environnement `NEXT_PUBLIC_APP_VERSION` / `NEXT_PUBLIC_BUILD_TIME`),
+pas codés en dur — ils changent à chaque déploiement. C'est un signal
+de confiance fort pour un financeur public : le produit vit et se date.
 
-### PR 18 — Roadmap publique & changelog
-Idées votables par les associations (statuts, priorités, tags),
-onglet Déploiements alimenté par les PR fusionnées, onglet Aide.
+### PR 18 — Roadmap participative & Déploiements
+Voir la spécification détaillée : `docs/roadmap-feature-spec.md`.
+En bref : idées d'évolution proposées par tous les utilisateurs, votables,
+avec statuts / priorité / difficulté / tags ; commentaires ; section
+« Gestion produit » réservée à l'admin ; onglet Déploiements (changelog
+alimenté par les PR fusionnées) ; onglet Aide.
 
 ### PR 19 — Notifications
 In-app + email : échéances, validations en attente, invitations.
