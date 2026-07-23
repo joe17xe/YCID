@@ -14,11 +14,11 @@
 create or replace function can_edit_completed_tasks()
 returns boolean language sql security definer as $$
   select
-    exists (select 1 from profiles where id = auth.uid() and is_platform_admin = true)
+    exists (select 1 from profiles where id::text = auth.uid()::text and is_platform_admin = true)
     or exists (
       select 1 from memberships m
       join organizations o on o.id = m.org_id
-      where m.user_id = auth.uid()
+      where m.user_id::text = auth.uid()::text
         and m.role = 'admin_org'
         and (upper(o.name) like '%YCID%' or upper(o.name) like '%LEY%')
     );
@@ -37,7 +37,7 @@ create policy "Contributeur insert tasks" on tasks for insert with check (
   exists(
     select 1 from project_members pm
     join phases ph on ph.id = tasks.phase_id
-    where pm.project_id = ph.project_id and pm.user_id = auth.uid()
+    where pm.project_id = ph.project_id and pm.user_id::text = auth.uid()::text
     and pm.role in ('chef_projet','resp_financier','contributeur')
   )
 );
@@ -50,14 +50,14 @@ create policy "Contributeur update open tasks" on tasks for update using (
   and exists(
     select 1 from project_members pm
     join phases ph on ph.id = tasks.phase_id
-    where pm.project_id = ph.project_id and pm.user_id = auth.uid()
+    where pm.project_id = ph.project_id and pm.user_id::text = auth.uid()::text
     and pm.role in ('chef_projet','resp_financier','contributeur')
   )
 ) with check (
   exists(
     select 1 from project_members pm
     join phases ph on ph.id = tasks.phase_id
-    where pm.project_id = ph.project_id and pm.user_id = auth.uid()
+    where pm.project_id = ph.project_id and pm.user_id::text = auth.uid()::text
     and pm.role in ('chef_projet','resp_financier','contributeur')
   )
 );
@@ -67,7 +67,7 @@ create policy "Contributeur delete open tasks" on tasks for delete using (
   and exists(
     select 1 from project_members pm
     join phases ph on ph.id = tasks.phase_id
-    where pm.project_id = ph.project_id and pm.user_id = auth.uid()
+    where pm.project_id = ph.project_id and pm.user_id::text = auth.uid()::text
     and pm.role in ('chef_projet','resp_financier','contributeur')
   )
 );
@@ -82,6 +82,6 @@ create policy "Admins manage tasks" on tasks for all
 -- tracer la réouverture d'une tâche terminée.
 drop policy if exists "Insert audit" on audit_log;
 create policy "Insert audit" on audit_log for insert with check (
-  user_id = auth.uid()
+  user_id::text = auth.uid()::text
   and (is_project_member(project_id) or can_edit_completed_tasks())
 );

@@ -11,7 +11,7 @@ returns boolean language sql security definer stable as $$
   select exists (
     select 1 from public.memberships m
     join public.organizations o on o.id = m.org_id
-    where m.user_id = auth.uid()
+    where m.user_id::text = auth.uid()::text
       and m.role = 'admin_org'
       and (upper(o.name) like '%YCID%' or upper(o.name) like '%LEY%')
   );

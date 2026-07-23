@@ -20,7 +20,7 @@ create or replace function is_admin()
 returns boolean language sql security definer stable as $$
   select exists (
     select 1 from public.profiles
-    where id = auth.uid() and is_platform_admin = true
+    where id::text = auth.uid()::text and is_platform_admin = true
   );
 $$;
 
@@ -59,7 +59,7 @@ create policy "Chef manage validation rules" on validation_rules
     or exists(
       select 1 from project_members
       where project_id = validation_rules.project_id
-      and user_id = auth.uid() and role = 'chef_projet'
+      and user_id::text = auth.uid()::text and role = 'chef_projet'
     )
   );
 
@@ -77,7 +77,7 @@ create policy "Manage budget categories" on budget_categories
     or (project_id is not null and exists(
       select 1 from project_members pm
       where pm.project_id = budget_categories.project_id
-      and pm.user_id = auth.uid() and pm.role in ('chef_projet','resp_financier')
+      and pm.user_id::text = auth.uid()::text and pm.role in ('chef_projet','resp_financier')
     ))
   );
 
