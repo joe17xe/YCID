@@ -28,7 +28,8 @@ export async function proxy(request: NextRequest) {
     request.nextUrl.pathname.startsWith('/projets') ||
     request.nextUrl.pathname.startsWith('/organisations') ||
     request.nextUrl.pathname.startsWith('/import') ||
-    request.nextUrl.pathname.startsWith('/pilotage')
+    request.nextUrl.pathname.startsWith('/pilotage') ||
+    request.nextUrl.pathname.startsWith('/admin')
 
   if (!user && isAppRoute) {
     return NextResponse.redirect(new URL('/', request.url))
