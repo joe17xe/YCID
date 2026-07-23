@@ -13,27 +13,26 @@ export default async function AdminUtilisateursPage() {
   const allowed = await isUserAdmin(supabase, user.id)
   if (!allowed) redirect("/dashboard")
 
-  const [{ data: profiles, error: profilesError }, { data: memberships }] = await Promise.all([
-    supabase.from("profiles").select("id, email, full_name, is_platform_admin, created_at").order("full_name"),
-    supabase.from("memberships").select("user_id, role, organizations:org_id(name)"),
+  // Schéma réel : profiles porte org_id + is_org_admin (pas de table memberships,
+  // pas de is_platform_admin). L'organisation est résolue via profiles.org_id.
+  const [{ data: profiles, error: profilesError }, { data: orgsAll }] = await Promise.all([
+    supabase.from("profiles").select("id, email, name, org_id, is_org_admin"),
+    supabase.from("organizations").select("id, name"),
   ])
 
-  const orgsByUser = new Map<string, { name: string; role: string }[]>()
-  for (const m of memberships ?? []) {
-    const org = Array.isArray(m.organizations) ? m.organizations[0] : m.organizations
-    if (!org?.name) continue
-    const list = orgsByUser.get(m.user_id) ?? []
-    list.push({ name: String(org.name), role: String(m.role) })
-    orgsByUser.set(m.user_id, list)
-  }
-  const users: AdminUserRow[] = (profiles ?? []).map(p => ({
-    id: p.id,
-    email: p.email,
-    full_name: p.full_name ?? "",
-    is_platform_admin: !!p.is_platform_admin,
-    created_at: p.created_at,
-    orgs: orgsByUser.get(p.id) ?? [],
-  }))
+  const orgMap = new Map((orgsAll ?? []).map((o: any) => [o.id, o.name]))
+  const users: AdminUserRow[] = (profiles ?? [])
+    .map((p: any) => ({
+      id: p.id,
+      email: p.email ?? "",
+      full_name: p.name ?? "",
+      is_platform_admin: false,
+      created_at: "",
+      orgs: p.org_id && orgMap.get(p.org_id)
+        ? [{ name: String(orgMap.get(p.org_id)), role: p.is_org_admin ? "admin_org" : "membre" }]
+        : [],
+    }))
+    .sort((a, b) => a.full_name.localeCompare(b.full_name, "fr"))
 
   return (
     <div className="p-8 max-w-5xl mx-auto">

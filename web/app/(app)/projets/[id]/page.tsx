@@ -26,24 +26,84 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/")
 
-  const [{ data: project }, { data: phases }, { data: budgetLines }, { data: indicators }, { data: meetings }, { data: audit }, canEditCompleted] = await Promise.all([
-    supabase.from("projects").select("*, project_organizations(org_id, role, organizations(id, name, type)), project_members(user_id, role, profiles(id, full_name, email)), validation_rules(id, role, doc_type)").eq("id", id).single(),
-    supabase.from("phases").select("*, tasks(*, profiles:assignee_id(full_name), documents(*))").eq("project_id", id).order("position"),
-    supabase.from("budget_lines").select("*, funder:funder_org_id(name), owner:owner_org_id(name), phase:phase_id(name)").eq("project_id", id).order("year"),
-    supabase.from("indicators").select("*, measures:indicator_measures(*)").eq("project_id", id),
-    supabase.from("meetings").select("*, decisions(*, owner:owner_user_id(full_name))").eq("project_id", id).order("date", { ascending: false }),
-    supabase.from("audit_log").select("*, profiles:user_id(full_name)").eq("project_id", id).order("at", { ascending: false }).limit(20),
+  // Schéma réel : jointures faites en JS sur les ids texte.
+  const [{ data: project }, { data: rawPhases }, { data: budgetLinesRaw }, { data: indicatorsRaw }, { data: measures }, { data: meetingsRaw }, { data: decisions }, { data: audit }, { data: orgsAll }, { data: profilesAll }, { data: members }, canEditCompleted] = await Promise.all([
+    supabase.from("projects").select("*").eq("id", id).maybeSingle(),
+    supabase.from("phases").select("*").eq("project_id", id),
+    supabase.from("budget_lines").select("*").eq("project_id", id),
+    supabase.from("indicators").select("*").eq("project_id", id),
+    supabase.from("indicator_measures").select("*"),
+    supabase.from("meetings").select("*").eq("project_id", id),
+    supabase.from("decisions").select("*").eq("project_id", id),
+    supabase.from("audit_log").select("*").eq("project_id", id),
+    supabase.from("organizations").select("id, name, type"),
+    supabase.from("profiles").select("id, name, email"),
+    supabase.from("project_members").select("project_id, user_id, role").eq("project_id", id),
     canEditCompletedTasks(supabase, user.id),
   ])
 
   if (!project) notFound()
 
-  const allTasks = (phases ?? []).flatMap((ph: any) => ph.tasks ?? [])
-  const projectProgress = allTasks.length ? Math.round(allTasks.reduce((s: number, t: any) => s + t.progress, 0) / allTasks.length) : 0
+  const orgMap = new Map((orgsAll ?? []).map((o: any) => [o.id, o]))
+  const profMap = new Map((profilesAll ?? []).map((p: any) => [p.id, p]))
+
+  // Organisations du projet (jsonb projects.orgs)
+  const projectOrgs = (Array.isArray(project.orgs) ? project.orgs : []).map((o: any) => ({
+    org_id: o.orgId, role: o.role, name: orgMap.get(o.orgId)?.name,
+  }))
+  // Membres du projet
+  const projectMembers = (members ?? []).map((m: any) => ({
+    user_id: m.user_id, role: m.role, name: profMap.get(m.user_id)?.name, email: profMap.get(m.user_id)?.email,
+  }))
+
+  const phaseIds = new Set((rawPhases ?? []).map((ph: any) => ph.id))
+  // Documents rattachés aux tâches — récupérés séparément
+  const { data: docsAll } = await supabase.from("documents").select("*")
+  const docsByTask = new Map<string, any[]>()
+  for (const d of docsAll ?? []) {
+    if (!d.task_id) continue
+    const arr = docsByTask.get(d.task_id) ?? []; arr.push(d); docsByTask.set(d.task_id, arr)
+  }
+  const { data: tasksRaw } = await supabase.from("tasks").select("*")
+  const phases = (rawPhases ?? []).map((ph: any) => ({
+    ...ph,
+    tasks: (tasksRaw ?? [])
+      .filter((t: any) => t.phase_id === ph.id)
+      .map((t: any) => ({ ...t, assigneeName: profMap.get(t.assignee_id)?.name, documents: docsByTask.get(t.id) ?? [] })),
+  })).filter((ph: any) => phaseIds.has(ph.id))
+
+  // Lignes budgétaires enrichies (planned / valorisation, financeur, phase)
+  const phaseNameMap = new Map((rawPhases ?? []).map((ph: any) => [ph.id, ph.name]))
+  const budgetLines = (budgetLinesRaw ?? []).map((l: any) => ({
+    ...l,
+    funderName: orgMap.get(l.funder_org_id)?.name,
+    phaseName: phaseNameMap.get(l.phase_id),
+  }))
+
+  // Indicateurs + mesures
+  const indicators = (indicatorsRaw ?? []).map((ind: any) => ({
+    ...ind, measures: (measures ?? []).filter((m: any) => m.indicator_id === ind.id),
+  }))
+
+  // Réunions + décisions (owner résolu)
+  const meetings = (meetingsRaw ?? []).map((m: any) => ({
+    ...m,
+    decisions: (decisions ?? [])
+      .filter((d: any) => d.meeting_id === m.id)
+      .map((d: any) => ({ ...d, ownerName: profMap.get(d.owner_id)?.name })),
+  })).sort((a: any, b: any) => String(b.date ?? "").localeCompare(String(a.date ?? "")))
+
+  const auditRows = (audit ?? [])
+    .map((a: any) => ({ ...a, byName: profMap.get(a.by)?.name }))
+    .sort((a: any, b: any) => String(b.at ?? "").localeCompare(String(a.at ?? "")))
+    .slice(0, 20)
+
+  const allTasks = phases.flatMap((ph: any) => ph.tasks ?? [])
+  const projectProgress = allTasks.length ? Math.round(allTasks.reduce((s: number, t: any) => s + (t.progress ?? 0), 0) / allTasks.length) : 0
   const s = PROJECT_STATUS[project.status] ?? { label: project.status, fg: "#66716B", bg: "#EEF0EE" }
 
-  const totalPlanned = (budgetLines ?? []).filter((l: any) => !l.is_valorisation).reduce((s: number, l: any) => s + (l.planned_amount ?? 0), 0)
-  const totalValorisation = (budgetLines ?? []).filter((l: any) => l.is_valorisation).reduce((s: number, l: any) => s + (l.planned_amount ?? 0), 0)
+  const totalPlanned = budgetLines.filter((l: any) => !l.valorisation).reduce((s: number, l: any) => s + (l.planned ?? 0), 0)
+  const totalValorisation = budgetLines.filter((l: any) => l.valorisation).reduce((s: number, l: any) => s + (l.planned ?? 0), 0)
 
   const TABS = [
     { key: "apercu", label: "Aperçu" },
@@ -107,13 +167,13 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
         <div className="grid lg:grid-cols-2 gap-6">
           {/* Organisations */}
           <div className="bg-white rounded-2xl border p-6" style={{ borderColor: "#E3E6E2" }}>
-            <h2 className="font-semibold mb-4" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>Organisations ({(project.project_organizations ?? []).length})</h2>
+            <h2 className="font-semibold mb-4" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>Organisations ({projectOrgs.length})</h2>
             <div className="space-y-2">
-              {(project.project_organizations ?? []).map((po: any) => {
+              {projectOrgs.map((po: any) => {
                 const r = PROJECT_ROLES[po.role] ?? { label: po.role, fg: "#66716B", bg: "#EEF0EE" }
                 return (
                   <div key={po.org_id} className="flex items-center justify-between">
-                    <span className="text-sm" style={{ color: "#17211D", fontFamily: "var(--font-inter)" }}>{po.organizations?.name}</span>
+                    <span className="text-sm" style={{ color: "#17211D", fontFamily: "var(--font-inter)" }}>{po.name}</span>
                     <Badge label={r.label} fg={r.fg} bg={r.bg} />
                   </div>
                 )
@@ -122,15 +182,15 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
           </div>
           {/* Membres */}
           <div className="bg-white rounded-2xl border p-6" style={{ borderColor: "#E3E6E2" }}>
-            <h2 className="font-semibold mb-4" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>Membres ({(project.project_members ?? []).length})</h2>
+            <h2 className="font-semibold mb-4" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>Membres ({projectMembers.length})</h2>
             <div className="space-y-2">
-              {(project.project_members ?? []).map((pm: any) => {
+              {projectMembers.map((pm: any) => {
                 const r = { label: pm.role.replace("_", " "), fg: "#66716B", bg: "#EEF0EE" }
                 return (
                   <div key={pm.user_id} className="flex items-center justify-between">
                     <div>
-                      <div className="text-sm font-medium" style={{ color: "#17211D" }}>{pm.profiles?.full_name}</div>
-                      <div className="text-xs" style={{ color: "#66716B" }}>{pm.profiles?.email}</div>
+                      <div className="text-sm font-medium" style={{ color: "#17211D" }}>{pm.name}</div>
+                      <div className="text-xs" style={{ color: "#66716B" }}>{pm.email}</div>
                     </div>
                     <Badge label={pm.role.replace(/_/g, " ")} fg={r.fg} bg={r.bg} />
                   </div>
@@ -170,7 +230,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                             <div className="text-sm font-medium" style={{ color: "#17211D" }}>{t.title}</div>
                             {t.description && <div className="text-xs mt-0.5" style={{ color: "#66716B" }}>{t.description}</div>}
                             <div className="flex items-center gap-3 mt-1 text-xs" style={{ color: "#66716B" }}>
-                              {t.profiles?.full_name && <span>👤 {t.profiles.full_name}</span>}
+                              {t.assigneeName && <span>👤 {t.assigneeName}</span>}
                               {t.end_date && <span>📅 {fmtDate(t.end_date)}</span>}
                               {(t.documents ?? []).length > 0 && <span>📎 {t.documents.length} doc</span>}
                             </div>
@@ -240,13 +300,13 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                     <tr key={l.id} style={{ borderBottom: "1px solid #E3E6E2", background: i % 2 === 0 ? "#fff" : "#FAFAFA" }}>
                       <td className="px-4 py-3 font-medium" style={{ color: "#17211D" }}>
                         {l.poste}
-                        {l.is_valorisation && <span className="ml-1 text-xs px-1.5 py-0.5 rounded" style={{ background: "#F5EFE2", color: "#8A6A1F" }}>Valorisation</span>}
+                        {l.valorisation && <span className="ml-1 text-xs px-1.5 py-0.5 rounded" style={{ background: "#F5EFE2", color: "#8A6A1F" }}>Valorisation</span>}
                       </td>
                       <td className="px-4 py-3"><Badge label={lc.label} fg={lc.fg} bg={lc.bg} /></td>
-                      <td className="px-4 py-3 text-xs" style={{ color: "#66716B" }}>{l.funder?.name ?? "—"}</td>
-                      <td className="px-4 py-3 text-xs" style={{ color: "#66716B" }}>{l.phase?.name ?? "—"}</td>
+                      <td className="px-4 py-3 text-xs" style={{ color: "#66716B" }}>{l.funderName ?? "—"}</td>
+                      <td className="px-4 py-3 text-xs" style={{ color: "#66716B" }}>{l.phaseName ?? "—"}</td>
                       <td className="px-4 py-3 text-xs" style={{ color: "#66716B" }}>{l.year ?? "—"}</td>
-                      <td className="px-4 py-3 font-semibold" style={{ color: "#17211D" }}>{fmtEur(l.planned_amount)}</td>
+                      <td className="px-4 py-3 font-semibold" style={{ color: "#17211D" }}>{fmtEur(l.planned)}</td>
                       <td className="px-4 py-3"><Badge label={ls.label} fg={ls.fg} bg={ls.bg} /></td>
                     </tr>
                   )
@@ -325,8 +385,8 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                         <div key={d.id} className="flex items-center justify-between gap-3 text-sm">
                           <span style={{ color: "#17211D" }}>{d.text}</span>
                           <div className="flex items-center gap-2 flex-shrink-0">
-                            {d.owner && <span className="text-xs" style={{ color: "#66716B" }}>{d.owner.full_name}</span>}
-                            {d.due_date && <span className="text-xs" style={{ color: "#66716B" }}>{fmtDate(d.due_date)}</span>}
+                            {d.ownerName && <span className="text-xs" style={{ color: "#66716B" }}>{d.ownerName}</span>}
+                            {d.due && <span className="text-xs" style={{ color: "#66716B" }}>{fmtDate(d.due)}</span>}
                             <Badge label={ds.label} fg={ds.fg} bg={ds.bg} />
                           </div>
                         </div>
@@ -345,21 +405,21 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
       {tab === "audit" && (
         <div className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor: "#E3E6E2" }}>
           <div className="divide-y" style={{ borderColor: "#E3E6E2" }}>
-            {(audit ?? []).map((a: any) => (
+            {auditRows.map((a: any) => (
               <div key={a.id} className="px-5 py-3 flex items-start gap-4">
                 <div className="flex-shrink-0 w-16 text-xs text-right" style={{ color: "#66716B" }}>
-                  {new Date(a.at).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" })}
+                  {a.at ? new Date(a.at).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" }) : "—"}
                 </div>
                 <div className="flex-1">
                   <span className="text-xs font-medium px-2 py-0.5 rounded" style={{ background: "#E4F0EC", color: "#0E6B5C" }}>{a.action}</span>
                   {" "}
                   <span className="text-sm" style={{ color: "#17211D" }}>{a.label}</span>
                   {a.comment && <span className="text-xs ml-2" style={{ color: "#66716B" }}>· {a.comment}</span>}
-                  <div className="text-xs mt-0.5" style={{ color: "#66716B" }}>par {a.profiles?.full_name ?? "—"}</div>
+                  <div className="text-xs mt-0.5" style={{ color: "#66716B" }}>par {a.byName ?? "—"}</div>
                 </div>
               </div>
             ))}
-            {!(audit ?? []).length && <div className="p-8 text-center text-sm" style={{ color: "#66716B" }}>Aucun événement enregistré</div>}
+            {!auditRows.length && <div className="p-8 text-center text-sm" style={{ color: "#66716B" }}>Aucun événement enregistré</div>}
           </div>
         </div>
       )}

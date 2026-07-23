@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { PROJECT_STATUS, fmtEur } from "@/lib/constants"
+import { getProjectsOverview, avgProgress } from "@/lib/data"
 import Link from "next/link"
 
 export default async function PilotagePage() {
@@ -9,20 +10,25 @@ export default async function PilotagePage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/")
 
-  const [{ data: projects }, { data: decisions }] = await Promise.all([
-    supabase.from("projects").select("*, phases(tasks(id, progress, status, end_date)), budget_lines(planned_amount, is_valorisation)").order("name"),
-    supabase.from("decisions").select("*, project:project_id(name), owner:owner_user_id(full_name)").neq("status", "fait").order("due_date"),
+  const [{ projects }, { data: decisionsRaw }, { data: profilesAll }] = await Promise.all([
+    getProjectsOverview(supabase),
+    supabase.from("decisions").select("*").neq("status", "fait"),
+    supabase.from("profiles").select("id, name"),
   ])
 
+  const projectNameMap = new Map(projects.map((p) => [p.id, p.name]))
+  const profMap = new Map((profilesAll ?? []).map((p: any) => [p.id, p.name]))
+  const decisions = (decisionsRaw ?? [])
+    .map((d: any) => ({ ...d, projectName: projectNameMap.get(d.project_id), ownerName: profMap.get(d.owner_id) }))
+    .sort((a: any, b: any) => String(a.due ?? "").localeCompare(String(b.due ?? "")))
+
   function progress(p: any): number {
-    const tasks = (p.phases ?? []).flatMap((ph: any) => ph.tasks ?? [])
-    if (!tasks.length) return 0
-    return Math.round(tasks.reduce((s: number, t: any) => s + t.progress, 0) / tasks.length)
+    return avgProgress((p.phases ?? []).flatMap((ph: any) => ph.tasks ?? []))
   }
 
   const today = new Date().toISOString().slice(0, 10)
-  const overdueDecisions = (decisions ?? []).filter((d: any) => d.due_date && d.due_date < today)
-  const totalBudget = (projects ?? []).reduce((s: number, p: any) => s + (p.budget ?? 0), 0)
+  const overdueDecisions = decisions.filter((d: any) => d.due && d.due < today)
+  const totalBudget = projects.reduce((s: number, p: any) => s + (p.budget ?? 0), 0)
 
   return (
     <div className="p-8 max-w-6xl mx-auto">
@@ -106,21 +112,21 @@ export default async function PilotagePage() {
           </div>
           <div className="divide-y" style={{ borderColor: "#E3E6E2" }}>
             {(decisions ?? []).slice(0, 10).map((d: any) => {
-              const isLate = d.due_date && d.due_date < today
+              const isLate = d.due && d.due < today
               return (
                 <div key={d.id} className="px-6 py-3 flex items-center justify-between gap-4">
                   <div>
                     <div className="text-sm font-medium" style={{ color: "#17211D" }}>{d.text}</div>
                     <div className="text-xs mt-0.5" style={{ color: "#66716B" }}>
-                      {d.project?.name} · {d.owner?.full_name ?? "Sans responsable"}
+                      {d.projectName} · {d.ownerName ?? "Sans responsable"}
                     </div>
                   </div>
-                  {d.due_date && (
+                  {d.due && (
                     <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0" style={{
                       background: isLate ? "#F6E7E5" : "#EEF0EE",
                       color: isLate ? "#A3342C" : "#66716B"
                     }}>
-                      {isLate ? "⚠ " : ""}Échéance {new Date(d.due_date).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" })}
+                      {isLate ? "⚠ " : ""}Échéance {new Date(d.due).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" })}
                     </span>
                   )}
                 </div>

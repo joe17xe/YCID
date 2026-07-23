@@ -4,6 +4,7 @@ import { redirect } from "next/navigation"
 import Link from "next/link"
 import { PROJECT_STATUS, fmtEur, fmtDate } from "@/lib/constants"
 import { canCreateProjects } from "@/lib/permissions"
+import { getProjectsOverview, avgProgress } from "@/lib/data"
 import { Plus } from "lucide-react"
 
 export default async function ProjetsPage() {
@@ -11,44 +12,36 @@ export default async function ProjetsPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/")
 
-  const [{ data: projects }, canCreate] = await Promise.all([
-    supabase
-      .from("projects")
-      .select("*, project_organizations(org_id, role, organizations(name, type)), phases(id, tasks(id, progress, status))")
-      .order("created_at", { ascending: false }),
+  const [{ projects }, canCreate] = await Promise.all([
+    getProjectsOverview(supabase),
     canCreateProjects(supabase, user.id),
   ])
-
-  function progress(p: any): number {
-    const tasks = (p.phases ?? []).flatMap((ph: any) => ph.tasks ?? [])
-    if (!tasks.length) return 0
-    return Math.round(tasks.reduce((s: number, t: any) => s + (t.progress ?? 0), 0) / tasks.length)
-  }
 
   return (
     <div className="p-8 max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>Projets</h1>
-          <p className="mt-1 text-sm" style={{ color: "#66716B" }}>{(projects ?? []).length} projet{(projects ?? []).length !== 1 ? "s" : ""}</p>
+          <p className="mt-1 text-sm" style={{ color: "#66716B" }}>{projects.length} projet{projects.length !== 1 ? "s" : ""}</p>
         </div>
         {canCreate && (
-          <Link
-            href="/projets/nouveau"
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-semibold"
-            style={{ background: "#0E6B5C", fontFamily: "var(--font-sora)" }}
+          <span
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold cursor-not-allowed"
+            style={{ background: "#EEF0EE", color: "#66716B", fontFamily: "var(--font-sora)" }}
+            title="Création de projet en cours d'adaptation au schéma de production"
           >
             <Plus size={16} /> Nouveau projet
-          </Link>
+            <span className="text-xs px-1.5 py-0.5 rounded-full font-medium" style={{ background: "#E8ECF5", color: "#3B5488" }}>Bientôt</span>
+          </span>
         )}
       </div>
 
       <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {(projects ?? []).map((p: any) => {
+        {projects.map((p) => {
           const s = PROJECT_STATUS[p.status] ?? { label: p.status, fg: "#66716B", bg: "#EEF0EE" }
-          const prog = progress(p)
-          const porteur = (p.project_organizations ?? []).find((o: any) => o.role === "porteur")
-          const taskCount = (p.phases ?? []).flatMap((ph: any) => ph.tasks ?? []).length
+          const prog = avgProgress(p.phases.flatMap((ph) => ph.tasks))
+          const porteur = p.orgsResolved.find((o) => o.role === "porteur")
+          const taskCount = p.phases.flatMap((ph) => ph.tasks).length
           return (
             <Link
               key={p.id}
@@ -83,9 +76,9 @@ export default async function ProjetsPage() {
                 {p.budget && <span className="font-medium">{fmtEur(p.budget)}</span>}
               </div>
 
-              {porteur?.organizations && (
+              {porteur?.name && (
                 <div className="mt-2 pt-2 border-t text-xs" style={{ borderColor: "#E3E6E2", color: "#0E6B5C" }}>
-                  Porteur : {porteur.organizations.name}
+                  Porteur : {porteur.name}
                 </div>
               )}
 
@@ -95,7 +88,7 @@ export default async function ProjetsPage() {
             </Link>
           )
         })}
-        {!(projects ?? []).length && (
+        {!projects.length && (
           <div className="col-span-3 text-center py-16" style={{ color: "#66716B" }}>
             <p className="text-lg font-medium mb-2" style={{ fontFamily: "var(--font-sora)" }}>Aucun projet</p>
             <p className="text-sm">Créez votre premier projet pour commencer.</p>
