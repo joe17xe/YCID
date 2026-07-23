@@ -4,27 +4,46 @@ import { redirect } from "next/navigation"
 import Link from "next/link"
 import { PROJECT_STATUS, TASK_STATUS, fmtDate } from "@/lib/constants"
 
-export default async function DashboardPage() {
+const PERIODS: Record<string, { label: string; days: number | null }> = {
+  semaine: { label: "Semaine", days: 7 },
+  mois: { label: "Mois", days: 30 },
+  trimestre: { label: "Trimestre", days: 92 },
+  tout: { label: "Tout", days: null },
+}
+
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ periode?: string }> }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/")
 
-  const [{ data: projects, error: projectsError }, { data: profile }] = await Promise.all([
+  const { periode = "mois" } = await searchParams
+  const period = PERIODS[periode] ?? PERIODS.mois
+
+  const [{ data: projects, error: projectsError }, { data: profile }, { data: openDecisions }] = await Promise.all([
     supabase
       .from("projects")
       .select("*, project_organizations(org_id, role, organizations(name)), phases(id, name, status, tasks(id, status, progress, end_date, title))")
       .order("created_at", { ascending: false }),
     supabase.from("profiles").select("*").eq("id", user.id).single(),
+    supabase.from("decisions").select("id, due_date").neq("status", "fait"),
   ])
+
+  const today = new Date().toISOString().slice(0, 10)
+  const horizon = period.days
+    ? new Date(Date.now() + period.days * 86400000).toISOString().slice(0, 10)
+    : null
 
   const allTasks = (projects ?? []).flatMap((p: any) =>
     (p.phases ?? []).flatMap((ph: any) => (ph.tasks ?? []).map((t: any) => ({ ...t, projectName: p.name, projectId: p.id })))
   )
-  const lateTasks = allTasks.filter((t: any) => t.end_date && t.end_date < new Date().toISOString().slice(0, 10) && t.status !== "terminee")
-  const upcomingTasks = allTasks
-    .filter((t: any) => t.status !== "terminee" && t.end_date)
+  const lateTasks = allTasks.filter((t: any) => t.end_date && t.end_date < today && t.status !== "terminee")
+  const dueSoon = allTasks.filter((t: any) =>
+    t.status !== "terminee" && t.end_date && t.end_date >= today && (!horizon || t.end_date <= horizon)
+  )
+  const upcomingTasks = [...dueSoon]
     .sort((a: any, b: any) => a.end_date.localeCompare(b.end_date))
     .slice(0, 5)
+  const lateDecisions = (openDecisions ?? []).filter((d: any) => d.due_date && d.due_date < today)
 
   function projectProgress(p: any): number {
     const tasks = (p.phases ?? []).flatMap((ph: any) => ph.tasks ?? [])
@@ -47,13 +66,31 @@ export default async function DashboardPage() {
         </div>
       )}
 
+      {/* Sélecteur de période */}
+      <div className="flex items-center gap-1 mb-6 bg-white rounded-2xl border p-1 w-fit" style={{ borderColor: "#E3E6E2" }}>
+        {Object.entries(PERIODS).map(([key, p]) => (
+          <Link
+            key={key}
+            href={`/dashboard?periode=${key}`}
+            className="px-4 py-1.5 rounded-xl text-sm font-medium transition-colors"
+            style={{
+              background: (periode === key || (!PERIODS[periode] && key === "mois")) ? "#0E6B5C" : "transparent",
+              color: (periode === key || (!PERIODS[periode] && key === "mois")) ? "#fff" : "#66716B",
+            }}
+          >
+            {p.label}
+          </Link>
+        ))}
+      </div>
+
       {/* KPI cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
         {[
           { label: "Projets actifs", value: (projects ?? []).filter((p: any) => p.status === "en_cours").length, color: "#0E6B5C", bg: "#E4F0EC" },
           { label: "Tâches en cours", value: allTasks.filter((t: any) => t.status === "en_cours").length, color: "#3B5488", bg: "#E8ECF5" },
           { label: "Tâches en retard", value: lateTasks.length, color: "#A3342C", bg: "#F6E7E5" },
-          { label: "Tâches terminées", value: allTasks.filter((t: any) => t.status === "terminee").length, color: "#66716B", bg: "#EEF0EE" },
+          { label: `Échéances (${period.label.toLowerCase()})`, value: dueSoon.length, color: "#B4690E", bg: "#F7EDDD" },
+          { label: "Décisions en retard", value: lateDecisions.length, color: "#6B4A8C", bg: "#F0E9F5" },
         ].map(({ label, value, color, bg }) => (
           <div key={label} className="bg-white rounded-2xl p-5 border" style={{ borderColor: "#E3E6E2" }}>
             <div className="text-3xl font-bold mb-1" style={{ fontFamily: "var(--font-sora)", color }}>{value}</div>
@@ -109,7 +146,7 @@ export default async function DashboardPage() {
             </div>
           )}
           <div className="bg-white rounded-2xl border p-6" style={{ borderColor: "#E3E6E2" }}>
-            <h2 className="font-semibold mb-3" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>Prochaines échéances</h2>
+            <h2 className="font-semibold mb-3" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>Échéances — {period.label.toLowerCase() === "tout" ? "toutes" : period.label.toLowerCase()}</h2>
             <div className="space-y-2">
               {upcomingTasks.map((t: any) => {
                 const s = TASK_STATUS[t.status] ?? { label: t.status, fg: "#66716B", bg: "#EEF0EE" }
