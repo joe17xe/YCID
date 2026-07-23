@@ -1,9 +1,10 @@
 "use client"
-import { useState } from "react"
+import { useState, useTransition } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Settings, LogOut, ChevronDown } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
+import { useTranslations, useLocale } from "next-intl"
 
 export interface HeaderRole { label: string; project: string }
 
@@ -30,10 +31,18 @@ export default function Header({ name, email, avatarUrl, roles, isAdmin }: Heade
   const router = useRouter()
   const supabase = createClient()
   const [open, setOpen] = useState(false)
+  const [, startTransition] = useTransition()
+  const t = useTranslations("account")
+  const locale = useLocale()
 
   async function signOut() {
     await supabase.auth.signOut()
     router.push("/")
+  }
+
+  function setLocale(next: "fr" | "en") {
+    document.cookie = `SP_LOCALE=${next}; path=/; max-age=31536000; samesite=lax`
+    startTransition(() => router.refresh())
   }
 
   return (
@@ -64,10 +73,10 @@ export default function Header({ name, email, avatarUrl, roles, isAdmin }: Heade
               </div>
               {/* Rôles */}
               <div className="px-4 py-3 border-b" style={{ borderColor: "#E3E6E2" }}>
-                <div className="text-xs font-semibold mb-1.5 tracking-wider" style={{ color: "#66716B" }}>RÔLES</div>
+                <div className="text-xs font-semibold mb-1.5 tracking-wider" style={{ color: "#66716B" }}>{t("roles")}</div>
                 <div className="flex flex-wrap gap-1">
                   {isAdmin && (
-                    <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "#F0E9F5", color: "#6B4A8C" }}>Admin YCID/LEY</span>
+                    <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "#F0E9F5", color: "#6B4A8C" }}>{t("admin")}</span>
                   )}
                   {roles.slice(0, 3).map((r, i) => (
                     <span key={i} className="text-xs px-2 py-0.5 rounded-full" style={{ background: "#E4F0EC", color: "#0E6B5C" }} title={r.project}>
@@ -77,7 +86,27 @@ export default function Header({ name, email, avatarUrl, roles, isAdmin }: Heade
                   {roles.length > 3 && (
                     <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "#EEF0EE", color: "#66716B" }}>+{roles.length - 3}</span>
                   )}
-                  {!roles.length && !isAdmin && <span className="text-xs" style={{ color: "#66716B" }}>Aucun rôle projet</span>}
+                  {!roles.length && !isAdmin && <span className="text-xs" style={{ color: "#66716B" }}>{t("noRole")}</span>}
+                </div>
+              </div>
+              {/* Langue */}
+              <div className="px-4 py-3 border-b" style={{ borderColor: "#E3E6E2" }}>
+                <div className="text-xs font-semibold mb-1.5 tracking-wider" style={{ color: "#66716B" }}>{t("language")}</div>
+                <div className="flex gap-2">
+                  {(["fr", "en"] as const).map(l => (
+                    <button
+                      key={l}
+                      onClick={() => setLocale(l)}
+                      className="px-3 py-1 rounded-xl border text-xs font-semibold uppercase transition-colors"
+                      style={{
+                        background: locale === l ? "#E4F0EC" : "#fff",
+                        borderColor: locale === l ? "#0E6B5C" : "#E3E6E2",
+                        color: locale === l ? "#0E6B5C" : "#66716B",
+                      }}
+                    >
+                      {l}
+                    </button>
+                  ))}
                 </div>
               </div>
               {/* Préférences */}
@@ -88,7 +117,7 @@ export default function Header({ name, email, avatarUrl, roles, isAdmin }: Heade
                 style={{ color: "#17211D" }}
                 role="menuitem"
               >
-                <Settings size={15} style={{ color: "#66716B" }} /> Préférences
+                <Settings size={15} style={{ color: "#66716B" }} /> {t("preferences")}
               </Link>
               {/* Déconnexion — séparée visuellement */}
               <div className="border-t" style={{ borderColor: "#E3E6E2" }}>
@@ -98,7 +127,7 @@ export default function Header({ name, email, avatarUrl, roles, isAdmin }: Heade
                   style={{ color: "#A3342C" }}
                   role="menuitem"
                 >
-                  <LogOut size={15} /> Déconnexion
+                  <LogOut size={15} /> {t("signOut")}
                 </button>
               </div>
             </div>
