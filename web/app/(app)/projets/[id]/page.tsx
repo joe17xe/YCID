@@ -4,7 +4,9 @@ import { redirect, notFound } from "next/navigation"
 import Link from "next/link"
 import { PROJECT_STATUS, PROJECT_ROLES, TASK_STATUS, REVIEW_STATES, fmtEur, fmtDate, LINE_STATUS, LINE_CATEGORIES, IND_KINDS, DECISION_STATUS, MEETING_KINDS } from "@/lib/constants"
 import { canEditCompletedTasks } from "@/lib/permissions"
+import { TAB_HELP } from "@/lib/help-content"
 import EditCompletedTaskDialog from "@/components/tasks/EditCompletedTaskDialog"
+import HelpDialog from "@/components/help/HelpDialog"
 import { ChevronLeft } from "lucide-react"
 
 function Badge({ label, fg, bg }: { label: string; fg: string; bg: string }) {
@@ -100,6 +102,11 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
             {label}
           </Link>
         ))}
+        {TAB_HELP[tab] && (
+          <span className="ml-auto self-center">
+            <HelpDialog title={TAB_HELP[tab].title} excerpt={TAB_HELP[tab].excerpt} anchor={TAB_HELP[tab].anchor} />
+          </span>
+        )}
       </div>
 
       {/* ===== APERÇU ===== */}

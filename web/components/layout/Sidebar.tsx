@@ -1,7 +1,7 @@
 "use client"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { LayoutDashboard, FolderKanban, Building2, Upload, PieChart, Users, ShieldCheck, LogOut, ChevronLeft, ChevronRight } from "lucide-react"
+import { LayoutDashboard, FolderKanban, Building2, Upload, PieChart, Users, ShieldCheck, HelpCircle, LogOut, ChevronLeft, ChevronRight } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { useState } from "react"
 
@@ -11,6 +11,7 @@ const NAV = [
   { href: "/organisations", label: "Organisations", Icon: Building2 },
   { href: "/import", label: "Import", Icon: Upload },
   { href: "/pilotage", label: "Pilotage", Icon: PieChart },
+  { href: "/aide", label: "Aide", Icon: HelpCircle },
 ]
 
 const ADMIN_NAV = [
