@@ -111,9 +111,33 @@ In-app + email : échéances, validations en attente, invitations.
 Tests des parcours critiques, types générés Supabase (suppression des `any`),
 monitoring d'erreurs, nettoyage du Dockerfile, sauvegardes documentées.
 
+## 🔵 Phase UX — Compte, accessibilité, aide, langue (reco du 23/07/2026)
+
+### PR 21 — Header + menu compte + page Préférences
+Header global (emplacement cloche PR 19 réservé), avatar → menu déroulant
+(nom/email lecture seule, rôles par projet, lien Préférences, déconnexion
+séparée). Page /preferences : photo de profil (Storage, migration 0009),
+informations en lecture seule, changement de mot de passe (vérification de
+l'actuel, 12 caractères min, cas Google géré).
+
+### PR 22 — Apparence & accessibilité
+Bloc dans /preferences : taille de texte (Compact/Normal/Grand/Très grand),
+contraste élevé, réduction des animations. Persistance localStorage.
+Contraste complet dépend de la PR 11 (thème centralisé).
+
+### PR 23 — Aide contextuelle par onglet
+Page /aide (contenu porté du prototype « Aide et prise en main ») +
+icône « ? » sur chaque onglet projet → modale contextuelle (extrait ciblé
++ lien « Voir toute l'aide »). Alimente aussi l'onglet Aide de la PR 18.
+
+### PR 24 — Internationalisation FR/EN (next-intl, progressif)
+Décision actée : next-intl en mode cookie (sans routage par préfixe d'URL),
+sélecteur FR/EN dans le menu compte, traduction progressive (navigation et
+en-têtes d'abord) — la traduction complète attend la stabilisation des CRUD.
+
 ---
 
 **Logique d'ensemble** : les phases 0-1 rendent l'application sûre et
 réellement utilisable, la phase 2 la rend administrable et conforme
 (multi-associations, RGPD), la phase 3 la rend désirable (pilotage,
-roadmap participative).
+roadmap participative), la phase UX la rend confortable et inclusive.
