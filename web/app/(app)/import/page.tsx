@@ -1,192 +1,75 @@
-"use client"
-import { useState, useRef } from "react"
-import Papa from "papaparse"
-import { Upload, X, AlertTriangle, Info } from "lucide-react"
+export const dynamic = 'force-dynamic'
+import { createClient } from "@/lib/supabase/server"
+import { redirect } from "next/navigation"
+import { isUserAdmin } from "@/lib/permissions"
+import ImportClient from "@/components/import/ImportClient"
 
-type ImportType = "projets" | "phases" | "taches" | "budget"
-
-const IMPORT_TYPES: Record<ImportType, { label: string; columns: string[]; required: string[] }> = {
-  projets: {
-    label: "Projets",
-    columns: ["nom", "description", "pays", "zone", "date_debut", "date_fin", "statut", "organisation_porteuse"],
-    required: ["nom", "organisation_porteuse"],
-  },
-  phases: {
-    label: "Phases",
-    columns: ["projet", "phase", "date_debut", "date_fin", "statut"],
-    required: ["projet", "phase"],
-  },
-  taches: {
-    label: "Tâches",
-    columns: ["projet", "phase", "titre", "description", "responsable_email", "date_debut", "date_fin", "statut", "avancement", "commentaire"],
-    required: ["projet", "phase", "titre"],
-  },
-  budget: {
-    label: "Lignes budgétaires",
-    columns: ["projet", "poste", "categorie", "montant_previsionnel", "description", "financeur", "organisation_responsable", "phase", "annee", "valorisation", "statut", "commentaire"],
-    required: ["projet", "poste", "categorie", "montant_previsionnel"],
-  },
+const KIND_LABELS: Record<string, string> = {
+  projets: "Projets", phases: "Phases", taches: "Tâches", budget: "Budget",
 }
 
-export default function ImportPage() {
-  const [importType, setImportType] = useState<ImportType>("projets")
-  const [rows, setRows] = useState<any[]>([])
-  const [errors, setErrors] = useState<string[]>([])
-  const [filename, setFilename] = useState("")
-  const [step, setStep] = useState<"upload" | "preview">("upload")
-  const fileRef = useRef<HTMLInputElement>(null)
-  const conf = IMPORT_TYPES[importType]
+export default async function ImportPage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect("/")
 
-  function handleFile(file: File) {
-    setFilename(file.name)
-    Papa.parse(file, {
-      header: true,
-      delimiter: ";",
-      skipEmptyLines: true,
-      complete: (result) => {
-        const data = result.data as any[]
-        const errs: string[] = []
-        const valid = data.slice(0, 200).filter((row, i) => {
-          const missing = conf.required.filter(col => !row[col]?.trim())
-          if (missing.length) { errs.push(`Ligne ${i + 2} : colonnes obligatoires manquantes (${missing.join(", ")})`); return false }
-          return true
-        })
-        setRows(valid)
-        setErrors(errs)
-        setStep("preview")
-      },
-      error: () => setErrors(["Erreur lors de la lecture du fichier. Vérifiez le format CSV (séparateur ;)."]),
-    })
-  }
-
-  function handleDrop(e: React.DragEvent) {
-    e.preventDefault()
-    const file = e.dataTransfer.files[0]
-    if (file) handleFile(file)
-  }
-
-  function reset() { setStep("upload"); setRows([]); setErrors([]); setFilename("") }
+  const [canImport, { data: runs }] = await Promise.all([
+    isUserAdmin(supabase, user.id),
+    supabase.from("import_runs")
+      .select("*, profiles:by_user(full_name)")
+      .order("at", { ascending: false })
+      .limit(20),
+  ])
 
   return (
     <div className="p-8 max-w-4xl mx-auto">
       <div className="mb-8">
-        <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-bold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>Import CSV</h1>
-          <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "#E8ECF5", color: "#3B5488" }}>Aperçu</span>
-        </div>
-        <p className="mt-1 text-sm" style={{ color: "#66716B" }}>Validez le format de vos fichiers CSV (séparateur ;) — l&apos;enregistrement en base arrive bientôt</p>
+        <h1 className="text-2xl font-bold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>Import CSV</h1>
+        <p className="mt-1 text-sm" style={{ color: "#66716B" }}>
+          Importez vos données depuis un fichier CSV (séparateur ;) — aperçu avant validation, chaque import est journalisé
+        </p>
       </div>
 
-      {step === "upload" ? (
-        <div className="space-y-6">
-          {/* Type selector */}
-          <div className="bg-white rounded-2xl border p-6" style={{ borderColor: "#E3E6E2" }}>
-            <h2 className="font-semibold mb-4" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>Type de données</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {(Object.entries(IMPORT_TYPES) as [ImportType, any][]).map(([key, { label }]) => (
-                <button
-                  key={key}
-                  onClick={() => setImportType(key)}
-                  className="py-3 px-4 rounded-xl text-sm font-medium border transition-colors"
-                  style={{
-                    background: importType === key ? "#E4F0EC" : "#fff",
-                    borderColor: importType === key ? "#0E6B5C" : "#E3E6E2",
-                    color: importType === key ? "#0E6B5C" : "#66716B",
-                  }}
-                >
-                  {label}
-                </button>
+      <ImportClient canImport={canImport} />
+
+      {/* Journal des imports */}
+      {(runs ?? []).length > 0 && (
+        <div className="mt-8 bg-white rounded-2xl border overflow-hidden" style={{ borderColor: "#E3E6E2" }}>
+          <div className="px-5 py-4 border-b" style={{ borderColor: "#E3E6E2" }}>
+            <h2 className="font-semibold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>Journal des imports</h2>
+            <p className="text-xs mt-0.5" style={{ color: "#66716B" }}>20 derniers imports</p>
+          </div>
+          <table className="w-full text-sm">
+            <thead>
+              <tr style={{ background: "#F5F6F4", borderBottom: "1px solid #E3E6E2" }}>
+                {["Date", "Type", "Fichier", "Créées", "Ignorées", "Statut", "Par"].map(h => (
+                  <th key={h} className="text-left px-4 py-2.5 text-xs font-semibold" style={{ color: "#66716B" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {(runs ?? []).map((r: any, i: number) => (
+                <tr key={r.id} style={{ borderBottom: "1px solid #E3E6E2", background: i % 2 === 0 ? "#fff" : "#FAFAFA" }}>
+                  <td className="px-4 py-2.5 text-xs" style={{ color: "#66716B" }}>
+                    {new Date(r.at).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                  </td>
+                  <td className="px-4 py-2.5" style={{ color: "#17211D" }}>{KIND_LABELS[r.kind] ?? r.kind}</td>
+                  <td className="px-4 py-2.5 text-xs font-mono" style={{ color: "#66716B" }}>{r.filename ?? "—"}</td>
+                  <td className="px-4 py-2.5 font-semibold" style={{ color: "#0E6B5C" }}>{r.created_count}</td>
+                  <td className="px-4 py-2.5" style={{ color: r.skipped_count > 0 ? "#B4690E" : "#66716B" }}>{r.skipped_count}</td>
+                  <td className="px-4 py-2.5">
+                    <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{
+                      background: r.status === "succes" ? "#E4F0EC" : "#F6E7E5",
+                      color: r.status === "succes" ? "#0E6B5C" : "#A3342C",
+                    }}>
+                      {r.status === "succes" ? "Succès" : "Échec"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2.5 text-xs" style={{ color: "#66716B" }}>{r.profiles?.full_name ?? "—"}</td>
+                </tr>
               ))}
-            </div>
-            <div className="mt-4 p-3 rounded-xl text-xs" style={{ background: "#F5F6F4", color: "#66716B" }}>
-              Colonnes attendues : <span className="font-mono">{conf.columns.join(" ; ")}</span>
-              <br />Colonnes obligatoires* : <span style={{ color: "#A3342C" }}>{conf.required.join(", ")}</span>
-            </div>
-          </div>
-
-          {/* Drop zone */}
-          <div
-            className="bg-white rounded-2xl border-2 border-dashed p-12 text-center cursor-pointer"
-            style={{ borderColor: "#E3E6E2" }}
-            onDrop={handleDrop}
-            onDragOver={e => e.preventDefault()}
-            onClick={() => fileRef.current?.click()}
-          >
-            <Upload size={32} className="mx-auto mb-4" style={{ color: "#0E6B5C" }} />
-            <p className="font-medium mb-1" style={{ color: "#17211D" }}>Glissez votre fichier ici ou cliquez pour parcourir</p>
-            <p className="text-sm" style={{ color: "#66716B" }}>Format CSV, séparateur ; · encodage UTF-8 recommandé</p>
-            <input ref={fileRef} type="file" accept=".csv,.txt" className="hidden" onChange={e => e.target.files?.[0] && handleFile(e.target.files[0])} />
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <span className="font-semibold" style={{ color: "#17211D" }}>{filename}</span>
-              <span className="ml-3 text-sm" style={{ color: "#66716B" }}>{rows.length} ligne{rows.length > 1 ? "s" : ""} valide{rows.length > 1 ? "s" : ""}</span>
-            </div>
-            <button onClick={reset} className="flex items-center gap-1 text-sm" style={{ color: "#66716B" }}>
-              <X size={14} /> Annuler
-            </button>
-          </div>
-
-          {errors.length > 0 && (
-            <div className="rounded-xl p-4" style={{ background: "#F7EDDD" }}>
-              <div className="flex items-center gap-2 mb-2 font-medium text-sm" style={{ color: "#B4690E" }}>
-                <AlertTriangle size={16} /> {errors.length} ligne{errors.length > 1 ? "s" : ""} ignorée{errors.length > 1 ? "s" : ""}
-              </div>
-              <ul className="text-xs space-y-1" style={{ color: "#B4690E" }}>
-                {errors.slice(0, 10).map((e, i) => <li key={i}>{e}</li>)}
-                {errors.length > 10 && <li>... et {errors.length - 10} autres erreurs</li>}
-              </ul>
-            </div>
-          )}
-
-          {/* Preview table */}
-          <div className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor: "#E3E6E2" }}>
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr style={{ background: "#F5F6F4", borderBottom: "1px solid #E3E6E2" }}>
-                    {Object.keys(rows[0] ?? {}).map(h => (
-                      <th key={h} className="text-left px-4 py-3 font-semibold" style={{ color: "#66716B" }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.slice(0, 20).map((row, i) => (
-                    <tr key={i} style={{ borderBottom: "1px solid #E3E6E2", background: i % 2 === 0 ? "#fff" : "#FAFAFA" }}>
-                      {Object.values(row).map((v: any, j) => (
-                        <td key={j} className="px-4 py-2" style={{ color: "#17211D" }}>{v}</td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {rows.length > 20 && (
-              <div className="px-4 py-2 text-xs border-t" style={{ borderColor: "#E3E6E2", color: "#66716B" }}>
-                Affichage des 20 premières lignes sur {rows.length}
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-start gap-2 rounded-xl p-4 text-sm" style={{ background: "#E8ECF5", color: "#3B5488" }}>
-            <Info size={16} className="flex-shrink-0 mt-0.5" />
-            <span>
-              {rows.length} ligne{rows.length > 1 ? "s" : ""} prête{rows.length > 1 ? "s" : ""} à l&apos;import.
-              L&apos;enregistrement en base de données sera disponible dans une prochaine version —
-              cet écran valide pour l&apos;instant le format de vos fichiers.
-            </span>
-          </div>
-          <button
-            disabled
-            className="w-full py-3 rounded-xl text-white font-semibold cursor-not-allowed"
-            style={{ background: "#0E6B5C", opacity: 0.5 }}
-            title="Enregistrement en cours de développement"
-          >
-            Confirmer l&apos;import — Bientôt disponible
-          </button>
+            </tbody>
+          </table>
         </div>
       )}
     </div>
