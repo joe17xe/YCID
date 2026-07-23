@@ -102,3 +102,34 @@ pm2 restart ycid
 
 - `claude/adapt-schema-reel` : adaptation du code à l'ancien schéma prototype.
   Rendue obsolète par l'Option A — ne pas fusionner.
+
+---
+
+## ✅ Post-mortem du déploiement initial (23/07/2026)
+
+Le premier déploiement a révélé que le processus pm2 « ycid » (utilisateur
+`deploy`) pointait vers **`/opt/ycid-local`** — un ancien prototype Next 14
+hors Git — et non vers `/opt/ycid-app/web`. Les `git pull` + build dans le
+dépôt ne changeaient donc rien au site. Autres pièges rencontrés :
+pm2 tient un démon **par utilisateur** (`pm2 restart` en root ne voit pas
+les process de `deploy`), et un build lancé en root rend `.next` illisible
+pour `deploy`.
+
+Le dossier `/opt/ycid-local` a été archivé
+(`/root/ycid-local-archive-*.tar.gz`) et ne doit plus être utilisé.
+
+## Déploiements suivants — commande unique
+
+```bash
+sudo bash /opt/ycid-app/scripts/deploy.sh
+```
+
+Le script (versionné : `scripts/deploy.sh`) fait, dans l'ordre : droits
+`deploy`, `git pull origin master`, `npm ci`, build avec injection de
+`NEXT_PUBLIC_APP_VERSION` (commit) + `NEXT_PUBLIC_BUILD_TIME` (affichés
+dans le pied de page), redémarrage pm2 sous l'utilisateur `deploy`,
+sauvegarde pm2, et **vérification automatique** que le nouveau build
+répond (marqueur `sp-appearance`). Il échoue bruyamment sinon.
+
+⚠️ Si une nouvelle migration SQL accompagne le déploiement, l'exécuter
+dans le SQL Editor **avant** le script (voir `web/supabase/README.md`).
