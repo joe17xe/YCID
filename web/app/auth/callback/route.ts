@@ -5,7 +5,9 @@ import { NextResponse, type NextRequest } from 'next/server'
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const code = searchParams.get('code')
-  const next = searchParams.get('next') ?? '/dashboard'
+  // N'accepter que des chemins internes (pas d'open redirect)
+  const rawNext = searchParams.get('next') ?? '/dashboard'
+  const next = rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/dashboard'
 
   // Utiliser le host public (derrière nginx) et non l'adresse interne
   const forwardedHost = request.headers.get('x-forwarded-host')
