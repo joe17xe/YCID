@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
-import { canEditCompletedTasks, canManagePhases, canManageTasks } from '@/lib/permissions'
+import { canEditCompletedTasks, canManagePhases, canManageTasks, canManageBudget, canManageMeetings } from '@/lib/permissions'
 import type { TaskStatus } from '@/lib/types'
 
 const TASK_STATUSES: TaskStatus[] = ['a_faire', 'en_cours', 'terminee', 'bloquee']
@@ -205,5 +205,210 @@ export async function saveTask(input: TaskInput): Promise<{ ok: boolean; error?:
     await supabase.from('audit_log').insert({ project_id: phase.project_id, entity: 'task', entity_id: created?.id, label: title, action: 'cree', user_id: user.id })
   }
   revalidatePath(`/projets/${phase.project_id}`)
+  return { ok: true }
+}
+
+// ============================================================
+// PR 15 — Budget, indicateurs & COPIL
+// ============================================================
+
+const LINE_STATUSES = ['prevue', 'active', 'cloturee']
+const LINE_CATEGORIES = ['investissement', 'fonctionnement', 'projet', 'autre']
+
+export interface BudgetLineInput {
+  projectId: string
+  lineId?: string
+  poste: string
+  description: string
+  category: string
+  funder_org_id: string
+  owner_org_id: string
+  phase_id: string
+  year: string
+  planned_amount: string
+  is_valorisation: boolean
+  status: string
+  comment: string
+}
+
+export async function saveBudgetLine(input: BudgetLineInput): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Non authentifié.' }
+  if (!(await canManageBudget(supabase, user.id, input.projectId))) {
+    return { ok: false, error: 'Gestion du budget réservée au chef de projet, au resp. financier et aux admins.' }
+  }
+  const poste = (input.poste ?? '').trim()
+  if (!poste) return { ok: false, error: 'Le poste est obligatoire.' }
+  if (!LINE_CATEGORIES.includes(input.category)) return { ok: false, error: 'Catégorie invalide.' }
+  if (!LINE_STATUSES.includes(input.status)) return { ok: false, error: 'Statut invalide.' }
+  const amount = Number(String(input.planned_amount ?? '').replace(',', '.'))
+  if (!Number.isFinite(amount) || amount < 0) return { ok: false, error: 'Montant prévisionnel invalide.' }
+
+  const values = {
+    poste,
+    description: input.description?.trim() || null,
+    category: input.category,
+    funder_org_id: input.funder_org_id || null,
+    owner_org_id: input.owner_org_id || null,
+    phase_id: input.phase_id || null,
+    year: input.year ? Number(input.year) : null,
+    planned_amount: amount,
+    is_valorisation: !!input.is_valorisation,
+    status: input.status,
+    comment: input.comment?.trim() || null,
+  }
+
+  if (input.lineId) {
+    const { data: line } = await supabase.from('budget_lines').select('project_id').eq('id', input.lineId).maybeSingle()
+    if (!line || line.project_id !== input.projectId) return { ok: false, error: 'Ligne introuvable.' }
+    const { error } = await supabase.from('budget_lines').update(values).eq('id', input.lineId)
+    if (error) return { ok: false, error: `Échec de la modification : ${error.message}` }
+    await supabase.from('audit_log').insert({ project_id: input.projectId, entity: 'budget_line', entity_id: input.lineId, label: poste, action: 'modifie', user_id: user.id })
+  } else {
+    const { data: created, error } = await supabase.from('budget_lines').insert({ ...values, project_id: input.projectId }).select('id').single()
+    if (error) return { ok: false, error: `Échec de la création : ${error.message}` }
+    await supabase.from('audit_log').insert({ project_id: input.projectId, entity: 'budget_line', entity_id: created?.id, label: poste, action: 'cree', user_id: user.id })
+  }
+  revalidatePath(`/projets/${input.projectId}`)
+  return { ok: true }
+}
+
+export interface IndicatorInput {
+  projectId: string
+  name: string
+  description: string
+  kind: string
+  unit: string
+  target: string
+  baseline: string
+  phase_id: string
+}
+
+export async function createIndicator(input: IndicatorInput): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Non authentifié.' }
+  if (!(await canManageBudget(supabase, user.id, input.projectId))) {
+    return { ok: false, error: 'Gestion des indicateurs réservée au chef de projet, au resp. financier et aux admins.' }
+  }
+  const name = (input.name ?? '').trim()
+  if (!name) return { ok: false, error: "Le nom de l'indicateur est obligatoire." }
+  if (!['quantitatif', 'qualitatif'].includes(input.kind)) return { ok: false, error: 'Type invalide.' }
+  const target = Number(String(input.target ?? '').replace(',', '.'))
+  if (!Number.isFinite(target)) return { ok: false, error: 'Cible invalide.' }
+  const baseline = input.baseline ? Number(String(input.baseline).replace(',', '.')) : null
+  if (baseline !== null && !Number.isFinite(baseline)) return { ok: false, error: 'Valeur initiale invalide.' }
+
+  const { data: created, error } = await supabase.from('indicators').insert({
+    project_id: input.projectId, name,
+    description: input.description?.trim() || null,
+    kind: input.kind, unit: input.unit?.trim() || null,
+    target, baseline, phase_id: input.phase_id || null,
+  }).select('id').single()
+  if (error) return { ok: false, error: `Échec de la création : ${error.message}` }
+  await supabase.from('audit_log').insert({ project_id: input.projectId, entity: 'indicator', entity_id: created?.id, label: name, action: 'cree', user_id: user.id })
+  revalidatePath(`/projets/${input.projectId}`)
+  return { ok: true }
+}
+
+export interface MeasureInput {
+  indicatorId: string
+  period: string
+  value: string
+  comment: string
+}
+
+export async function addMeasure(input: MeasureInput): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Non authentifié.' }
+  const { data: indicator } = await supabase.from('indicators').select('id, name, project_id').eq('id', input.indicatorId).maybeSingle()
+  if (!indicator) return { ok: false, error: 'Indicateur introuvable.' }
+  const period = (input.period ?? '').trim()
+  if (!period) return { ok: false, error: 'La période est obligatoire (ex. 2026-T3).' }
+  const value = Number(String(input.value ?? '').replace(',', '.'))
+  if (!Number.isFinite(value)) return { ok: false, error: 'Valeur invalide.' }
+
+  const { error } = await supabase.from('indicator_measures').insert({
+    indicator_id: indicator.id, period, value,
+    comment: input.comment?.trim() || null, entered_by: user.id,
+  })
+  if (error) return { ok: false, error: `Échec de la saisie : ${error.message}` }
+  await supabase.from('audit_log').insert({ project_id: indicator.project_id, entity: 'indicator_measure', entity_id: indicator.id, label: `${indicator.name} — ${period} : ${value}`, action: 'cree', user_id: user.id })
+  revalidatePath(`/projets/${indicator.project_id}`)
+  return { ok: true }
+}
+
+export interface MeetingInput {
+  projectId: string
+  title: string
+  kind: string
+  date: string
+  minutes: string
+}
+
+export async function createMeeting(input: MeetingInput): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Non authentifié.' }
+  if (!(await canManageMeetings(supabase, user.id, input.projectId))) {
+    return { ok: false, error: 'Gestion des réunions réservée au chef de projet et aux admins.' }
+  }
+  const title = (input.title ?? '').trim()
+  if (!title) return { ok: false, error: 'Le titre est obligatoire.' }
+  if (!['copil', 'technique', 'terrain'].includes(input.kind)) return { ok: false, error: 'Type de réunion invalide.' }
+  if (!input.date) return { ok: false, error: 'La date est obligatoire.' }
+
+  const { data: created, error } = await supabase.from('meetings').insert({
+    project_id: input.projectId, title, kind: input.kind, date: input.date,
+    minutes: input.minutes?.trim() || null, created_by: user.id,
+  }).select('id').single()
+  if (error) return { ok: false, error: `Échec de la création : ${error.message}` }
+  await supabase.from('audit_log').insert({ project_id: input.projectId, entity: 'meeting', entity_id: created?.id, label: title, action: 'cree', user_id: user.id })
+  revalidatePath(`/projets/${input.projectId}`)
+  return { ok: true }
+}
+
+export interface DecisionInput {
+  projectId: string
+  meetingId: string
+  decisionId?: string
+  text: string
+  owner_user_id: string
+  due_date: string
+  status: string
+}
+
+export async function saveDecision(input: DecisionInput): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Non authentifié.' }
+  if (!(await canManageMeetings(supabase, user.id, input.projectId))) {
+    return { ok: false, error: 'Gestion des décisions réservée au chef de projet et aux admins.' }
+  }
+  const text = (input.text ?? '').trim()
+  if (!text) return { ok: false, error: 'Le texte de la décision est obligatoire.' }
+  if (!['a_faire', 'en_cours', 'fait'].includes(input.status)) return { ok: false, error: 'Statut invalide.' }
+
+  const values = {
+    text, owner_user_id: input.owner_user_id || null,
+    due_date: input.due_date || null, status: input.status,
+  }
+
+  if (input.decisionId) {
+    const { data: decision } = await supabase.from('decisions').select('project_id').eq('id', input.decisionId).maybeSingle()
+    if (!decision || decision.project_id !== input.projectId) return { ok: false, error: 'Décision introuvable.' }
+    const { error } = await supabase.from('decisions').update(values).eq('id', input.decisionId)
+    if (error) return { ok: false, error: `Échec de la modification : ${error.message}` }
+    await supabase.from('audit_log').insert({ project_id: input.projectId, entity: 'decision', entity_id: input.decisionId, label: text.slice(0, 80), action: 'modifie', user_id: user.id })
+  } else {
+    const { data: created, error } = await supabase.from('decisions').insert({
+      ...values, project_id: input.projectId, meeting_id: input.meetingId || null,
+    }).select('id').single()
+    if (error) return { ok: false, error: `Échec de la création : ${error.message}` }
+    await supabase.from('audit_log').insert({ project_id: input.projectId, entity: 'decision', entity_id: created?.id, label: text.slice(0, 80), action: 'cree', user_id: user.id })
+  }
+  revalidatePath(`/projets/${input.projectId}`)
   return { ok: true }
 }

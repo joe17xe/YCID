@@ -49,3 +49,17 @@ export async function canManageTasks(supabase: SupabaseClient, userId: string, p
   const role = await getProjectRole(supabase, userId, projectId)
   return role === 'chef_projet' || role === 'resp_financier' || role === 'contributeur'
 }
+
+// Gérer le budget et les indicateurs : chef, resp. financier ou admin
+// (policies « Manage budget lines / indicators » + overrides admin 0013).
+export async function canManageBudget(supabase: SupabaseClient, userId: string, projectId: string): Promise<boolean> {
+  if (await isUserAdmin(supabase, userId)) return true
+  const role = await getProjectRole(supabase, userId, projectId)
+  return role === 'chef_projet' || role === 'resp_financier'
+}
+
+// Gérer les réunions et décisions COPIL : chef de projet ou admin.
+export async function canManageMeetings(supabase: SupabaseClient, userId: string, projectId: string): Promise<boolean> {
+  if (await isUserAdmin(supabase, userId)) return true
+  return (await getProjectRole(supabase, userId, projectId)) === 'chef_projet'
+}

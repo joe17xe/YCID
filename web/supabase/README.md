@@ -17,6 +17,7 @@ SQL Editor Supabase (ou via `supabase db push` avec la CLI) :
 | `migrations/0010_rls_fix_members_recursion.sql` | Fix récursion infinie policies memberships / project_members |
 | `migrations/0011_admin_manage_phases.sql` | Les admins gèrent les phases (écran Tâches, PR 9) |
 | `migrations/0012_import_runs.sql` | Journal des imports CSV (table import_runs + RLS) |
+| `migrations/0013_admin_manage_project_data.sql` | Les admins gèrent budget, indicateurs, mesures, réunions, décisions |
 
 `seed.sql` contient les données de démonstration CEM Liban et s'exécute
 **après** les migrations, uniquement sur un environnement de démo.

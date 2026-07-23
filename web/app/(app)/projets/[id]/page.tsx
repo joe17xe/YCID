@@ -8,6 +8,7 @@ import { TAB_HELP } from "@/lib/help-content"
 import EditCompletedTaskDialog from "@/components/tasks/EditCompletedTaskDialog"
 import PhaseDialog from "@/components/tasks/PhaseDialog"
 import TaskDialog from "@/components/tasks/TaskDialog"
+import { BudgetLineDialog, IndicatorDialog, MeasureDialog, MeetingDialog, DecisionDialog } from "@/components/project/ProjectDataDialogs"
 import HelpDialog from "@/components/help/HelpDialog"
 import { ChevronLeft } from "lucide-react"
 
@@ -47,9 +48,14 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
   const myRole = await getProjectRole(supabase, user.id, id)
   const canPhases = canEditCompleted || myRole === "chef_projet"
   const canTasks = canEditCompleted || ["chef_projet", "resp_financier", "contributeur"].includes(myRole ?? "")
+  const canBudget = canEditCompleted || ["chef_projet", "resp_financier"].includes(myRole ?? "")
+  const canMeetings = canPhases
   const memberOptions = (project.project_members ?? [])
     .map((pm: any) => ({ id: pm.user_id, name: pm.profiles?.full_name ?? pm.user_id }))
     .sort((a: any, b: any) => a.name.localeCompare(b.name, "fr"))
+  const { data: orgsAll } = await supabase.from("organizations").select("id, name").eq("status", "active").order("name")
+  const orgOptions = (orgsAll ?? []).map((o: any) => ({ id: o.id, name: o.name }))
+  const phaseOptions = (phases ?? []).map((ph: any) => ({ id: ph.id, name: ph.name }))
 
   const allTasks = (phases ?? []).flatMap((ph: any) => ph.tasks ?? [])
   const projectProgress = allTasks.length ? Math.round(allTasks.reduce((s: number, t: any) => s + t.progress, 0) / allTasks.length) : 0
@@ -251,6 +257,11 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
       {/* ===== BUDGET ===== */}
       {tab === "budget" && (
         <div>
+          {canBudget && (
+            <div className="flex justify-end mb-4">
+              <BudgetLineDialog projectId={id} orgs={orgOptions} phases={phaseOptions} />
+            </div>
+          )}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             {[
               { label: "Prévisionnel (hors valorisation)", value: fmtEur(totalPlanned), color: "#0E6B5C", bg: "#E4F0EC" },
@@ -288,7 +299,20 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                       <td className="px-4 py-3 text-xs" style={{ color: "#66716B" }}>{l.phase?.name ?? "—"}</td>
                       <td className="px-4 py-3 text-xs" style={{ color: "#66716B" }}>{l.year ?? "—"}</td>
                       <td className="px-4 py-3 font-semibold" style={{ color: "#17211D" }}>{fmtEur(l.planned_amount)}</td>
-                      <td className="px-4 py-3"><Badge label={ls.label} fg={ls.fg} bg={ls.bg} /></td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1">
+                          <Badge label={ls.label} fg={ls.fg} bg={ls.bg} />
+                          {canBudget && (
+                            <BudgetLineDialog projectId={id} orgs={orgOptions} phases={phaseOptions} line={{
+                              id: l.id, poste: l.poste, description: l.description ?? "",
+                              category: l.category, funder_org_id: l.funder_org_id ?? "",
+                              owner_org_id: l.owner_org_id ?? "", phase_id: l.phase_id ?? "",
+                              year: l.year != null ? String(l.year) : "", planned_amount: String(l.planned_amount ?? 0),
+                              is_valorisation: !!l.is_valorisation, status: l.status, comment: l.comment ?? "",
+                            }} />
+                          )}
+                        </div>
+                      </td>
                     </tr>
                   )
                 })}
@@ -301,6 +325,12 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
 
       {/* ===== IMPACT ===== */}
       {tab === "impact" && (
+        <div>
+          {canBudget && (
+            <div className="flex justify-end mb-4">
+              <IndicatorDialog projectId={id} phases={phaseOptions} />
+            </div>
+          )}
         <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
           {(indicators ?? []).map((ind: any) => {
             const measures = ind.measures ?? []
@@ -329,16 +359,25 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                   {lastMeasure && <span>{lastMeasure.period}</span>}
                 </div>
                 {measures.length === 0 && <p className="text-xs mt-2" style={{ color: "#B4690E" }}>Aucune mesure saisie</p>}
+                <div className="mt-3">
+                  <MeasureDialog indicatorId={ind.id} indicatorName={ind.name} unit={ind.unit ?? undefined} />
+                </div>
               </div>
             )
           })}
           {!(indicators ?? []).length && <div className="col-span-3 text-center py-12 text-sm" style={{ color: "#66716B" }}>Aucun indicateur défini</div>}
+        </div>
         </div>
       )}
 
       {/* ===== COPIL ===== */}
       {tab === "copil" && (
         <div className="space-y-4">
+          {canMeetings && (
+            <div className="flex justify-end">
+              <MeetingDialog projectId={id} />
+            </div>
+          )}
           {(meetings ?? []).map((m: any) => {
             const mk = MEETING_KINDS[m.kind] ?? { label: m.kind, fg: "#66716B", bg: "#EEF0EE" }
             return (
@@ -369,10 +408,21 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                             {d.owner && <span className="text-xs" style={{ color: "#66716B" }}>{d.owner.full_name}</span>}
                             {d.due_date && <span className="text-xs" style={{ color: "#66716B" }}>{fmtDate(d.due_date)}</span>}
                             <Badge label={ds.label} fg={ds.fg} bg={ds.bg} />
+                            {canMeetings && (
+                              <DecisionDialog projectId={id} meetingId={m.id} members={memberOptions} decision={{
+                                id: d.id, text: d.text, owner_user_id: d.owner_user_id ?? "",
+                                due_date: d.due_date ?? "", status: d.status,
+                              }} />
+                            )}
                           </div>
                         </div>
                       )
                     })}
+                  </div>
+                )}
+                {canMeetings && (
+                  <div className="px-5 pb-4">
+                    <DecisionDialog projectId={id} meetingId={m.id} members={memberOptions} />
                   </div>
                 )}
               </div>
