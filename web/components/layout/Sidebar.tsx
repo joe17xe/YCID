@@ -1,7 +1,7 @@
 "use client"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { LayoutDashboard, FolderKanban, Building2, Upload, PieChart, Users, LogOut, ChevronLeft, ChevronRight } from "lucide-react"
+import { LayoutDashboard, FolderKanban, Building2, Upload, PieChart, Users, ShieldCheck, LogOut, ChevronLeft, ChevronRight } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { useState } from "react"
 
@@ -15,6 +15,7 @@ const NAV = [
 
 const ADMIN_NAV = [
   { href: "/admin/utilisateurs", label: "Utilisateurs", Icon: Users },
+  { href: "/admin/acces", label: "Accès & rôles", Icon: ShieldCheck },
 ]
 
 export default function Sidebar({ showAdmin = false }: { showAdmin?: boolean }) {
