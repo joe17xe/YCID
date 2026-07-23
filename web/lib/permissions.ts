@@ -28,3 +28,24 @@ export async function canCreateProjects(supabase: SupabaseClient, userId: string
   const { data } = await supabase.from('memberships').select('org_id').eq('user_id', userId).eq('role', 'admin_org').limit(1)
   return (data ?? []).length > 0
 }
+
+// Rôle de l'utilisateur dans un projet (null s'il n'est pas membre direct).
+export async function getProjectRole(supabase: SupabaseClient, userId: string, projectId: string): Promise<string | null> {
+  const { data } = await supabase.from('project_members').select('role').eq('project_id', projectId).eq('user_id', userId).maybeSingle()
+  return data?.role ?? null
+}
+
+// Gérer les phases : chef de projet ou admin (policies « Chef manage
+// phases » + « Admins manage phases », migration 0011).
+export async function canManagePhases(supabase: SupabaseClient, userId: string, projectId: string): Promise<boolean> {
+  if (await isUserAdmin(supabase, userId)) return true
+  return (await getProjectRole(supabase, userId, projectId)) === 'chef_projet'
+}
+
+// Gérer les tâches : chef de projet, resp. financier, contributeur ou admin
+// (policies « Contributeur ... tasks » + « Admins manage tasks »).
+export async function canManageTasks(supabase: SupabaseClient, userId: string, projectId: string): Promise<boolean> {
+  if (await isUserAdmin(supabase, userId)) return true
+  const role = await getProjectRole(supabase, userId, projectId)
+  return role === 'chef_projet' || role === 'resp_financier' || role === 'contributeur'
+}

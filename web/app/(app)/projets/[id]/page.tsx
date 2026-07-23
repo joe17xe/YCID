@@ -3,9 +3,11 @@ import { createClient } from "@/lib/supabase/server"
 import { redirect, notFound } from "next/navigation"
 import Link from "next/link"
 import { PROJECT_STATUS, PROJECT_ROLES, TASK_STATUS, REVIEW_STATES, fmtEur, fmtDate, LINE_STATUS, LINE_CATEGORIES, IND_KINDS, DECISION_STATUS, MEETING_KINDS } from "@/lib/constants"
-import { canEditCompletedTasks } from "@/lib/permissions"
+import { canEditCompletedTasks, getProjectRole } from "@/lib/permissions"
 import { TAB_HELP } from "@/lib/help-content"
 import EditCompletedTaskDialog from "@/components/tasks/EditCompletedTaskDialog"
+import PhaseDialog from "@/components/tasks/PhaseDialog"
+import TaskDialog from "@/components/tasks/TaskDialog"
 import HelpDialog from "@/components/help/HelpDialog"
 import { ChevronLeft } from "lucide-react"
 
@@ -39,6 +41,15 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
   ])
 
   if (!project) notFound()
+
+  // Droits d'édition : les admins (canEditCompleted couvre le même
+  // périmètre) ou le rôle du membre dans ce projet.
+  const myRole = await getProjectRole(supabase, user.id, id)
+  const canPhases = canEditCompleted || myRole === "chef_projet"
+  const canTasks = canEditCompleted || ["chef_projet", "resp_financier", "contributeur"].includes(myRole ?? "")
+  const memberOptions = (project.project_members ?? [])
+    .map((pm: any) => ({ id: pm.user_id, name: pm.profiles?.full_name ?? pm.user_id }))
+    .sort((a: any, b: any) => a.name.localeCompare(b.name, "fr"))
 
   const allTasks = (phases ?? []).flatMap((ph: any) => ph.tasks ?? [])
   const projectProgress = allTasks.length ? Math.round(allTasks.reduce((s: number, t: any) => s + t.progress, 0) / allTasks.length) : 0
@@ -151,6 +162,11 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
       {/* ===== TÂCHES ===== */}
       {tab === "taches" && (
         <div className="space-y-4">
+          {canPhases && (
+            <div className="flex justify-end">
+              <PhaseDialog projectId={id} />
+            </div>
+          )}
           {(phases ?? []).map((ph: any) => {
             const phaseTasks = ph.tasks ?? []
             const phProg = phaseTasks.length ? Math.round(phaseTasks.reduce((s: number, t: any) => s + t.progress, 0) / phaseTasks.length) : 0
@@ -158,10 +174,19 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
               <div key={ph.id} className="bg-white rounded-2xl border" style={{ borderColor: "#E3E6E2" }}>
                 <div className="p-4 border-b" style={{ borderColor: "#E3E6E2" }}>
                   <div className="flex items-center justify-between gap-3">
-                    <h3 className="font-semibold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>{ph.name}</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>{ph.name}</h3>
+                      {canPhases && (
+                        <PhaseDialog projectId={id} phase={{
+                          id: ph.id, name: ph.name, start_date: ph.start_date ?? null,
+                          end_date: ph.end_date ?? null, status: ph.status, budget: ph.budget ?? null,
+                        }} />
+                      )}
+                    </div>
                     <div className="flex items-center gap-3 text-sm" style={{ color: "#66716B" }}>
                       {ph.budget && <span>{fmtEur(ph.budget)}</span>}
                       <span>{phProg}%</span>
+                      {canTasks && <TaskDialog phaseId={ph.id} members={memberOptions} />}
                     </div>
                   </div>
                   <div className="mt-2"><ProgressBar value={phProg} /></div>
@@ -183,7 +208,16 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                             </div>
                           </div>
                           <div className="flex flex-col items-end gap-1">
-                            <Badge label={ts.label} fg={ts.fg} bg={ts.bg} />
+                            <div className="flex items-center gap-1">
+                              {canTasks && t.status !== "terminee" && (
+                                <TaskDialog phaseId={ph.id} members={memberOptions} task={{
+                                  id: t.id, title: t.title, description: t.description ?? null,
+                                  assignee_id: t.assignee_id ?? null, start_date: t.start_date ?? null,
+                                  end_date: t.end_date ?? null, status: t.status, progress: t.progress,
+                                }} />
+                              )}
+                              <Badge label={ts.label} fg={ts.fg} bg={ts.bg} />
+                            </div>
                             {rv && <Badge label={rv.label} fg={rv.fg} bg={rv.bg} />}
                             {t.status === "terminee" && canEditCompleted && (
                               <EditCompletedTaskDialog task={{
