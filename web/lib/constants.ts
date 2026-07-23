@@ -121,3 +121,17 @@ export function fmtDate(d: string | null | undefined): string {
   if (!d) return '—'
   return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
 }
+
+export const IDEA_STATUS: Record<string, { label: string; fg: string; bg: string }> = {
+  idee: { label: 'Idée', fg: '#66716B', bg: '#EEF0EE' },
+  acceptee: { label: 'Acceptée', fg: '#6B4A8C', bg: '#F0E9F5' },
+  en_cours: { label: 'En cours', fg: '#3B5488', bg: '#E8ECF5' },
+  livree: { label: 'Livrée', fg: '#0E6B5C', bg: '#E4F0EC' },
+  refusee: { label: 'Refusée', fg: '#A3342C', bg: '#F6E7E5' },
+}
+
+export const IDEA_PRIORITY: Record<string, { label: string; fg: string; bg: string }> = {
+  basse: { label: 'Priorité basse', fg: '#66716B', bg: '#EEF0EE' },
+  moyenne: { label: 'Priorité moyenne', fg: '#6B4A8C', bg: '#F0E9F5' },
+  haute: { label: 'Priorité haute', fg: '#B4690E', bg: '#F7EDDD' },
+}
