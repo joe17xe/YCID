@@ -1,7 +1,7 @@
 "use client"
 import { useState, useRef } from "react"
 import Papa from "papaparse"
-import { Upload, X, Check, AlertTriangle } from "lucide-react"
+import { Upload, X, AlertTriangle, Info } from "lucide-react"
 
 type ImportType = "projets" | "phases" | "taches" | "budget"
 
@@ -33,8 +33,7 @@ export default function ImportPage() {
   const [rows, setRows] = useState<any[]>([])
   const [errors, setErrors] = useState<string[]>([])
   const [filename, setFilename] = useState("")
-  const [step, setStep] = useState<"upload" | "preview" | "confirmed">("upload")
-  const [loading, setLoading] = useState(false)
+  const [step, setStep] = useState<"upload" | "preview">("upload")
   const fileRef = useRef<HTMLInputElement>(null)
   const conf = IMPORT_TYPES[importType]
 
@@ -66,35 +65,19 @@ export default function ImportPage() {
     if (file) handleFile(file)
   }
 
-  async function handleConfirm() {
-    setLoading(true)
-    // TODO: POST to /api/import
-    await new Promise(r => setTimeout(r, 1000))
-    setLoading(false)
-    setStep("confirmed")
-  }
-
   function reset() { setStep("upload"); setRows([]); setErrors([]); setFilename("") }
 
   return (
     <div className="p-8 max-w-4xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>Import CSV</h1>
-        <p className="mt-1 text-sm" style={{ color: "#66716B" }}>Importez vos données depuis un fichier CSV (séparateur ;)</p>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-bold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>Import CSV</h1>
+          <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "#E8ECF5", color: "#3B5488" }}>Aperçu</span>
+        </div>
+        <p className="mt-1 text-sm" style={{ color: "#66716B" }}>Validez le format de vos fichiers CSV (séparateur ;) — l&apos;enregistrement en base arrive bientôt</p>
       </div>
 
-      {step === "confirmed" ? (
-        <div className="bg-white rounded-2xl border p-12 text-center" style={{ borderColor: "#E3E6E2" }}>
-          <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: "#E4F0EC" }}>
-            <Check size={32} style={{ color: "#0E6B5C" }} />
-          </div>
-          <h2 className="text-xl font-semibold mb-2" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>{rows.length} ligne{rows.length > 1 ? "s" : ""} importée{rows.length > 1 ? "s" : ""}</h2>
-          <p className="text-sm mb-6" style={{ color: "#66716B" }}>Les données ont été importées avec succès.</p>
-          <button onClick={reset} className="px-6 py-2.5 rounded-xl text-white font-semibold text-sm" style={{ background: "#0E6B5C" }}>
-            Nouvel import
-          </button>
-        </div>
-      ) : step === "upload" ? (
+      {step === "upload" ? (
         <div className="space-y-6">
           {/* Type selector */}
           <div className="bg-white rounded-2xl border p-6" style={{ borderColor: "#E3E6E2" }}>
@@ -188,13 +171,21 @@ export default function ImportPage() {
             )}
           </div>
 
+          <div className="flex items-start gap-2 rounded-xl p-4 text-sm" style={{ background: "#E8ECF5", color: "#3B5488" }}>
+            <Info size={16} className="flex-shrink-0 mt-0.5" />
+            <span>
+              {rows.length} ligne{rows.length > 1 ? "s" : ""} prête{rows.length > 1 ? "s" : ""} à l&apos;import.
+              L&apos;enregistrement en base de données sera disponible dans une prochaine version —
+              cet écran valide pour l&apos;instant le format de vos fichiers.
+            </span>
+          </div>
           <button
-            onClick={handleConfirm}
-            disabled={loading || rows.length === 0}
-            className="w-full py-3 rounded-xl text-white font-semibold transition-opacity"
-            style={{ background: "#0E6B5C", opacity: loading || rows.length === 0 ? 0.6 : 1 }}
+            disabled
+            className="w-full py-3 rounded-xl text-white font-semibold cursor-not-allowed"
+            style={{ background: "#0E6B5C", opacity: 0.5 }}
+            title="Enregistrement en cours de développement"
           >
-            {loading ? "Import en cours..." : `Confirmer l'import de ${rows.length} ligne${rows.length > 1 ? "s" : ""}`}
+            Confirmer l&apos;import — Bientôt disponible
           </button>
         </div>
       )}
