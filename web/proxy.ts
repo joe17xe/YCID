@@ -31,7 +31,8 @@ export async function proxy(request: NextRequest) {
     request.nextUrl.pathname.startsWith('/pilotage') ||
     request.nextUrl.pathname.startsWith('/admin') ||
     request.nextUrl.pathname.startsWith('/preferences') ||
-    request.nextUrl.pathname.startsWith('/aide')
+    request.nextUrl.pathname.startsWith('/aide') ||
+    request.nextUrl.pathname.startsWith('/roadmap')
 
   if (!user && isAppRoute) {
     return NextResponse.redirect(new URL('/', request.url))

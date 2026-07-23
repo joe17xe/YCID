@@ -18,6 +18,7 @@ SQL Editor Supabase (ou via `supabase db push` avec la CLI) :
 | `migrations/0011_admin_manage_phases.sql` | Les admins gèrent les phases (écran Tâches, PR 9) |
 | `migrations/0012_import_runs.sql` | Journal des imports CSV (table import_runs + RLS) |
 | `migrations/0013_admin_manage_project_data.sql` | Les admins gèrent budget, indicateurs, mesures, réunions, décisions |
+| `migrations/0014_roadmap.sql` | Roadmap participative : ideas, idea_votes, idea_comments + RLS |
 
 `seed.sql` contient les données de démonstration CEM Liban et s'exécute
 **après** les migrations, uniquement sur un environnement de démo.
