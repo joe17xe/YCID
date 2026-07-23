@@ -9,12 +9,11 @@ export default async function DashboardPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/")
 
-  const [{ data: projects }, { data: profile }] = await Promise.all([
+  const [{ data: projects, error: projectsError }, { data: profile }] = await Promise.all([
     supabase
       .from("projects")
       .select("*, project_organizations(org_id, role, organizations(name)), phases(id, name, status, tasks(id, status, progress, end_date, title))")
-      .order("created_at", { ascending: false })
-      .limit(10),
+      .order("created_at", { ascending: false }),
     supabase.from("profiles").select("*").eq("id", user.id).single(),
   ])
 
@@ -41,6 +40,12 @@ export default async function DashboardPage() {
         </h1>
         <p className="mt-1 text-sm" style={{ color: "#66716B" }}>Tableau de bord — {new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</p>
       </div>
+
+      {projectsError && (
+        <div className="mb-6 rounded-xl px-4 py-3 text-sm" style={{ background: "#F6E7E5", color: "#A3342C" }}>
+          Impossible de charger les projets : {projectsError.message}
+        </div>
+      )}
 
       {/* KPI cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
