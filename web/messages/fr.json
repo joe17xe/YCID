@@ -1,0 +1,22 @@
+{
+  "nav": {
+    "dashboard": "Tableau de bord",
+    "projects": "Projets",
+    "organisations": "Organisations",
+    "import": "Import",
+    "steering": "Pilotage",
+    "help": "Aide",
+    "administration": "ADMINISTRATION",
+    "users": "Utilisateurs",
+    "access": "Accès & rôles",
+    "signOut": "Déconnexion"
+  },
+  "account": {
+    "roles": "RÔLES",
+    "noRole": "Aucun rôle projet",
+    "admin": "Admin YCID/LEY",
+    "preferences": "Préférences",
+    "signOut": "Déconnexion",
+    "language": "LANGUE"
+  }
+}

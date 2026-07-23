@@ -4,19 +4,20 @@ import { usePathname, useRouter } from "next/navigation"
 import { LayoutDashboard, FolderKanban, Building2, Upload, PieChart, Users, ShieldCheck, HelpCircle, LogOut, ChevronLeft, ChevronRight } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { useState } from "react"
+import { useTranslations } from "next-intl"
 
 const NAV = [
-  { href: "/dashboard", label: "Tableau de bord", Icon: LayoutDashboard },
-  { href: "/projets", label: "Projets", Icon: FolderKanban },
-  { href: "/organisations", label: "Organisations", Icon: Building2 },
-  { href: "/import", label: "Import", Icon: Upload },
-  { href: "/pilotage", label: "Pilotage", Icon: PieChart },
-  { href: "/aide", label: "Aide", Icon: HelpCircle },
+  { href: "/dashboard", key: "dashboard", Icon: LayoutDashboard },
+  { href: "/projets", key: "projects", Icon: FolderKanban },
+  { href: "/organisations", key: "organisations", Icon: Building2 },
+  { href: "/import", key: "import", Icon: Upload },
+  { href: "/pilotage", key: "steering", Icon: PieChart },
+  { href: "/aide", key: "help", Icon: HelpCircle },
 ]
 
 const ADMIN_NAV = [
-  { href: "/admin/utilisateurs", label: "Utilisateurs", Icon: Users },
-  { href: "/admin/acces", label: "Accès & rôles", Icon: ShieldCheck },
+  { href: "/admin/utilisateurs", key: "users", Icon: Users },
+  { href: "/admin/acces", key: "access", Icon: ShieldCheck },
 ]
 
 export default function Sidebar({ showAdmin = false }: { showAdmin?: boolean }) {
@@ -24,6 +25,7 @@ export default function Sidebar({ showAdmin = false }: { showAdmin?: boolean }) 
   const router = useRouter()
   const supabase = createClient()
   const [collapsed, setCollapsed] = useState(false)
+  const t = useTranslations("nav")
 
   async function signOut() {
     await supabase.auth.signOut()
@@ -47,7 +49,7 @@ export default function Sidebar({ showAdmin = false }: { showAdmin?: boolean }) 
 
       {/* Nav */}
       <nav className="flex-1 py-4 px-2 space-y-1">
-        {NAV.map(({ href, label, Icon }) => {
+        {NAV.map(({ href, key, Icon }) => {
           const active = pathname === href || pathname.startsWith(href + "/")
           return (
             <Link
@@ -62,7 +64,7 @@ export default function Sidebar({ showAdmin = false }: { showAdmin?: boolean }) 
               }}
             >
               <Icon size={18} className="flex-shrink-0" />
-              {!collapsed && <span className="text-sm">{label}</span>}
+              {!collapsed && <span className="text-sm">{t(key)}</span>}
             </Link>
           )
         })}
@@ -70,10 +72,10 @@ export default function Sidebar({ showAdmin = false }: { showAdmin?: boolean }) 
           <>
             {!collapsed && (
               <div className="px-3 pt-4 pb-1 text-xs font-semibold tracking-wider" style={{ color: "#66716B" }}>
-                ADMINISTRATION
+                {t("administration")}
               </div>
             )}
-            {ADMIN_NAV.map(({ href, label, Icon }) => {
+            {ADMIN_NAV.map(({ href, key, Icon }) => {
               const active = pathname === href || pathname.startsWith(href + "/")
               return (
                 <Link
@@ -88,7 +90,7 @@ export default function Sidebar({ showAdmin = false }: { showAdmin?: boolean }) 
                   }}
                 >
                   <Icon size={18} className="flex-shrink-0" />
-                  {!collapsed && <span className="text-sm">{label}</span>}
+                  {!collapsed && <span className="text-sm">{t(key)}</span>}
                 </Link>
               )
             })}
@@ -104,7 +106,7 @@ export default function Sidebar({ showAdmin = false }: { showAdmin?: boolean }) 
           style={{ color: "#A3342C" }}
         >
           <LogOut size={18} />
-          {!collapsed && <span className="text-sm font-medium" style={{ fontFamily: "var(--font-inter)" }}>Déconnexion</span>}
+          {!collapsed && <span className="text-sm font-medium" style={{ fontFamily: "var(--font-inter)" }}>{t("signOut")}</span>}
         </button>
         <button
           onClick={() => setCollapsed(!collapsed)}

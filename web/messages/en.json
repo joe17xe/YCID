@@ -1,0 +1,22 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "projects": "Projects",
+    "organisations": "Organisations",
+    "import": "Import",
+    "steering": "Steering",
+    "help": "Help",
+    "administration": "ADMINISTRATION",
+    "users": "Users",
+    "access": "Access & roles",
+    "signOut": "Sign out"
+  },
+  "account": {
+    "roles": "ROLES",
+    "noRole": "No project role",
+    "admin": "YCID/LEY Admin",
+    "preferences": "Preferences",
+    "signOut": "Sign out",
+    "language": "LANGUAGE"
+  }
+}
