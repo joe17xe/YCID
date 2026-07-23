@@ -10,7 +10,9 @@ SQL Editor Supabase (ou via `supabase db push` avec la CLI) :
 | `migrations/0003_rls_fix_recursion.sql` | Fix récursion infinie sur profiles (`is_admin()`) |
 | `migrations/0004_rls_fix_project_orgs.sql` | Policies manquantes project_organizations / project_members |
 | `migrations/0005_rls_completed_tasks_admin.sql` | Verrou tâches terminées (admins YCID/LEY) + insert audit_log |
-|  `migrations/0006_rls_security_hardening.sql` | Verrou is_platform_admin, RLS validation_rules / budget_categories, policies durcies |
+| `migrations/0006_rls_security_hardening.sql` | Verrou is_platform_admin, RLS validation_rules / budget_categories, policies durcies |
+| `migrations/0007_admin_users.sql` | Admins YCID/LEY : lecture profils + memberships (`is_lead_org_admin()`) |
+| `migrations/0008_project_creation.sql` | Création de projet : admins plateforme + policies bootstrap porteur/chef |
 
 `seed.sql` contient les données de démonstration CEM Liban et s'exécute
 **après** les migrations, uniquement sur un environnement de démo.
