@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import { PROJECT_STATUS, fmtEur, fmtDate } from "@/lib/constants"
+import { canCreateProjects } from "@/lib/permissions"
 import { Plus } from "lucide-react"
 
 export default async function ProjetsPage() {
@@ -10,10 +11,13 @@ export default async function ProjetsPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/")
 
-  const { data: projects } = await supabase
-    .from("projects")
-    .select("*, project_organizations(org_id, role, organizations(name, type)), phases(id, tasks(id, progress, status))")
-    .order("created_at", { ascending: false })
+  const [{ data: projects }, canCreate] = await Promise.all([
+    supabase
+      .from("projects")
+      .select("*, project_organizations(org_id, role, organizations(name, type)), phases(id, tasks(id, progress, status))")
+      .order("created_at", { ascending: false }),
+    canCreateProjects(supabase, user.id),
+  ])
 
   function progress(p: any): number {
     const tasks = (p.phases ?? []).flatMap((ph: any) => ph.tasks ?? [])
@@ -28,14 +32,15 @@ export default async function ProjetsPage() {
           <h1 className="text-2xl font-bold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>Projets</h1>
           <p className="mt-1 text-sm" style={{ color: "#66716B" }}>{(projects ?? []).length} projet{(projects ?? []).length !== 1 ? "s" : ""}</p>
         </div>
-        <span
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold cursor-not-allowed"
-          style={{ background: "#EEF0EE", color: "#66716B", fontFamily: "var(--font-sora)" }}
-          title="Création de projet en cours de développement"
-        >
-          <Plus size={16} /> Nouveau projet
-          <span className="text-xs px-1.5 py-0.5 rounded-full font-medium" style={{ background: "#E8ECF5", color: "#3B5488" }}>Bientôt</span>
-        </span>
+        {canCreate && (
+          <Link
+            href="/projets/nouveau"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-semibold"
+            style={{ background: "#0E6B5C", fontFamily: "var(--font-sora)" }}
+          >
+            <Plus size={16} /> Nouveau projet
+          </Link>
+        )}
       </div>
 
       <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">

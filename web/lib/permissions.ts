@@ -20,3 +20,11 @@ export async function isUserAdmin(supabase: SupabaseClient, userId: string): Pro
 export async function canEditCompletedTasks(supabase: SupabaseClient, userId: string): Promise<boolean> {
   return isUserAdmin(supabase, userId)
 }
+
+// Créer un projet : admins plateforme/YCID/LEY ou admin d'une organisation
+// (miroir de la policy RLS « Org admins create projects »).
+export async function canCreateProjects(supabase: SupabaseClient, userId: string): Promise<boolean> {
+  if (await isUserAdmin(supabase, userId)) return true
+  const { data } = await supabase.from('memberships').select('org_id').eq('user_id', userId).eq('role', 'admin_org').limit(1)
+  return (data ?? []).length > 0
+}
