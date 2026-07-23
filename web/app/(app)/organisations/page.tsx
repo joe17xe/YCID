@@ -21,12 +21,14 @@ export default async function OrganisationsPage() {
           <h1 className="text-2xl font-bold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>Organisations</h1>
           <p className="mt-1 text-sm" style={{ color: "#66716B" }}>{(orgs ?? []).length} organisation{(orgs ?? []).length !== 1 ? "s" : ""}</p>
         </div>
-        <button
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-semibold"
-          style={{ background: "#0E6B5C" }}
+        <span
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold cursor-not-allowed"
+          style={{ background: "#EEF0EE", color: "#66716B" }}
+          title="Création d'organisation en cours de développement"
         >
           <Plus size={16} /> Nouvelle organisation
-        </button>
+          <span className="text-xs px-1.5 py-0.5 rounded-full font-medium" style={{ background: "#E8ECF5", color: "#3B5488" }}>Bientôt</span>
+        </span>
       </div>
 
       <div className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor: "#E3E6E2" }}>
