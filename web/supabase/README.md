@@ -13,6 +13,7 @@ SQL Editor Supabase (ou via `supabase db push` avec la CLI) :
 | `migrations/0006_rls_security_hardening.sql` | Verrou is_platform_admin, RLS validation_rules / budget_categories, policies durcies |
 | `migrations/0007_admin_users.sql` | Admins YCID/LEY : lecture profils + memberships (`is_lead_org_admin()`) |
 | `migrations/0008_project_creation.sql` | Création de projet : admins plateforme + policies bootstrap porteur/chef |
+| `migrations/0009_avatars.sql` | Photo de profil : colonne avatar_url + bucket Storage « avatars » |
 
 `seed.sql` contient les données de démonstration CEM Liban et s'exécute
 **après** les migrations, uniquement sur un environnement de démo.
