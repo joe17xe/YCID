@@ -8,25 +8,16 @@ export default function LoginForm() {
   const supabase = createClient()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [isSignup, setIsSignup] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
-  const [message, setMessage] = useState("")
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
     setError("")
-    setMessage("")
-    if (isSignup) {
-      const { error } = await supabase.auth.signUp({ email, password })
-      if (error) setError(error.message)
-      else setMessage("Verifiez votre email pour confirmer votre compte.")
-    } else {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) setError(error.message)
-      else router.push("/dashboard")
-    }
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) setError(error.message)
+    else router.push("/dashboard")
     setLoading(false)
   }
 
@@ -67,16 +58,12 @@ export default function LoginForm() {
             style={{ borderColor: "#E3E6E2" }} />
         </div>
         {error && <p className="text-sm rounded-lg px-3 py-2" style={{ background: "#F6E7E5", color: "#A3342C" }}>{error}</p>}
-        {message && <p className="text-sm rounded-lg px-3 py-2" style={{ background: "#E4F0EC", color: "#0E6B5C" }}>{message}</p>}
         <button type="submit" disabled={loading} className="w-full py-3 rounded-xl font-semibold text-white" style={{ background: "#0E6B5C", opacity: loading ? 0.7 : 1 }}>
-          {loading ? "..." : isSignup ? "Creer un compte" : "Se connecter"}
+          {loading ? "..." : "Se connecter"}
         </button>
       </form>
       <p className="text-center text-sm mt-4" style={{ color: "#66716B" }}>
-        {isSignup ? "Deja un compte ?" : "Pas encore de compte ?"}{" "}
-        <button onClick={() => setIsSignup(!isSignup)} className="font-medium" style={{ color: "#0E6B5C" }}>
-          {isSignup ? "Se connecter" : "Creer un compte"}
-        </button>
+        Accès sur invitation — contactez l&apos;administrateur YCID pour obtenir un compte.
       </p>
     </div>
   )
