@@ -24,3 +24,30 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* ============================================================
+   Accessibilité (préférences utilisateur, voir /preferences)
+   Appliquées via attributs data-* sur <html>, persistées en
+   localStorage (clé sp-appearance) — cf. AppearanceSettings.
+   ============================================================ */
+
+/* Taille du texte : les unités rem de Tailwind suivent la racine */
+html[data-textsize="compact"] { font-size: 14px; }
+html[data-textsize="normal"] { font-size: 16px; }
+html[data-textsize="grand"] { font-size: 18px; }
+html[data-textsize="tres-grand"] { font-size: 20px; }
+
+/* Contraste élevé — version basique tant que les couleurs sont
+   codées en dur (la version complète arrive avec le thème
+   centralisé, PR 11) */
+html[data-contrast="high"] { filter: contrast(1.2); }
+
+/* Réduction des animations */
+html[data-motion="reduced"] *,
+html[data-motion="reduced"] *::before,
+html[data-motion="reduced"] *::after {
+  animation-duration: 0.001s !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001s !important;
+  scroll-behavior: auto !important;
+}

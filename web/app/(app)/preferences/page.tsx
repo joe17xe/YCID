@@ -4,6 +4,7 @@ import { redirect } from "next/navigation"
 import { ACCESS_ROLES } from "@/lib/constants"
 import AvatarUploader from "@/components/preferences/AvatarUploader"
 import PasswordForm from "@/components/preferences/PasswordForm"
+import AppearanceSettings from "@/components/preferences/AppearanceSettings"
 
 function Block({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
   return (
@@ -68,8 +69,8 @@ export default async function PreferencesPage() {
           <PasswordForm email={profile?.email ?? user.email ?? ""} hasPassword={hasPassword} />
         </Block>
 
-        <Block title="Apparence & accessibilité" subtitle="Taille du texte, contraste et animations.">
-          <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "#E8ECF5", color: "#3B5488" }}>Bientôt</span>
+        <Block title="Apparence & accessibilité" subtitle="Adaptez l'affichage à votre confort de lecture — mémorisé sur cet appareil.">
+          <AppearanceSettings />
         </Block>
       </div>
     </div>
