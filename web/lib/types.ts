@@ -11,6 +11,8 @@ export type LineStatus = 'prevue'|'active'|'cloturee'
 export type LineCategory = 'investissement'|'fonctionnement'|'projet'|'autre'
 export type DecisionStatus = 'a_faire'|'en_cours'|'fait'
 export type MeetingKind = 'copil'|'technique'|'terrain'
+export type MediaChannelKind = 'facebook'|'instagram'|'linkedin'|'site_web'|'newsletter'|'whatsapp'|'presse'
+export type MediaChannelLanguage = 'fr'|'en'|'ar'
 
 export interface Profile {
   id: string
@@ -27,6 +29,20 @@ export interface Organization {
   country: string
   email?: string
   status: OrgStatus
+  created_at: string
+}
+
+export interface OrgMediaChannel {
+  id: string
+  org_id: string
+  kind: MediaChannelKind
+  name: string
+  url?: string | null
+  language: MediaChannelLanguage
+  tone: string
+  audience: string
+  signature: string
+  active: boolean
   created_at: string
 }
 

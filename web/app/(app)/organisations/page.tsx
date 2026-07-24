@@ -2,6 +2,9 @@ export const dynamic = 'force-dynamic'
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { ORG_TYPES } from "@/lib/constants"
+import { manageableChannelOrgIds } from "@/lib/permissions"
+import type { Organization } from "@/lib/types"
+import OrgMediaChannels from "@/components/organisations/OrgMediaChannels"
 import { Plus } from "lucide-react"
 
 export default async function OrganisationsPage() {
@@ -9,10 +12,13 @@ export default async function OrganisationsPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/")
 
-  const { data: orgs } = await supabase
-    .from("organizations")
-    .select("*")
-    .order("name")
+  const [{ data: orgs }, { data: channels }] = await Promise.all([
+    supabase.from("organizations").select("*").order("name"),
+    supabase.from("org_media_channels").select("*").order("created_at"),
+  ])
+  const manageableOrgIds = await manageableChannelOrgIds(
+    supabase, user.id, (orgs ?? []).map((o: Organization) => o.id),
+  )
 
   return (
     <div className="p-8 max-w-5xl mx-auto">
@@ -67,6 +73,12 @@ export default async function OrganisationsPage() {
           <div className="p-12 text-center text-sm" style={{ color: "#66716B" }}>Aucune organisation</div>
         )}
       </div>
+
+      <OrgMediaChannels
+        orgs={(orgs ?? []).map((o: Organization) => ({ id: o.id, name: o.name }))}
+        channels={channels ?? []}
+        manageableOrgIds={manageableOrgIds}
+      />
     </div>
   )
 }

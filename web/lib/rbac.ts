@@ -42,4 +42,5 @@ export const RBAC_MATRIX: PermissionRow[] = [
   { key: 'audit.view', label: 'Consulter le journal d’audit', admin: true, roles: ALL },
   { key: 'users.manage', label: 'Gérer les utilisateurs et invitations', admin: true, roles: [] },
   { key: 'orgs.create', label: 'Créer une organisation', admin: true, roles: [] },
+  { key: 'comm.channels.manage', label: 'Gérer les canaux de communication', note: 'L’admin d’une organisation gère les canaux de sa propre organisation', admin: true, roles: [] },
 ]

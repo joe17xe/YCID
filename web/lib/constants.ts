@@ -99,6 +99,22 @@ export const MEETING_KINDS: Record<string, { label: string; fg: string; bg: stri
   terrain: { label: 'Réunion terrain', fg: '#8A6A1F', bg: '#F5EFE2' },
 }
 
+export const MEDIA_CHANNEL_KINDS: Record<string, { label: string; fg: string; bg: string }> = {
+  facebook: { label: 'Facebook', fg: '#3B5488', bg: '#E8ECF5' },
+  instagram: { label: 'Instagram', fg: '#6B4A8C', bg: '#F0E9F5' },
+  linkedin: { label: 'LinkedIn', fg: '#2C6B7E', bg: '#E7F1F4' },
+  site_web: { label: 'Site web', fg: '#0E6B5C', bg: '#E4F0EC' },
+  newsletter: { label: 'Newsletter', fg: '#8A6A1F', bg: '#F5EFE2' },
+  whatsapp: { label: 'WhatsApp', fg: '#0E6B5C', bg: '#E4F0EC' },
+  presse: { label: 'Presse', fg: '#66716B', bg: '#EEF0EE' },
+}
+
+export const MEDIA_CHANNEL_LANGUAGES: Record<string, string> = {
+  fr: 'Français',
+  en: 'Anglais',
+  ar: 'Arabe',
+}
+
 export const DOC_TYPES: Record<string, { label: string; hasAmount: boolean; payable?: boolean }> = {
   devis: { label: 'Devis', hasAmount: true },
   facture: { label: 'Facture', hasAmount: true, payable: true },

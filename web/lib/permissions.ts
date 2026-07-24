@@ -28,3 +28,31 @@ export async function canCreateProjects(supabase: SupabaseClient, userId: string
   const { data } = await supabase.from('memberships').select('org_id').eq('user_id', userId).eq('role', 'admin_org').limit(1)
   return (data ?? []).length > 0
 }
+
+// Gérer les canaux médias d'une organisation (comm.channels.manage) :
+// admins plateforme/YCID/LEY, ou admin de l'organisation concernée
+// (miroir de la policy RLS « Org admins manage media channels »).
+export async function canManageOrgChannels(supabase: SupabaseClient, userId: string, orgId: string): Promise<boolean> {
+  if (await isUserAdmin(supabase, userId)) return true
+  const { data } = await supabase
+    .from('memberships')
+    .select('org_id')
+    .eq('user_id', userId)
+    .eq('org_id', orgId)
+    .eq('role', 'admin_org')
+    .limit(1)
+  return (data ?? []).length > 0
+}
+
+// Organisations dont l'utilisateur peut gérer les canaux : toutes pour
+// les admins plateforme/YCID/LEY, sinon celles où il est admin_org.
+export async function manageableChannelOrgIds(
+  supabase: SupabaseClient,
+  userId: string,
+  allOrgIds: string[],
+): Promise<string[]> {
+  if (await isUserAdmin(supabase, userId)) return allOrgIds
+  const { data } = await supabase.from('memberships').select('org_id').eq('user_id', userId).eq('role', 'admin_org')
+  const mine = new Set((data ?? []).map(m => String(m.org_id)))
+  return allOrgIds.filter(id => mine.has(id))
+}
