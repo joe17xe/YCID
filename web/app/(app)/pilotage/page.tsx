@@ -24,6 +24,15 @@ export default async function PilotagePage() {
   const overdueDecisions = (decisions ?? []).filter((d: any) => d.due_date && d.due_date < today)
   const totalBudget = (projects ?? []).reduce((s: number, p: any) => s + (p.budget ?? 0), 0)
 
+  // Regroupement par pays (vision multi-niveaux, PR 27)
+  const byCountry = new Map<string, any[]>()
+  for (const p of projects ?? []) {
+    const key = (p.country ?? "").trim() || "Pays non renseigné"
+    if (!byCountry.has(key)) byCountry.set(key, [])
+    byCountry.get(key)!.push(p)
+  }
+  const countryGroups = [...byCountry.entries()].sort((a, b) => a[0].localeCompare(b[0], "fr"))
+
   return (
     <div className="p-8 max-w-6xl mx-auto">
       <div className="mb-8">
@@ -49,7 +58,7 @@ export default async function PilotagePage() {
       {/* Tableau projets */}
       <div className="bg-white rounded-2xl border overflow-hidden mb-6" style={{ borderColor: "#E3E6E2" }}>
         <div className="px-6 py-4 border-b" style={{ borderColor: "#E3E6E2" }}>
-          <h2 className="font-semibold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>Projets</h2>
+          <h2 className="font-semibold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>Projets par pays</h2>
         </div>
         <table className="w-full text-sm">
           <thead>
@@ -60,7 +69,21 @@ export default async function PilotagePage() {
             </tr>
           </thead>
           <tbody>
-            {(projects ?? []).map((p: any) => {
+            {countryGroups.map(([country, group]) => [
+              <tr key={`g-${country}`} style={{ background: "#FAFBFA", borderBottom: "1px solid #E3E6E2" }}>
+                <td className="px-5 py-2.5 font-semibold" style={{ color: "#17211D" }}>
+                  📍 {country} <span className="text-xs font-normal" style={{ color: "#66716B" }}>· {group.length} projet{group.length > 1 ? "s" : ""}</span>
+                </td>
+                <td />
+                <td className="px-5 py-2.5 text-xs" style={{ color: "#66716B" }}>
+                  {group.length ? Math.round(group.reduce((s: number, p: any) => s + progress(p), 0) / group.length) : 0}% moyen
+                </td>
+                <td className="px-5 py-2.5 text-xs font-semibold" style={{ color: "#17211D" }}>
+                  {fmtEur(group.reduce((s: number, p: any) => s + (p.budget ?? 0), 0))}
+                </td>
+                <td />
+              </tr>,
+              ...group.map((p: any) => {
               const s = PROJECT_STATUS[p.status] ?? { label: p.status, fg: "#66716B", bg: "#EEF0EE" }
               const prog = progress(p)
               const allTasks = (p.phases ?? []).flatMap((ph: any) => ph.tasks ?? [])
@@ -69,6 +92,7 @@ export default async function PilotagePage() {
                 <tr key={p.id} style={{ borderBottom: "1px solid #E3E6E2" }}>
                   <td className="px-5 py-3">
                     <Link href={`/projets/${p.id}`} className="font-medium hover:underline" style={{ color: "var(--brand-accent,#0E6B5C)" }}>{p.name}</Link>
+                    {p.programme && <span className="ml-2 text-xs px-2 py-0.5 rounded-full" style={{ background: "#F0E9F5", color: "#6B4A8C" }}>{p.programme}</span>}
                   </td>
                   <td className="px-5 py-3">
                     <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: s.bg, color: s.fg }}>{s.label}</span>
@@ -93,7 +117,8 @@ export default async function PilotagePage() {
                   </td>
                 </tr>
               )
-            })}
+            }),
+            ])}
           </tbody>
         </table>
       </div>

@@ -112,6 +112,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
           <div className="flex items-center gap-3 mb-1">
             <h1 className="text-2xl font-bold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>{project.name}</h1>
             <Badge label={s.label} fg={s.fg} bg={s.bg} />
+            {project.programme && <Badge label={project.programme} fg="#6B4A8C" bg="#F0E9F5" />}
           </div>
           {project.description && <p className="text-sm" style={{ color: "#66716B" }}>{project.description}</p>}
         </div>

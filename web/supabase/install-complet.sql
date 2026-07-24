@@ -1329,6 +1329,12 @@ drop policy if exists "Responsible update campaigns" on comm_campaigns;
 create policy "Responsible update campaigns" on comm_campaigns
   for update using (responsible_id = auth.uid()) with check (responsible_id = auth.uid());
 
+-- ============================================================
+-- MIGRATION 0020 — Programme de rattachement (PR 27)
+-- ============================================================
+alter table projects add column if not exists programme text;
+update projects set programme = 'CEM' where programme is null;
+
 -- ============================================================================
 -- CORRECTIF FINAL — promotion du premier admin depuis le SQL Editor
 -- ============================================================================
