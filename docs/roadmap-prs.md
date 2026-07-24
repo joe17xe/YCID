@@ -135,6 +135,27 @@ Décision actée : next-intl en mode cookie (sans routage par préfixe d'URL),
 sélecteur FR/EN dans le menu compte, traduction progressive (navigation et
 en-têtes d'abord) — la traduction complète attend la stabilisation des CRUD.
 
+## 🟣 Phase Communication — chaque réalisation est un événement
+
+Spécification détaillée : `spec-pr25-27-communication-ia.md`.
+
+### PR 25 — Canaux médias par organisation
+Table `org_media_channels` + RLS ; chaque organisation paramètre ses canaux
+disponibles (Facebook, Instagram, LinkedIn, site web, newsletter, WhatsApp,
+presse) avec langue, ton, audience, signature. Bloc CRUD dans la page
+Organisations, permission `comm.channels.manage`.
+
+### PR 26 — Fil d'événements de communication
+Table `comm_events` + RLS ; chaque réalisation devient un événement (trigger
+sur tâche terminée, réunion, décision, + création manuelle). Onglet
+« Communication » du projet avec fil chronologique.
+
+### PR 27 — Génération de contenu IA + workflow de validation
+Table `comm_contents` + RLS ; server action Claude API (`@anthropic-ai/sdk`,
+sortie structurée JSON) générant une proposition de contenu par canal
+sélectionné ; workflow proposé → validé → publié avec audit et notifications.
+Rien n'est diffusé sans validation humaine.
+
 ---
 
 **Logique d'ensemble** : les phases 0-1 rendent l'application sûre et
