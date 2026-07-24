@@ -11,6 +11,7 @@ import TaskDialog from "@/components/tasks/TaskDialog"
 import { BudgetLineDialog, IndicatorDialog, MeasureDialog, MeetingDialog, DecisionDialog } from "@/components/project/ProjectDataDialogs"
 import { MemberDialog, RemoveMemberButton } from "@/components/project/MemberDialog"
 import HelpDialog from "@/components/help/HelpDialog"
+import DeleteProjectButton from "@/components/project/DeleteProjectButton"
 import { ChevronLeft } from "lucide-react"
 
 function Badge({ label, fg, bg }: { label: string; fg: string; bg: string }) {
@@ -82,9 +83,12 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
 
   return (
     <div className="p-8 max-w-6xl mx-auto">
-      <Link href="/projets" className="inline-flex items-center gap-1 text-sm mb-6" style={{ color: "#66716B" }}>
-        <ChevronLeft size={16} /> Projets
-      </Link>
+      <div className="flex items-center justify-between mb-6">
+        <Link href="/projets" className="inline-flex items-center gap-1 text-sm" style={{ color: "#66716B" }}>
+          <ChevronLeft size={16} /> Projets
+        </Link>
+        {canEditCompleted && <DeleteProjectButton projectId={id} projectName={project.name} />}
+      </div>
 
       <div className="flex flex-wrap items-start gap-4 mb-6">
         <div className="flex-1">
