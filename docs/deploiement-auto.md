@@ -9,7 +9,23 @@ Le workflow : `.github/workflows/deploy.yml` (déclenché sur push `master`
 
 ---
 
-## Installation du runner (une seule fois, sur le VPS)
+## Installation du runner — script clé en main (recommandé)
+
+Sur le VPS, après un `git pull` dans `/opt/ycid-app` :
+
+1. Récupérez un token : GitHub → dépôt YCID → **Settings → Actions →
+   Runners → New self-hosted runner → Linux** → copiez le token affiché
+   après `--token`.
+2. Lancez :
+   ```bash
+   sudo bash /opt/ycid-app/scripts/setup-runner.sh <TOKEN>
+   ```
+   Le script pose les droits sudo, télécharge, configure (label `ycid`)
+   et démarre le runner en service. C'est tout.
+
+---
+
+## Installation manuelle (une seule fois, sur le VPS)
 
 À faire avec Claude Code sur le VPS, ou à la main. Le runner doit porter
 les labels **`self-hosted`** et **`ycid`** (ceux attendus par le workflow).
