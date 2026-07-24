@@ -1,4 +1,5 @@
 ﻿export const dynamic = 'force-dynamic'
+import Link from "next/link"
 import LoginForm from "@/components/auth/LoginForm"
 import { getPlatformSettings } from "@/lib/settings"
 
@@ -20,6 +21,11 @@ export default async function LoginPage() {
           <p className="mt-2" style={{ color: "#66716B" }}>{s.tagline}</p>
         </div>
         <LoginForm />
+        <p className="mt-6 text-center text-xs" style={{ color: "#66716B" }}>
+          <Link href="/mentions-legales" className="underline">Mentions légales</Link>
+          {" · "}
+          <Link href="/confidentialite" className="underline">Confidentialité</Link>
+        </p>
       </div>
     </div>
   )
