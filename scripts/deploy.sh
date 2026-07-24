@@ -28,6 +28,14 @@ sudo -u "$RUN_AS" git -C "$APP_DIR" pull origin master
 echo "==> 3/6 Dépendances"
 sudo -u "$RUN_AS" bash -c "cd '$APP_DIR' && npm ci --no-audit --no-fund"
 
+# Migrations SQL automatiques — opt-in : uniquement si RUN_MIGRATIONS=1
+# et DATABASE_URL défini (voir docs/deploiement-auto.md). Par défaut,
+# les migrations restent manuelles dans le SQL Editor (sûr).
+if [ "${RUN_MIGRATIONS:-0}" = "1" ] && [ -n "${DATABASE_URL:-}" ]; then
+  echo "==> 3bis Migrations SQL en attente"
+  bash "$(dirname "$0")/migrate.sh"
+fi
+
 VERSION="$(sudo -u "$RUN_AS" git -C "$APP_DIR" rev-parse --short HEAD)"
 BUILD_TIME="$(date '+%d/%m/%Y %H:%M')"
 echo "==> 4/6 Build (version $VERSION — $BUILD_TIME)"

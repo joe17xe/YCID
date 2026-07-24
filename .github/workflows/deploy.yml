@@ -1,0 +1,22 @@
+name: Déploiement Solid'Pilot
+
+# Déploiement automatique : à chaque push sur master (donc à chaque merge
+# de PR), le runner self-hosted installé sur le VPS exécute deploy.sh.
+# Déclenchable aussi à la main depuis l'onglet Actions (workflow_dispatch).
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # Le runner self-hosted enregistré sur le VPS doit porter ces labels.
+    runs-on: [self-hosted, ycid]
+    steps:
+      - name: Déployer (pull + build + restart pm2 + vérif)
+        run: sudo -n bash /opt/ycid-app/scripts/deploy.sh
