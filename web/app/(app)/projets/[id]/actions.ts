@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
-import { canEditCompletedTasks, canManagePhases, canManageTasks, canManageBudget, canManageMeetings } from '@/lib/permissions'
+import { canEditCompletedTasks, canManagePhases, canManageTasks, canManageBudget, canManageMeetings, isUserAdmin } from '@/lib/permissions'
 import type { TaskStatus } from '@/lib/types'
 
 const TASK_STATUSES: TaskStatus[] = ['a_faire', 'en_cours', 'terminee', 'bloquee']
@@ -469,5 +469,29 @@ export async function removeProjectMember(input: { projectId: string; userId: st
     label: `${profile?.full_name ?? input.userId} retiré du projet`, action: 'archive', user_id: user.id,
   })
   revalidatePath(`/projets/${input.projectId}`)
+  return { ok: true }
+}
+
+// ============================================================
+// Suppression de projet (admin, double confirmation)
+// ============================================================
+
+
+export async function deleteProject(input: { projectId: string; confirmation: string }): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Non authentifié.' }
+  if (!(await isUserAdmin(supabase, user.id))) {
+    return { ok: false, error: 'La suppression de projet est réservée aux administrateurs YCID / LEY.' }
+  }
+  const { data: project } = await supabase.from('projects').select('name').eq('id', input.projectId).maybeSingle()
+  if (!project) return { ok: false, error: 'Projet introuvable.' }
+  // Double confirmation : saisir le nom exact du projet
+  if ((input.confirmation ?? '').trim() !== project.name.trim()) {
+    return { ok: false, error: 'Le nom saisi ne correspond pas — suppression annulée.' }
+  }
+  const { error } = await supabase.from('projects').delete().eq('id', input.projectId)
+  if (error) return { ok: false, error: `Échec de la suppression : ${error.message}` }
+  revalidatePath('/projets')
   return { ok: true }
 }
