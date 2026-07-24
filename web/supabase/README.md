@@ -19,6 +19,7 @@ SQL Editor Supabase (ou via `supabase db push` avec la CLI) :
 | `migrations/0012_import_runs.sql` | Journal des imports CSV (table import_runs + RLS) |
 | `migrations/0013_admin_manage_project_data.sql` | Les admins gèrent budget, indicateurs, mesures, réunions, décisions |
 | `migrations/0014_roadmap.sql` | Roadmap participative : ideas, idea_votes, idea_comments + RLS |
+| `migrations/0015_project_members_mgmt.sql` | Gestion des membres : admins YCID/LEY + lecture des profils par les connectés |
 
 `seed.sql` contient les données de démonstration CEM Liban et s'exécute
 **après** les migrations, uniquement sur un environnement de démo.

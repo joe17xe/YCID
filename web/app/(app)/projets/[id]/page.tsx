@@ -2,13 +2,14 @@ export const dynamic = 'force-dynamic'
 import { createClient } from "@/lib/supabase/server"
 import { redirect, notFound } from "next/navigation"
 import Link from "next/link"
-import { PROJECT_STATUS, PROJECT_ROLES, TASK_STATUS, REVIEW_STATES, fmtEur, fmtDate, LINE_STATUS, LINE_CATEGORIES, IND_KINDS, DECISION_STATUS, MEETING_KINDS } from "@/lib/constants"
+import { PROJECT_STATUS, PROJECT_ROLES, ACCESS_ROLES, TASK_STATUS, REVIEW_STATES, fmtEur, fmtDate, LINE_STATUS, LINE_CATEGORIES, IND_KINDS, DECISION_STATUS, MEETING_KINDS } from "@/lib/constants"
 import { canEditCompletedTasks, getProjectRole } from "@/lib/permissions"
 import { TAB_HELP } from "@/lib/help-content"
 import EditCompletedTaskDialog from "@/components/tasks/EditCompletedTaskDialog"
 import PhaseDialog from "@/components/tasks/PhaseDialog"
 import TaskDialog from "@/components/tasks/TaskDialog"
 import { BudgetLineDialog, IndicatorDialog, MeasureDialog, MeetingDialog, DecisionDialog } from "@/components/project/ProjectDataDialogs"
+import { MemberDialog, RemoveMemberButton } from "@/components/project/MemberDialog"
 import HelpDialog from "@/components/help/HelpDialog"
 import { ChevronLeft } from "lucide-react"
 
@@ -55,6 +56,12 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
     .sort((a: any, b: any) => a.name.localeCompare(b.name, "fr"))
   const { data: orgsAll } = await supabase.from("organizations").select("id, name").eq("status", "active").order("name")
   const orgOptions = (orgsAll ?? []).map((o: any) => ({ id: o.id, name: o.name }))
+  // Candidats à l'ajout comme membre : comptes existants pas encore membres
+  const { data: allProfiles } = await supabase.from("profiles").select("id, full_name, email").order("full_name")
+  const memberIds = new Set((project.project_members ?? []).map((pm: any) => pm.user_id))
+  const memberCandidates = (allProfiles ?? [])
+    .filter((p: any) => !memberIds.has(p.id))
+    .map((p: any) => ({ id: p.id, name: p.full_name ?? "", email: p.email ?? "" }))
   const phaseOptions = (phases ?? []).map((ph: any) => ({ id: ph.id, name: ph.name }))
 
   const allTasks = (phases ?? []).flatMap((ph: any) => ph.tasks ?? [])
@@ -146,20 +153,31 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
           </div>
           {/* Membres */}
           <div className="bg-white rounded-2xl border p-6" style={{ borderColor: "#E3E6E2" }}>
-            <h2 className="font-semibold mb-4" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>Membres ({(project.project_members ?? []).length})</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-semibold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>Membres ({(project.project_members ?? []).length})</h2>
+              {canPhases && <MemberDialog projectId={id} candidates={memberCandidates} />}
+            </div>
             <div className="space-y-2">
               {(project.project_members ?? []).map((pm: any) => {
-                const r = { label: pm.role.replace("_", " "), fg: "#66716B", bg: "#EEF0EE" }
+                const r = ACCESS_ROLES[pm.role] ?? { label: pm.role.replace(/_/g, " "), short: pm.role, fg: "#66716B", bg: "#EEF0EE" }
                 return (
-                  <div key={pm.user_id} className="flex items-center justify-between">
+                  <div key={pm.user_id} className="flex items-center justify-between gap-2">
                     <div>
                       <div className="text-sm font-medium" style={{ color: "#17211D" }}>{pm.profiles?.full_name}</div>
                       <div className="text-xs" style={{ color: "#66716B" }}>{pm.profiles?.email}</div>
                     </div>
-                    <Badge label={pm.role.replace(/_/g, " ")} fg={r.fg} bg={r.bg} />
+                    <div className="flex items-center gap-1.5">
+                      <Badge label={r.short ?? r.label} fg={r.fg} bg={r.bg} />
+                      {canPhases && <RemoveMemberButton projectId={id} userId={pm.user_id} name={pm.profiles?.full_name ?? ""} />}
+                    </div>
                   </div>
                 )
               })}
+              {!(project.project_members ?? []).length && (
+                <p className="text-sm" style={{ color: "#66716B" }}>
+                  Aucun membre — ajoutez les utilisateurs invités pour leur donner accès au projet.
+                </p>
+              )}
             </div>
           </div>
         </div>
