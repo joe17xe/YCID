@@ -9,7 +9,7 @@ import EditCompletedTaskDialog from "@/components/tasks/EditCompletedTaskDialog"
 import PhaseDialog from "@/components/tasks/PhaseDialog"
 import TaskDialog from "@/components/tasks/TaskDialog"
 import { BudgetLineDialog, IndicatorDialog, MeasureDialog, MeetingDialog, DecisionDialog } from "@/components/project/ProjectDataDialogs"
-import { MemberDialog, RemoveMemberButton } from "@/components/project/MemberDialog"
+import { MemberDialog, InviteUserDialog, RemoveMemberButton } from "@/components/project/MemberDialog"
 import HelpDialog from "@/components/help/HelpDialog"
 import DeleteProjectButton from "@/components/project/DeleteProjectButton"
 import ExpertReportDialog from "@/components/project/ExpertReportDialog"
@@ -177,7 +177,12 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
           <div className="bg-white rounded-2xl border p-6" style={{ borderColor: "#E3E6E2" }}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-semibold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>Membres ({(project.project_members ?? []).length})</h2>
-              {canPhases && <MemberDialog projectId={id} candidates={memberCandidates} />}
+              {canPhases && (
+                <span className="flex items-center gap-1.5">
+                  <InviteUserDialog projectId={id} />
+                  <MemberDialog projectId={id} candidates={memberCandidates} />
+                </span>
+              )}
             </div>
             <div className="space-y-2">
               {(project.project_members ?? []).map((pm: any) => {

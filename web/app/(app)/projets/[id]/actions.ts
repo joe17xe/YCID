@@ -1,7 +1,9 @@
 'use server'
 
+import { randomBytes } from 'crypto'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { adminClient } from '@/lib/supabase/admin'
 import { canEditCompletedTasks, canManagePhases, canManageTasks, canManageBudget, canManageMeetings, isUserAdmin } from '@/lib/permissions'
 import { notifyUser } from '@/lib/notify'
 import type { TaskStatus } from '@/lib/types'
@@ -468,6 +470,75 @@ export async function addProjectMember(input: { projectId: string; userId: strin
 
   revalidatePath(`/projets/${input.projectId}`)
   return { ok: true }
+}
+
+// ------------------------------------------------------------
+// PR 29 — Délégation : le chef de projet crée un compte rattaché
+// à SON projet uniquement. Le compte est toujours « Utilisateur »
+// (jamais admin), invisible ailleurs. Modèle validé le 24/07/2026 :
+// admin → tout ; YCID → tout sauf admins ; asso → son projet.
+// ------------------------------------------------------------
+export async function createProjectUser(input: {
+  projectId: string; fullName: string; email: string; role: string
+}): Promise<{ ok: boolean; error?: string; tempPassword?: string }> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: false, error: 'Non authentifié.' }
+    if (!(await canManagePhases(supabase, user.id, input.projectId))) {
+      return { ok: false, error: 'Invitation réservée au chef de projet et aux admins.' }
+    }
+    const fullName = (input.fullName ?? '').trim()
+    if (!fullName) return { ok: false, error: 'Le nom complet est obligatoire.' }
+    const email = (input.email ?? '').trim().toLowerCase()
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, error: 'Adresse email invalide.' }
+    if (!MEMBER_ROLES.includes(input.role)) return { ok: false, error: 'Rôle invalide.' }
+
+    const admin = adminClient()
+    if (!admin) return { ok: false, error: "Invitation non configurée : ajoutez SUPABASE_SERVICE_ROLE_KEY au serveur." }
+
+    // Mot de passe temporaire (16 caractères) montré une seule fois au chef
+    const tempPassword = randomBytes(12).toString('base64url')
+
+    const { data: created, error } = await admin.auth.admin.createUser({
+      email, password: tempPassword, email_confirm: true,
+      user_metadata: { full_name: fullName },
+    })
+    if (error) {
+      console.error('[createProjectUser] échec createUser:', { email, status: (error as { status?: number }).status, message: error.message })
+      if ((error as { status?: number }).status === 422 || /already|exist|registered|duplicate/i.test(error.message)) {
+        return { ok: false, error: 'Un compte existe déjà avec cet email — ajoutez-le comme membre via « Ajouter un membre ».' }
+      }
+      return { ok: false, error: `Échec de la création du compte : ${error.message}` }
+    }
+    const newUserId = created.user!.id
+
+    // Toujours simple Utilisateur — la délégation ne crée jamais d'admin
+    const { error: pErr } = await admin.from('profiles').update({
+      full_name: fullName, platform_role: 'user', is_platform_admin: false, active: true,
+    }).eq('id', newUserId)
+    if (pErr) console.error('[createProjectUser] profil non complété:', pErr.message)
+
+    const { error: mErr } = await admin.from('project_members').insert({
+      project_id: input.projectId, user_id: newUserId, role: input.role,
+    })
+    if (mErr) {
+      console.error('[createProjectUser] rattachement projet échoué:', mErr.message)
+      return { ok: false, error: `Compte créé mais rattachement au projet échoué : ${mErr.message}`, tempPassword }
+    }
+
+    await supabase.from('audit_log').insert({
+      project_id: input.projectId, entity: 'project_member', entity_id: newUserId,
+      label: `${fullName} — ${input.role}`, action: 'cree', user_id: user.id,
+      comment: 'Compte créé par délégation (chef de projet)',
+    })
+
+    revalidatePath(`/projets/${input.projectId}`)
+    return { ok: true, tempPassword }
+  } catch (e) {
+    console.error('[createProjectUser] exception:', e)
+    return { ok: false, error: `Échec : ${e instanceof Error ? e.message : String(e)}` }
+  }
 }
 
 export async function removeProjectMember(input: { projectId: string; userId: string }): Promise<{ ok: boolean; error?: string }> {
