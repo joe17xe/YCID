@@ -12,6 +12,7 @@ export interface CreateProjectInput {
   description: string
   country: string
   zone: string
+  programme: string
   start_date: string
   end_date: string
   status: ProjectStatus
@@ -59,6 +60,12 @@ export async function createProject(input: CreateProjectInput): Promise<{ ok: bo
     .single()
   if (insertError || !project) {
     return { ok: false, error: `Échec de la création : ${insertError?.message ?? 'erreur inconnue'}` }
+  }
+
+  // Programme (colonne 0020) — mise à jour séparée pour rester compatible
+  // tant que la migration n'est pas appliquée (échec silencieux acceptable)
+  if (input.programme?.trim()) {
+    await supabase.from('projects').update({ programme: input.programme.trim() }).eq('id', project.id)
   }
 
   // Organisation porteuse + créateur chef de projet (policies « bootstrap » 0008)

@@ -16,6 +16,7 @@ export default function NewProjectForm({ orgs }: { orgs: { id: string; name: str
     description: "",
     country: "",
     zone: "",
+    programme: "CEM",
     start_date: "",
     end_date: "",
     status: "en_preparation" as ProjectStatus,
@@ -70,6 +71,11 @@ export default function NewProjectForm({ orgs }: { orgs: { id: string; name: str
           <label className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Zone</label>
           <input value={form.zone} onChange={e => setForm({ ...form, zone: e.target.value })}
             className={inputCls} style={{ borderColor: "#E3E6E2" }} placeholder="Azour (Jezzine)" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Programme</label>
+          <input value={form.programme} onChange={e => setForm({ ...form, programme: e.target.value })}
+            className={inputCls} style={{ borderColor: "#E3E6E2" }} placeholder="CEM" />
         </div>
         <div>
           <label className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Date de début</label>
