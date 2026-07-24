@@ -46,6 +46,18 @@ html[data-textsize="tres-grand"] { font-size: 20px; }
    centralisé, PR 11) */
 html[data-contrast="high"] { filter: contrast(1.2); }
 
+/* ============================================================
+   Mode mobile — les tableaux larges défilent horizontalement
+   au lieu de casser la mise en page (< 768px).
+   ============================================================ */
+@media (max-width: 767px) {
+  main table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
 /* Réduction des animations */
 html[data-motion="reduced"] *,
 html[data-motion="reduced"] *::before,

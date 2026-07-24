@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Icône PWA par défaut : pastille de la marque (accent par défaut). -->
+  <rect width="512" height="512" rx="112" fill="#0E6B5C"/>
+  <circle cx="256" cy="204" r="62" fill="#E4F0EC"/>
+  <path d="M256 296c-74 0-134 42-134 108v20h268v-20c0-66-60-108-134-108z" fill="#E4F0EC"/>
+</svg>

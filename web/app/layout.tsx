@@ -1,4 +1,4 @@
-﻿import type { Metadata } from 'next'
+﻿import type { Metadata, Viewport } from 'next'
 import { Sora, Inter } from 'next/font/google'
 import { NextIntlClientProvider } from 'next-intl'
 import { getLocale } from 'next-intl/server'
@@ -14,6 +14,12 @@ export async function generateMetadata(): Promise<Metadata> {
     title: `${s.brandName} — YCID`,
     description: s.tagline,
   }
+}
+
+// Couleur de la barre du navigateur mobile = couleur d'accent de la marque
+export async function generateViewport(): Promise<Viewport> {
+  const s = await getPlatformSettings()
+  return { themeColor: s.accentColor }
 }
 
 // Applique les préférences d'apparence avant le premier rendu (pas de flash)

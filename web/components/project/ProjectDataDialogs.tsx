@@ -85,7 +85,7 @@ export function BudgetLineDialog({ projectId, orgs, phases, line }: {
               <label className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Poste *</label>
               <input value={form.poste} onChange={e => setForm({ ...form, poste: e.target.value })} required className={inputCls} style={border} />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Catégorie</label>
                 <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className={inputCls} style={border}>
@@ -167,7 +167,7 @@ export function IndicatorDialog({ projectId, phases }: { projectId: string; phas
               <label className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Description</label>
               <input value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className={inputCls} style={border} />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Type</label>
                 <select value={form.kind} onChange={e => setForm({ ...form, kind: e.target.value })} className={inputCls} style={border}>
@@ -215,7 +215,7 @@ export function MeasureDialog({ indicatorId, indicatorName, unit }: { indicatorI
       {d.open && (
         <Modal title={`Nouvelle mesure — ${indicatorName}`} onClose={() => d.setOpen(false)}>
           <form onSubmit={d.submit} className="p-5 space-y-3">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Période *</label>
                 <input value={form.period} onChange={e => setForm({ ...form, period: e.target.value })} required placeholder="2026-T3" className={inputCls} style={border} />
@@ -254,7 +254,7 @@ export function MeetingDialog({ projectId }: { projectId: string }) {
               <label className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Titre *</label>
               <input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} required className={inputCls} style={border} />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Type</label>
                 <select value={form.kind} onChange={e => setForm({ ...form, kind: e.target.value })} className={inputCls} style={border}>
@@ -305,7 +305,7 @@ export function DecisionDialog({ projectId, meetingId, members, decision }: {
               <label className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Décision *</label>
               <textarea value={form.text} onChange={e => setForm({ ...form, text: e.target.value })} rows={2} required className={inputCls} style={border} />
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Responsable</label>
                 <select value={form.owner_user_id} onChange={e => setForm({ ...form, owner_user_id: e.target.value })} className={inputCls} style={border}>

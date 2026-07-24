@@ -103,7 +103,7 @@ export default function BrandForm({ settings }: { settings: PlatformSettings }) 
         </div>
 
         {/* Couleurs */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <ColorField label="COULEUR D'ACCENT" value={form.accentColor} onChange={v => set("accentColor", v)} />
           <ColorField label="ACCENT SECONDAIRE (FOND)" value={form.accentSoftColor} onChange={v => set("accentSoftColor", v)} />
         </div>

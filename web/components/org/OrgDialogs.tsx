@@ -60,7 +60,7 @@ export function OrgDialog({ org }: { org?: OrgData }) {
               <label className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Nom *</label>
               <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required className={inputCls} style={border} />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Type</label>
                 <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value })} className={inputCls} style={border}>

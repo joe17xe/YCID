@@ -46,7 +46,7 @@ export default function Header({ name, email, avatarUrl, roles, isAdmin }: Heade
   }
 
   return (
-    <header className="sticky top-0 z-40 flex items-center justify-end gap-3 px-6 py-3 border-b bg-white" style={{ borderColor: "#E3E6E2" }}>
+    <header className="sticky top-0 z-40 hidden md:flex items-center justify-end gap-3 px-6 py-3 border-b bg-white" style={{ borderColor: "#E3E6E2" }}>
       {/* Emplacement futur : cloche de notifications (PR 19) */}
       <div className="relative">
         <button
