@@ -13,6 +13,7 @@ import { MemberDialog, RemoveMemberButton } from "@/components/project/MemberDia
 import HelpDialog from "@/components/help/HelpDialog"
 import DeleteProjectButton from "@/components/project/DeleteProjectButton"
 import ExpertReportDialog from "@/components/project/ExpertReportDialog"
+import CommPanel, { type Campaign } from "@/components/project/CommPanel"
 import { ChevronLeft } from "lucide-react"
 
 function Badge({ label, fg, bg }: { label: string; fg: string; bg: string }) {
@@ -66,6 +67,17 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
     .map((p: any) => ({ id: p.id, name: p.full_name ?? "", email: p.email ?? "" }))
   const phaseOptions = (phases ?? []).map((ph: any) => ({ id: ph.id, name: ph.name }))
 
+  // Campagnes de communication (PR 26) — tolère l'absence de la table
+  // tant que la migration 0019 n'est pas appliquée.
+  const { data: rawCampaigns, error: commError } = await supabase
+    .from("comm_campaigns")
+    .select("*, responsible:responsible_id(full_name)")
+    .eq("project_id", id)
+    .order("scheduled_date")
+  const campaigns: Campaign[] = (rawCampaigns ?? []).map((c: any) => ({
+    ...c, responsible_name: c.responsible?.full_name ?? null,
+  }))
+
   const allTasks = (phases ?? []).flatMap((ph: any) => ph.tasks ?? [])
   const projectProgress = allTasks.length ? Math.round(allTasks.reduce((s: number, t: any) => s + t.progress, 0) / allTasks.length) : 0
   const s = PROJECT_STATUS[project.status] ?? { label: project.status, fg: "#66716B", bg: "#EEF0EE" }
@@ -79,6 +91,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
     { key: "budget", label: "Budget" },
     { key: "impact", label: "Impact" },
     { key: "copil", label: "COPIL" },
+    { key: "comm", label: `Communication${campaigns.length ? ` (${campaigns.length})` : ""}` },
     { key: "audit", label: "Journal" },
   ]
 
@@ -456,6 +469,17 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
           })}
           {!(meetings ?? []).length && <div className="text-center py-12 text-sm" style={{ color: "#66716B" }}>Aucune réunion enregistrée</div>}
         </div>
+      )}
+
+      {/* ===== COMMUNICATION (PR 26) ===== */}
+      {tab === "comm" && (
+        commError ? (
+          <div className="bg-white rounded-2xl border p-8 text-center text-sm" style={{ borderColor: "#E3E6E2", color: "#66716B" }}>
+            Module Communication non activé : appliquez la migration <strong>0019_comm_campaigns.sql</strong> dans le SQL Editor Supabase.
+          </div>
+        ) : (
+          <CommPanel projectId={id} campaigns={campaigns} members={memberOptions} canManage={canPhases} userId={user.id} />
+        )
       )}
 
       {/* ===== AUDIT ===== */}
