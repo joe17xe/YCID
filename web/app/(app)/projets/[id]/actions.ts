@@ -412,3 +412,62 @@ export async function saveDecision(input: DecisionInput): Promise<{ ok: boolean;
   revalidatePath(`/projets/${input.projectId}`)
   return { ok: true }
 }
+
+// ============================================================
+// Gestion des membres du projet
+// ============================================================
+
+const MEMBER_ROLES = ['chef_projet', 'resp_financier', 'contributeur', 'validateur', 'auditeur', 'lecteur']
+
+export async function addProjectMember(input: { projectId: string; userId: string; role: string }): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Non authentifié.' }
+  if (!(await canManagePhases(supabase, user.id, input.projectId))) {
+    return { ok: false, error: 'Gestion des membres réservée au chef de projet et aux admins.' }
+  }
+  if (!input.userId) return { ok: false, error: 'Choisissez un utilisateur.' }
+  if (!MEMBER_ROLES.includes(input.role)) return { ok: false, error: 'Rôle invalide.' }
+
+  const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', input.userId).maybeSingle()
+  if (!profile) return { ok: false, error: 'Utilisateur introuvable.' }
+
+  const { error } = await supabase.from('project_members').insert({
+    project_id: input.projectId, user_id: input.userId, role: input.role,
+  })
+  if (error) {
+    if (error.code === '23505') return { ok: false, error: 'Cet utilisateur est déjà membre du projet.' }
+    return { ok: false, error: `Échec de l'ajout : ${error.message}` }
+  }
+  await supabase.from('audit_log').insert({
+    project_id: input.projectId, entity: 'project_member', entity_id: input.userId,
+    label: `${profile.full_name} — ${input.role}`, action: 'cree', user_id: user.id,
+  })
+  revalidatePath(`/projets/${input.projectId}`)
+  return { ok: true }
+}
+
+export async function removeProjectMember(input: { projectId: string; userId: string }): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Non authentifié.' }
+  if (!(await canManagePhases(supabase, user.id, input.projectId))) {
+    return { ok: false, error: 'Gestion des membres réservée au chef de projet et aux admins.' }
+  }
+  // Garde-fou : ne pas retirer le dernier chef de projet
+  const { data: chefs } = await supabase.from('project_members')
+    .select('user_id').eq('project_id', input.projectId).eq('role', 'chef_projet')
+  const isLastChef = (chefs ?? []).length === 1 && chefs?.[0]?.user_id === input.userId
+  if (isLastChef) return { ok: false, error: 'Impossible de retirer le dernier chef de projet.' }
+
+  const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', input.userId).maybeSingle()
+  const { error } = await supabase.from('project_members')
+    .delete().eq('project_id', input.projectId).eq('user_id', input.userId)
+  if (error) return { ok: false, error: `Échec du retrait : ${error.message}` }
+  await supabase.from('audit_log').insert({
+    project_id: input.projectId, entity: 'project_member', entity_id: input.userId,
+    label: `${profile?.full_name ?? input.userId} retiré du projet`, action: 'archive', user_id: user.id,
+  })
+  revalidatePath(`/projets/${input.projectId}`)
+  return { ok: true }
+}
