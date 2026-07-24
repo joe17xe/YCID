@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { canEditCompletedTasks, canManagePhases, canManageTasks, canManageBudget, canManageMeetings, isUserAdmin } from '@/lib/permissions'
+import { notifyUser } from '@/lib/notify'
 import type { TaskStatus } from '@/lib/types'
 
 const TASK_STATUSES: TaskStatus[] = ['a_faire', 'en_cours', 'terminee', 'bloquee']
@@ -188,12 +189,14 @@ export async function saveTask(input: TaskInput): Promise<{ ok: boolean; error?:
     progress,
   }
 
+  let previousAssignee: string | null = null
   if (input.taskId) {
-    const { data: task } = await supabase.from('tasks').select('id, status, phase_id').eq('id', input.taskId).maybeSingle()
+    const { data: task } = await supabase.from('tasks').select('id, status, phase_id, assignee_id').eq('id', input.taskId).maybeSingle()
     if (!task || task.phase_id !== input.phaseId) return { ok: false, error: 'Tâche introuvable.' }
     if (task.status === 'terminee') {
       return { ok: false, error: 'Cette tâche est terminée : utilisez la réouverture avec double confirmation (bouton Modifier réservé aux admins).' }
     }
+    previousAssignee = task.assignee_id ?? null
     const { error } = await supabase.from('tasks').update(values).eq('id', input.taskId)
     if (error) return { ok: false, error: `Échec de la modification : ${error.message}` }
     await supabase.from('audit_log').insert({ project_id: phase.project_id, entity: 'task', entity_id: input.taskId, label: title, action: 'modifie', user_id: user.id })
@@ -204,6 +207,16 @@ export async function saveTask(input: TaskInput): Promise<{ ok: boolean; error?:
     if (error) return { ok: false, error: `Échec de la création : ${error.message}` }
     await supabase.from('audit_log').insert({ project_id: phase.project_id, entity: 'task', entity_id: created?.id, label: title, action: 'cree', user_id: user.id })
   }
+
+  // Notification à l'assigné (nouvelle assignation seulement, jamais soi-même)
+  if (values.assignee_id && values.assignee_id !== user.id && values.assignee_id !== previousAssignee) {
+    const { data: project } = await supabase.from('projects').select('name').eq('id', phase.project_id).maybeSingle()
+    await notifyUser(values.assignee_id, 'task_assigned', {
+      title: `Tâche « ${title} » vous a été assignée${project?.name ? ` — ${project.name}` : ''}`,
+      href: `/projets/${phase.project_id}`,
+    })
+  }
+
   revalidatePath(`/projets/${phase.project_id}`)
   return { ok: true }
 }
@@ -443,6 +456,16 @@ export async function addProjectMember(input: { projectId: string; userId: strin
     project_id: input.projectId, entity: 'project_member', entity_id: input.userId,
     label: `${profile.full_name} — ${input.role}`, action: 'cree', user_id: user.id,
   })
+
+  // Notification au nouveau membre
+  if (input.userId !== user.id) {
+    const { data: project } = await supabase.from('projects').select('name').eq('id', input.projectId).maybeSingle()
+    await notifyUser(input.userId, 'member_added', {
+      title: `Vous avez été ajouté au projet${project?.name ? ` « ${project.name} »` : ''}`,
+      href: `/projets/${input.projectId}`,
+    })
+  }
+
   revalidatePath(`/projets/${input.projectId}`)
   return { ok: true }
 }
