@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Settings, LogOut, ChevronDown } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
+import NotificationsBell from "@/components/layout/NotificationsBell"
 import { useTranslations, useLocale } from "next-intl"
 
 export interface HeaderRole { label: string; project: string }
@@ -47,7 +48,7 @@ export default function Header({ name, email, avatarUrl, roles, isAdmin }: Heade
 
   return (
     <header className="sticky top-0 z-40 hidden md:flex items-center justify-end gap-3 px-6 py-3 border-b bg-white" style={{ borderColor: "#E3E6E2" }}>
-      {/* Emplacement futur : cloche de notifications (PR 19) */}
+      <NotificationsBell />
       <div className="relative">
         <button
           onClick={() => setOpen(!open)}

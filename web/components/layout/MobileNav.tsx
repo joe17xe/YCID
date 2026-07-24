@@ -6,6 +6,7 @@ import { Menu, X, Settings, LogOut } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { useTranslations, useLocale } from "next-intl"
 import { NAV, ADMIN_NAV } from "@/components/layout/Sidebar"
+import NotificationsBell from "@/components/layout/NotificationsBell"
 
 interface MobileNavProps {
   showAdmin: boolean
@@ -67,7 +68,8 @@ export default function MobileNav({ showAdmin, brandName, logoUrl, name, email, 
         ) : (
           <div className="w-6 h-6 rounded-md" style={{ background: "var(--brand-accent,#0E6B5C)" }} />
         )}
-        <span className="font-bold text-base" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>{brandName}</span>
+        <span className="font-bold text-base flex-1 truncate" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>{brandName}</span>
+        <NotificationsBell />
       </div>
 
       {/* Tiroir de navigation */}
