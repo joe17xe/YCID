@@ -135,3 +135,9 @@ export const IDEA_PRIORITY: Record<string, { label: string; fg: string; bg: stri
   moyenne: { label: 'Priorité moyenne', fg: '#6B4A8C', bg: '#F0E9F5' },
   haute: { label: 'Priorité haute', fg: '#B4690E', bg: '#F7EDDD' },
 }
+
+export const PLATFORM_ROLES: Record<string, { label: string; fg: string; bg: string }> = {
+  admin: { label: 'Administrateur', fg: '#6B4A8C', bg: '#F0E9F5' },
+  ycid: { label: 'YCID', fg: '#0E6B5C', bg: '#E4F0EC' },
+  user: { label: 'Utilisateur', fg: '#66716B', bg: '#EEF0EE' },
+}
