@@ -12,6 +12,7 @@ import { BudgetLineDialog, IndicatorDialog, MeasureDialog, MeetingDialog, Decisi
 import { MemberDialog, RemoveMemberButton } from "@/components/project/MemberDialog"
 import HelpDialog from "@/components/help/HelpDialog"
 import DeleteProjectButton from "@/components/project/DeleteProjectButton"
+import ExpertReportDialog from "@/components/project/ExpertReportDialog"
 import { ChevronLeft } from "lucide-react"
 
 function Badge({ label, fg, bg }: { label: string; fg: string; bg: string }) {
@@ -87,7 +88,10 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
         <Link href="/projets" className="inline-flex items-center gap-1 text-sm" style={{ color: "#66716B" }}>
           <ChevronLeft size={16} /> Projets
         </Link>
-        {canEditCompleted && <DeleteProjectButton projectId={id} projectName={project.name} />}
+        <div className="flex items-center gap-2">
+          <ExpertReportDialog projectId={id} projectName={project.name} />
+          {canEditCompleted && <DeleteProjectButton projectId={id} projectName={project.name} />}
+        </div>
       </div>
 
       <div className="flex flex-wrap items-start gap-4 mb-6">

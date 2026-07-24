@@ -141,3 +141,31 @@ en-têtes d'abord) — la traduction complète attend la stabilisation des CRUD.
 réellement utilisable, la phase 2 la rend administrable et conforme
 (multi-associations, RGPD), la phase 3 la rend désirable (pilotage,
 roadmap participative), la phase UX la rend confortable et inclusive.
+
+## 🟣 Phase 4 — Vision multi-niveaux & IA (validée le 24/07/2026)
+
+Décisions produit actées : validation humaine obligatoire (responsable
+asso), mentions CEM & YCID par défaut, canaux v1 = LinkedIn + Facebook +
+communiqué + page vitrine, 3 langues (FR/EN/AR) paramétrables,
+check-list éthique avant validation, IA provider-agnostic (Kimi pour
+les tests via LLM_BASE_URL/LLM_API_KEY/LLM_MODEL).
+
+### PR 25 — Fondation LLM + Rapport d'expert IA
+- lib/llm.ts : client compatible OpenAI (Kimi par défaut), configurable env
+- Bouton « Rapport d'expert IA » sur la page projet : analyse complète
+  (avancement, budget, indicateurs, risques, recommandations COPIL) à
+  partir des seules données réelles ; copier / télécharger / imprimer
+
+### PR 26 — Campagnes de communication IA
+- Table comm_campaigns + onglet Communication (timeline ----●----○----|)
+- Plan de comm généré (kickoff, fins de phase, clôture) ; contenus IA
+  multi-canaux et multi-langues ; workflow proposée → validée → publiée ;
+  check-list éthique ; notifications au responsable
+
+### PR 27 — Multi-niveaux : pays & programme
+- Champs programme (CEM…) sur les projets (country/zone existent déjà)
+- Vue Pilotage groupée par pays — première marche vers la vue MEAE
+
+### PR 28 — Page vitrine publique par projet
+- Page publique en lecture seule (avancement, indicateurs) partageable
+- Canal de publication n°1 des campagnes de communication

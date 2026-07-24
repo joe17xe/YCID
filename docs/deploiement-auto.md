@@ -108,6 +108,27 @@ sudo bash /opt/ycid-app/scripts/deploy.sh
 
 ---
 
+## IA — rapport d'expert & génération de contenus (PR 25+)
+
+Les fonctions IA utilisent un fournisseur **compatible API OpenAI**,
+configuré par 3 variables dans `/opt/ycid-app/web/.env.local` (jamais
+commitées) :
+
+```bash
+LLM_API_KEY=sk-...            # clé secrète du fournisseur
+LLM_BASE_URL=https://api.moonshot.ai/v1   # défaut : Kimi (Moonshot)
+LLM_MODEL=kimi-k2-0711-preview            # modèle à utiliser
+```
+
+Kimi : créer la clé sur https://platform.moonshot.ai. Pour changer de
+fournisseur (OpenAI, Mistral, passerelle Claude…), changer les 3
+variables — aucun code à modifier. Après modification :
+`sudo bash /opt/ycid-app/scripts/deploy.sh` (ou re-merger une PR).
+Sans `LLM_API_KEY`, les boutons IA affichent un message de configuration
+clair et le reste de l'application fonctionne normalement.
+
+---
+
 ## Dépannage — variables d'environnement Supabase
 
 Les clés Supabase (`SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
