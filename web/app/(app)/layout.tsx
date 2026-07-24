@@ -3,6 +3,7 @@ import Sidebar from "@/components/layout/Sidebar"
 import Header, { type HeaderRole } from "@/components/layout/Header"
 import Footer from "@/components/layout/Footer"
 import { createClient } from "@/lib/supabase/server"
+import { redirect } from "next/navigation"
 import { isUserAdmin } from "@/lib/permissions"
 import { ACCESS_ROLES } from "@/lib/constants"
 
@@ -22,6 +23,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       supabase.from("project_members").select("role, projects:project_id(name)").eq("user_id", user.id),
       isUserAdmin(supabase, user.id),
     ])
+    // Un compte désactivé ne peut plus utiliser l'application
+    if (profile && profile.active === false) {
+      await supabase.auth.signOut()
+      redirect("/?error=compte_desactive")
+    }
     showAdmin = admin
     name = profile?.full_name ?? ""
     email = profile?.email ?? user.email ?? ""
