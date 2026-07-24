@@ -6,7 +6,8 @@ import { createClient } from "@/lib/supabase/client"
 import { useState } from "react"
 import { useTranslations } from "next-intl"
 
-const NAV = [
+// Partagé avec la navigation mobile (MobileNav)
+export const NAV = [
   { href: "/dashboard", key: "dashboard", Icon: LayoutDashboard },
   { href: "/projets", key: "projects", Icon: FolderKanban },
   { href: "/organisations", key: "organisations", Icon: Building2 },
@@ -16,7 +17,7 @@ const NAV = [
   { href: "/aide", key: "help", Icon: HelpCircle },
 ]
 
-const ADMIN_NAV = [
+export const ADMIN_NAV = [
   { href: "/admin/utilisateurs", key: "users", Icon: Users },
   { href: "/admin/acces", key: "access", Icon: ShieldCheck },
   { href: "/admin/configuration", key: "configuration", Icon: Settings },
@@ -36,7 +37,7 @@ export default function Sidebar({ showAdmin = false, brandName = "Solid'Pilot", 
 
   return (
     <aside
-      className="flex flex-col h-full border-r transition-all duration-200"
+      className="hidden md:flex flex-col h-full border-r transition-all duration-200"
       style={{ width: collapsed ? 64 : 220, background: "#FFFFFF", borderColor: "#E3E6E2", minHeight: "100vh" }}
     >
       {/* Logo */}

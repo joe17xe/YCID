@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic'
 import Sidebar from "@/components/layout/Sidebar"
+import MobileNav from "@/components/layout/MobileNav"
 import Header, { type HeaderRole } from "@/components/layout/Header"
 import Footer from "@/components/layout/Footer"
 import { createClient } from "@/lib/supabase/server"
@@ -48,7 +49,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <div className="flex h-full min-h-screen">
       <Sidebar showAdmin={showAdmin} brandName={settings.brandName} logoUrl={settings.logoUrl} />
-      <div className="flex-1 flex flex-col overflow-auto" style={{ background: "#F5F6F4" }}>
+      <div className="flex-1 flex flex-col overflow-auto min-w-0" style={{ background: "#F5F6F4" }}>
+        <MobileNav showAdmin={showAdmin} brandName={settings.brandName} logoUrl={settings.logoUrl}
+          name={name} email={email} avatarUrl={avatarUrl} />
         <Header name={name} email={email} avatarUrl={avatarUrl} roles={roles} isAdmin={showAdmin} />
         <main className="flex-1">{children}</main>
         <Footer brandName={settings.brandName} />

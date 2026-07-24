@@ -80,7 +80,7 @@ export default function TaskDialog({ phaseId, members, task }: {
                 <textarea value={form.description ?? ""} onChange={e => setForm({ ...form, description: e.target.value })} rows={2}
                   className={inputCls} style={{ borderColor: "#E3E6E2" }} />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Responsable</label>
                   <select value={form.assignee_id ?? ""} onChange={e => setForm({ ...form, assignee_id: e.target.value })}

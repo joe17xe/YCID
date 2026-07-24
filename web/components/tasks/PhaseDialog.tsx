@@ -64,7 +64,7 @@ export default function PhaseDialog({ projectId, phase }: { projectId: string; p
                 <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required
                   className={inputCls} style={{ borderColor: "#E3E6E2" }} />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Statut</label>
                   <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}

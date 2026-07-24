@@ -144,7 +144,7 @@ export default function EditCompletedTaskDialog({ task }: { task: TaskProps }) {
                   <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={2}
                     className={inputCls} style={{ borderColor: "#E3E6E2" }} />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Statut</label>
                     <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value as TaskStatus })}
@@ -159,7 +159,7 @@ export default function EditCompletedTaskDialog({ task }: { task: TaskProps }) {
                       className={inputCls} style={{ borderColor: "#E3E6E2" }} />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Début</label>
                     <input type="date" value={form.start_date} onChange={e => setForm({ ...form, start_date: e.target.value })}
