@@ -3,6 +3,10 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /* Marque (white-label) — valeurs par défaut. Surchargées au runtime
+     par app/layout.tsx à partir de la table platform_settings. */
+  --brand-accent: #0E6B5C;
+  --brand-accent-soft: #E4F0EC;
 }
 
 @theme inline {

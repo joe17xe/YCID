@@ -59,10 +59,10 @@ export default function PasswordForm({ email, hasPassword }: { email: string; ha
           autoComplete="new-password" className={inputCls} style={{ borderColor: "#E3E6E2" }} />
       </div>
       {error && <p className="text-sm rounded-lg px-3 py-2" style={{ background: "#F6E7E5", color: "#A3342C" }}>{error}</p>}
-      {success && <p className="text-sm rounded-lg px-3 py-2" style={{ background: "#E4F0EC", color: "#0E6B5C" }}>{success}</p>}
+      {success && <p className="text-sm rounded-lg px-3 py-2" style={{ background: "var(--brand-accent-soft,#E4F0EC)", color: "var(--brand-accent,#0E6B5C)" }}>{success}</p>}
       <button type="submit" disabled={busy}
         className="px-4 py-2 rounded-xl text-sm font-semibold text-white"
-        style={{ background: "#0E6B5C", opacity: busy ? 0.7 : 1 }}>
+        style={{ background: "var(--brand-accent,#0E6B5C)", opacity: busy ? 0.7 : 1 }}>
         {busy ? "…" : "Changer le mot de passe"}
       </button>
     </form>

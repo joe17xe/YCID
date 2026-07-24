@@ -16,7 +16,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
           contactez l&apos;administrateur.
           {error.digest && <span className="block mt-2 text-xs font-mono">Réf. {error.digest}</span>}
         </p>
-        <button onClick={reset} className="px-6 py-2.5 rounded-xl text-white font-semibold text-sm" style={{ background: "#0E6B5C" }}>
+        <button onClick={reset} className="px-6 py-2.5 rounded-xl text-white font-semibold text-sm" style={{ background: "var(--brand-accent,#0E6B5C)" }}>
           Réessayer
         </button>
       </div>

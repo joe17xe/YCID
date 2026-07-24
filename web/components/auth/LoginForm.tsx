@@ -58,7 +58,7 @@ export default function LoginForm() {
             style={{ borderColor: "#E3E6E2" }} />
         </div>
         {error && <p className="text-sm rounded-lg px-3 py-2" style={{ background: "#F6E7E5", color: "#A3342C" }}>{error}</p>}
-        <button type="submit" disabled={loading} className="w-full py-3 rounded-xl font-semibold text-white" style={{ background: "#0E6B5C", opacity: loading ? 0.7 : 1 }}>
+        <button type="submit" disabled={loading} className="w-full py-3 rounded-xl font-semibold text-white" style={{ background: "var(--brand-accent,#0E6B5C)", opacity: loading ? 0.7 : 1 }}>
           {loading ? "..." : "Se connecter"}
         </button>
       </form>

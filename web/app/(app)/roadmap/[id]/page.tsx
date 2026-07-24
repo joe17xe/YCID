@@ -73,7 +73,7 @@ export default async function IdeaDetailPage({ params }: { params: Promise<{ id:
                 <span className="font-semibold tracking-wider">DIFFICULTÉ</span>
                 <span className="flex gap-0.5">
                   {[1, 2, 3, 4, 5].map(i => (
-                    <span key={i} className="w-2 h-2 rounded-full" style={{ background: i <= idea.difficulty ? "#0E6B5C" : "#E3E6E2" }} />
+                    <span key={i} className="w-2 h-2 rounded-full" style={{ background: i <= idea.difficulty ? "var(--brand-accent,#0E6B5C)" : "#E3E6E2" }} />
                   ))}
                 </span>
                 <span>{idea.difficulty}/5</span>

@@ -74,7 +74,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             href={`/dashboard?periode=${key}`}
             className="px-4 py-1.5 rounded-xl text-sm font-medium transition-colors"
             style={{
-              background: (periode === key || (!PERIODS[periode] && key === "mois")) ? "#0E6B5C" : "transparent",
+              background: (periode === key || (!PERIODS[periode] && key === "mois")) ? "var(--brand-accent,#0E6B5C)" : "transparent",
               color: (periode === key || (!PERIODS[periode] && key === "mois")) ? "#fff" : "#66716B",
             }}
           >
@@ -86,7 +86,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       {/* KPI cards */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
         {[
-          { label: "Projets actifs", value: (projects ?? []).filter((p: any) => p.status === "en_cours").length, color: "#0E6B5C", bg: "#E4F0EC" },
+          { label: "Projets actifs", value: (projects ?? []).filter((p: any) => p.status === "en_cours").length, color: "var(--brand-accent,#0E6B5C)", bg: "var(--brand-accent-soft,#E4F0EC)" },
           { label: "Tâches en cours", value: allTasks.filter((t: any) => t.status === "en_cours").length, color: "#3B5488", bg: "#E8ECF5" },
           { label: "Tâches en retard", value: lateTasks.length, color: "#A3342C", bg: "#F6E7E5" },
           { label: `Échéances (${period.label.toLowerCase()})`, value: dueSoon.length, color: "#B4690E", bg: "#F7EDDD" },
@@ -105,7 +105,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         <div className="bg-white rounded-2xl border p-6" style={{ borderColor: "#E3E6E2" }}>
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-semibold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>Projets</h2>
-            <Link href="/projets" className="text-sm" style={{ color: "#0E6B5C" }}>Voir tout →</Link>
+            <Link href="/projets" className="text-sm" style={{ color: "var(--brand-accent,#0E6B5C)" }}>Voir tout →</Link>
           </div>
           <div className="space-y-3">
             {(projects ?? []).slice(0, 4).map((p: any) => {
@@ -118,7 +118,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                     <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0" style={{ background: s.bg, color: s.fg }}>{s.label}</span>
                   </div>
                   <div className="mt-2 h-1.5 rounded-full overflow-hidden" style={{ background: "#E3E6E2" }}>
-                    <div className="h-full rounded-full" style={{ width: `${prog}%`, background: "#0E6B5C" }} />
+                    <div className="h-full rounded-full" style={{ width: `${prog}%`, background: "var(--brand-accent,#0E6B5C)" }} />
                   </div>
                   <div className="mt-1 text-xs" style={{ color: "#66716B" }}>{prog}% d&apos;avancement</div>
                 </Link>

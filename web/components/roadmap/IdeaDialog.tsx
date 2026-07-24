@@ -37,7 +37,7 @@ export default function IdeaDialog({ idea }: { idea?: { id: string; title: strin
           <Pencil size={13} /> Modifier
         </button>
       ) : (
-        <button onClick={() => setOpen(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold" style={{ background: "#0E6B5C" }}>
+        <button onClick={() => setOpen(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold" style={{ background: "var(--brand-accent,#0E6B5C)" }}>
           <Lightbulb size={15} /> Proposer une idée
         </button>
       )}
@@ -68,7 +68,7 @@ export default function IdeaDialog({ idea }: { idea?: { id: string; title: strin
               {error && <p className="text-sm rounded-lg px-3 py-2" style={{ background: "#F6E7E5", color: "#A3342C" }}>{error}</p>}
               <div className="flex justify-end gap-2 pt-1">
                 <button type="button" onClick={() => setOpen(false)} className="px-4 py-2 rounded-xl border text-sm font-medium" style={{ ...border, color: "#66716B" }}>Annuler</button>
-                <button type="submit" disabled={pending} className="px-4 py-2 rounded-xl text-sm font-semibold text-white" style={{ background: "#0E6B5C", opacity: pending ? 0.7 : 1 }}>
+                <button type="submit" disabled={pending} className="px-4 py-2 rounded-xl text-sm font-semibold text-white" style={{ background: "var(--brand-accent,#0E6B5C)", opacity: pending ? 0.7 : 1 }}>
                   {pending ? "…" : idea ? "Enregistrer" : "Publier l'idée"}
                 </button>
               </div>

@@ -55,12 +55,12 @@ export default async function ImportPage() {
                   </td>
                   <td className="px-4 py-2.5" style={{ color: "#17211D" }}>{KIND_LABELS[r.kind] ?? r.kind}</td>
                   <td className="px-4 py-2.5 text-xs font-mono" style={{ color: "#66716B" }}>{r.filename ?? "—"}</td>
-                  <td className="px-4 py-2.5 font-semibold" style={{ color: "#0E6B5C" }}>{r.created_count}</td>
+                  <td className="px-4 py-2.5 font-semibold" style={{ color: "var(--brand-accent,#0E6B5C)" }}>{r.created_count}</td>
                   <td className="px-4 py-2.5" style={{ color: r.skipped_count > 0 ? "#B4690E" : "#66716B" }}>{r.skipped_count}</td>
                   <td className="px-4 py-2.5">
                     <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{
-                      background: r.status === "succes" ? "#E4F0EC" : "#F6E7E5",
-                      color: r.status === "succes" ? "#0E6B5C" : "#A3342C",
+                      background: r.status === "succes" ? "var(--brand-accent-soft,#E4F0EC)" : "#F6E7E5",
+                      color: r.status === "succes" ? "var(--brand-accent,#0E6B5C)" : "#A3342C",
                     }}>
                       {r.status === "succes" ? "Succès" : "Échec"}
                     </span>

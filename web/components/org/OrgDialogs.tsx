@@ -49,7 +49,7 @@ export function OrgDialog({ org }: { org?: OrgData }) {
       {org ? (
         <button onClick={() => setOpen(true)} className="p-1.5 rounded-full hover:bg-gray-100" title="Modifier"><Pencil size={14} style={{ color: "#66716B" }} /></button>
       ) : (
-        <button onClick={() => setOpen(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-semibold" style={{ background: "#0E6B5C" }}>
+        <button onClick={() => setOpen(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-semibold" style={{ background: "var(--brand-accent,#0E6B5C)" }}>
           <Plus size={16} /> Nouvelle organisation
         </button>
       )}
@@ -86,7 +86,7 @@ export function OrgDialog({ org }: { org?: OrgData }) {
             {error && <p className="text-sm rounded-lg px-3 py-2" style={{ background: "#F6E7E5", color: "#A3342C" }}>{error}</p>}
             <div className="flex justify-end gap-2 pt-1">
               <button type="button" onClick={() => setOpen(false)} className="px-4 py-2 rounded-xl border text-sm font-medium" style={{ ...border, color: "#66716B" }}>Annuler</button>
-              <button type="submit" disabled={pending} className="px-4 py-2 rounded-xl text-sm font-semibold text-white" style={{ background: "#0E6B5C", opacity: pending ? 0.7 : 1 }}>
+              <button type="submit" disabled={pending} className="px-4 py-2 rounded-xl text-sm font-semibold text-white" style={{ background: "var(--brand-accent,#0E6B5C)", opacity: pending ? 0.7 : 1 }}>
                 {pending ? "…" : org ? "Enregistrer" : "Créer"}
               </button>
             </div>
@@ -151,7 +151,7 @@ export function CreateUserButton({ email, orgName }: { email: string; orgName: s
   return (
     <>
       <button onClick={() => setOpen(true)} className="p-1.5 rounded-full hover:bg-gray-100" title={`Créer un compte pour ${email}`}>
-        <UserPlus size={14} style={{ color: "#0E6B5C" }} />
+        <UserPlus size={14} style={{ color: "var(--brand-accent,#0E6B5C)" }} />
       </button>
       {open && (
         <Modal title="Créer un compte utilisateur" onClose={close}>
@@ -163,11 +163,11 @@ export function CreateUserButton({ email, orgName }: { email: string; orgName: s
               <div className="flex items-center gap-2 rounded-xl p-3 mb-4" style={{ background: "#F5F6F4" }}>
                 <span className="font-mono text-sm flex-1" style={{ color: "#17211D" }}>{password}</span>
                 <button onClick={() => { navigator.clipboard.writeText(password); setCopied(true) }} className="p-1.5 rounded hover:bg-gray-200" title="Copier">
-                  {copied ? <Check size={15} style={{ color: "#0E6B5C" }} /> : <Copy size={15} style={{ color: "#66716B" }} />}
+                  {copied ? <Check size={15} style={{ color: "var(--brand-accent,#0E6B5C)" }} /> : <Copy size={15} style={{ color: "#66716B" }} />}
                 </button>
               </div>
               <div className="flex justify-end">
-                <button onClick={close} className="px-4 py-2 rounded-xl text-sm font-semibold text-white" style={{ background: "#0E6B5C" }}>Terminé</button>
+                <button onClick={close} className="px-4 py-2 rounded-xl text-sm font-semibold text-white" style={{ background: "var(--brand-accent,#0E6B5C)" }}>Terminé</button>
               </div>
             </div>
           ) : (
@@ -186,7 +186,7 @@ export function CreateUserButton({ email, orgName }: { email: string; orgName: s
               {error && <p className="text-sm rounded-lg px-3 py-2" style={{ background: "#F6E7E5", color: "#A3342C" }}>{error}</p>}
               <div className="flex justify-end gap-2 pt-1">
                 <button type="button" onClick={close} className="px-4 py-2 rounded-xl border text-sm font-medium" style={{ ...border, color: "#66716B" }}>Annuler</button>
-                <button type="submit" disabled={pending} className="px-4 py-2 rounded-xl text-sm font-semibold text-white" style={{ background: "#0E6B5C", opacity: pending ? 0.7 : 1 }}>
+                <button type="submit" disabled={pending} className="px-4 py-2 rounded-xl text-sm font-semibold text-white" style={{ background: "var(--brand-accent,#0E6B5C)", opacity: pending ? 0.7 : 1 }}>
                   {pending ? "…" : "Créer le compte"}
                 </button>
               </div>

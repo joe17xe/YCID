@@ -30,7 +30,7 @@ export function MemberDialog({ projectId, candidates }: {
     <>
       <button onClick={() => setOpen(true)}
         className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border font-medium hover:bg-gray-50"
-        style={{ ...border, color: "#0E6B5C" }}>
+        style={{ ...border, color: "var(--brand-accent,#0E6B5C)" }}>
         <UserPlus size={12} /> Membre
       </button>
       {open && (
@@ -70,7 +70,7 @@ export function MemberDialog({ projectId, candidates }: {
                 <button type="button" onClick={() => setOpen(false)} className="px-4 py-2 rounded-xl border text-sm font-medium" style={{ ...border, color: "#66716B" }}>Annuler</button>
                 <button type="submit" disabled={pending || !form.userId}
                   className="px-4 py-2 rounded-xl text-sm font-semibold text-white"
-                  style={{ background: "#0E6B5C", opacity: pending || !form.userId ? 0.6 : 1 }}>
+                  style={{ background: "var(--brand-accent,#0E6B5C)", opacity: pending || !form.userId ? 0.6 : 1 }}>
                   {pending ? "…" : "Ajouter au projet"}
                 </button>
               </div>

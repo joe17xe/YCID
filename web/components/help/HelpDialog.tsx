@@ -28,7 +28,7 @@ export default function HelpDialog({ title, excerpt, anchor }: HelpDialogProps) 
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between p-5 border-b" style={{ borderColor: "#E3E6E2" }}>
               <h3 className="font-semibold flex items-center gap-2" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>
-                <HelpCircle size={16} style={{ color: "#0E6B5C" }} /> {title}
+                <HelpCircle size={16} style={{ color: "var(--brand-accent,#0E6B5C)" }} /> {title}
               </h3>
               <button onClick={() => setOpen(false)} style={{ color: "#66716B" }} aria-label="Fermer"><X size={18} /></button>
             </div>
@@ -38,7 +38,7 @@ export default function HelpDialog({ title, excerpt, anchor }: HelpDialogProps) 
                 href={`/aide#${anchor}`}
                 onClick={() => setOpen(false)}
                 className="inline-block mt-4 text-sm font-medium"
-                style={{ color: "#0E6B5C" }}
+                style={{ color: "var(--brand-accent,#0E6B5C)" }}
               >
                 Voir toute l&apos;aide →
               </Link>

@@ -94,7 +94,7 @@ export default function NewProjectForm({ orgs }: { orgs: { id: string; name: str
           Annuler
         </button>
         <button type="submit" disabled={pending}
-          className="px-5 py-2 rounded-xl text-sm font-semibold text-white" style={{ background: "#0E6B5C", opacity: pending ? 0.7 : 1 }}>
+          className="px-5 py-2 rounded-xl text-sm font-semibold text-white" style={{ background: "var(--brand-accent,#0E6B5C)", opacity: pending ? 0.7 : 1 }}>
           {pending ? "Création…" : "Créer le projet"}
         </button>
       </div>

@@ -31,7 +31,7 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: 
       aria-label={label}
       onClick={() => onChange(!checked)}
       className="w-11 h-6 rounded-full transition-colors flex-shrink-0 relative"
-      style={{ background: checked ? "#0E6B5C" : "#CBD2CD" }}
+      style={{ background: checked ? "var(--brand-accent,#0E6B5C)" : "#CBD2CD" }}
     >
       <span
         className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all"
@@ -70,9 +70,9 @@ export default function AppearanceSettings() {
               onClick={() => update({ ...prefs, textSize: s.key })}
               className="px-3 py-1.5 rounded-xl border text-sm font-medium transition-colors"
               style={{
-                background: prefs.textSize === s.key ? "#E4F0EC" : "#fff",
-                borderColor: prefs.textSize === s.key ? "#0E6B5C" : "#E3E6E2",
-                color: prefs.textSize === s.key ? "#0E6B5C" : "#66716B",
+                background: prefs.textSize === s.key ? "var(--brand-accent-soft,#E4F0EC)" : "#fff",
+                borderColor: prefs.textSize === s.key ? "var(--brand-accent,#0E6B5C)" : "#E3E6E2",
+                color: prefs.textSize === s.key ? "var(--brand-accent,#0E6B5C)" : "#66716B",
               }}
             >
               {s.label}

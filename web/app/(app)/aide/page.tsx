@@ -32,7 +32,7 @@ export default async function AidePage() {
       </div>
 
       <div className="space-y-6">
-        <Card id="premiers-pas" icon={<BookOpen size={16} style={{ color: "#0E6B5C" }} />} title="Premiers pas">
+        <Card id="premiers-pas" icon={<BookOpen size={16} style={{ color: "var(--brand-accent,#0E6B5C)" }} />} title="Premiers pas">
           <div className="space-y-4">
             {HELP_STEPS.map(st => (
               <div key={st.title}>
@@ -43,7 +43,7 @@ export default async function AidePage() {
           </div>
         </Card>
 
-        <Card id="roles" icon={<Users size={16} style={{ color: "#0E6B5C" }} />} title="Les profils d'accès">
+        <Card id="roles" icon={<Users size={16} style={{ color: "var(--brand-accent,#0E6B5C)" }} />} title="Les profils d'accès">
           <div className="space-y-3">
             {HELP_ROLES.map(r => {
               const meta = ACCESS_ROLES[r.role]
@@ -59,7 +59,7 @@ export default async function AidePage() {
           </div>
         </Card>
 
-        <Card id="validation" icon={<ShieldCheck size={16} style={{ color: "#0E6B5C" }} />} title="Le workflow de validation">
+        <Card id="validation" icon={<ShieldCheck size={16} style={{ color: "var(--brand-accent,#0E6B5C)" }} />} title="Le workflow de validation">
           <div className="flex items-center gap-1.5 flex-wrap mb-3">
             {FLOW.map((st, i) => {
               const meta = REVIEW_STATES[st]
@@ -74,7 +74,7 @@ export default async function AidePage() {
           <p className="text-sm leading-relaxed" style={{ color: "#66716B" }}>{HELP_SECURITY}</p>
         </Card>
 
-        <Card id="faq" icon={<MessageCircleQuestion size={16} style={{ color: "#0E6B5C" }} />} title="Questions fréquentes">
+        <Card id="faq" icon={<MessageCircleQuestion size={16} style={{ color: "var(--brand-accent,#0E6B5C)" }} />} title="Questions fréquentes">
           <div className="divide-y" style={{ borderColor: "#E3E6E2" }}>
             {HELP_FAQ.map(f => (
               <details key={f.q} className="py-3 group">

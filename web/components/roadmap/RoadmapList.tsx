@@ -23,7 +23,7 @@ function Dots({ n }: { n: number | null }) {
   return (
     <span className="flex gap-0.5" title={`Difficulté ${n}/5`}>
       {[1, 2, 3, 4, 5].map(i => (
-        <span key={i} className="w-1.5 h-1.5 rounded-full" style={{ background: i <= n ? "#0E6B5C" : "#E3E6E2" }} />
+        <span key={i} className="w-1.5 h-1.5 rounded-full" style={{ background: i <= n ? "var(--brand-accent,#0E6B5C)" : "#E3E6E2" }} />
       ))}
     </span>
   )

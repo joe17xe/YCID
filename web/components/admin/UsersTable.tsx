@@ -82,12 +82,12 @@ export default function UsersTable({ users }: { users: AdminUserRow[] }) {
               <tr key={u.id} style={{ borderBottom: "1px solid #E3E6E2", background: i % 2 === 0 ? "#fff" : "#FAFAFA" }}>
                 <td className="px-5 py-3 font-medium" style={{ color: "#17211D" }}>
                   {u.full_name || "—"}
-                  {u.isSelf && <span className="ml-2 text-xs px-1.5 py-0.5 rounded-full" style={{ background: "#E4F0EC", color: "#0E6B5C" }}>Vous</span>}
+                  {u.isSelf && <span className="ml-2 text-xs px-1.5 py-0.5 rounded-full" style={{ background: "var(--brand-accent-soft,#E4F0EC)", color: "var(--brand-accent,#0E6B5C)" }}>Vous</span>}
                 </td>
                 <td className="px-5 py-3 font-mono text-xs" style={{ color: "#66716B" }}>{u.email}</td>
                 <td className="px-5 py-3"><span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: r.bg, color: r.fg }}>{r.label}</span></td>
                 <td className="px-5 py-3">
-                  <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: u.active ? "#E4F0EC" : "#F6E7E5", color: u.active ? "#0E6B5C" : "#A3342C" }}>
+                  <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: u.active ? "var(--brand-accent-soft,#E4F0EC)" : "#F6E7E5", color: u.active ? "var(--brand-accent,#0E6B5C)" : "#A3342C" }}>
                     {u.active ? "Actif" : "Inactif"}
                   </span>
                 </td>
