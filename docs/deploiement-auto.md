@@ -105,3 +105,33 @@ Sans `RUN_MIGRATIONS=1` + `DATABASE_URL`, cette étape est simplement ignorée.
 ```bash
 sudo bash /opt/ycid-app/scripts/deploy.sh
 ```
+
+---
+
+## Dépannage — variables d'environnement Supabase
+
+Les clés Supabase (`SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
+`NEXT_PUBLIC_SUPABASE_URL`) vivent dans **`/opt/ycid-app/web/.env.local`**,
+lu au runtime par `next start`. Elles ne sont **pas** dans `ecosystem.config.js`.
+
+Depuis la migration des projets Supabase vers les **clés asymétriques (ES256)**,
+la clé service doit être la **clé secrète `sb_secret_…`** (onglet *Secret keys*
+du dashboard), et non l'ancienne clé légale `eyJ…`. Une ancienne clé `eyJ…`
+provoque `invalid JWT … unrecognized kid <nil> for algorithm ES256` à la
+création d'utilisateurs et aux invitations.
+
+Piège connu : pm2 fige l'environnement capturé au **premier** `pm2 start`.
+Si l'app a été démarrée une fois avec l'ancienne clé exportée dans le shell,
+un simple `pm2 restart` la conserve. `deploy.sh` corrige ça avec
+`pm2 startOrRestart … --update-env` (+ `env -u` sur les clés) : chaque
+déploiement recharge l'environnement depuis `.env.local`. Pour forcer un
+nettoyage complet à la main :
+
+```bash
+sudo -u deploy pm2 kill
+cd /opt/ycid-app/web && sudo -u deploy pm2 start ecosystem.config.js
+sudo -u deploy pm2 save
+# vérifier le préfixe réellement chargé (doit être sb_secret_) :
+ID=$(sudo -u deploy pm2 id ycid | tr -dc '0-9')
+sudo -u deploy pm2 env "$ID" | grep -i SUPABASE_SERVICE_ROLE_KEY | cut -c1-40
+```

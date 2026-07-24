@@ -42,8 +42,17 @@ echo "==> 4/6 Build (version $VERSION — $BUILD_TIME)"
 sudo -u "$RUN_AS" bash -c "cd '$APP_DIR' && NEXT_PUBLIC_APP_VERSION='$VERSION' NEXT_PUBLIC_BUILD_TIME='$BUILD_TIME' npm run build"
 
 echo "==> 5/6 Redémarrage pm2 (utilisateur $RUN_AS)"
-sudo -u "$RUN_AS" pm2 restart ycid 2>/dev/null \
-  || sudo -u "$RUN_AS" bash -c "cd '$APP_DIR' && pm2 start ecosystem.config.js"
+# Incident 24/07/2026 : « pm2 restart » sans --update-env conservait un
+# SUPABASE_SERVICE_ROLE_KEY « eyJ… » (ancienne clé légale) figé dans
+# l'environnement pm2, alors que .env.local contenait déjà la bonne clé
+# « sb_secret_… ». Résultat : création d'utilisateurs / invitations en échec
+# (JWT ES256 rejeté), sans que les redéploiements n'y changent rien.
+#
+# Correctif : --update-env recharge l'environnement à CHAQUE déploiement pour
+# que « next start » reprenne les valeurs de .env.local. env -u retire les
+# clés Supabase de l'environnement du shell : elles ne peuvent donc jamais
+# masquer celles de .env.local (seule source de vérité).
+sudo -u "$RUN_AS" bash -c "cd '$APP_DIR' && env -u SUPABASE_SERVICE_ROLE_KEY -u NEXT_PUBLIC_SUPABASE_ANON_KEY pm2 startOrRestart ecosystem.config.js --update-env"
 sudo -u "$RUN_AS" pm2 save
 
 echo "==> 6/6 Vérification"
