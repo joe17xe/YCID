@@ -1255,6 +1255,43 @@ returns boolean language sql security definer stable as $$
   );
 $$;
 
+-- ============================================================
+-- MIGRATION 0018 — Configuration de la marque (white-label)
+-- ============================================================
+create table if not exists platform_settings (
+  id boolean primary key default true check (id),
+  brand_name text not null default 'Solid''Pilot',
+  tagline text not null default 'Pilotage de projets de solidarité internationale',
+  accent_color text not null default '#0E6B5C',
+  accent_soft_color text not null default '#E4F0EC',
+  logo_url text,
+  updated_at timestamptz not null default now(),
+  updated_by uuid references profiles(id) on delete set null
+);
+insert into platform_settings (id) values (true) on conflict (id) do nothing;
+alter table platform_settings enable row level security;
+drop policy if exists "Platform settings read" on platform_settings;
+create policy "Platform settings read" on platform_settings
+  for select using (true);
+drop policy if exists "Platform settings write" on platform_settings;
+create policy "Platform settings write" on platform_settings
+  for update using (is_admin()) with check (is_admin());
+insert into storage.buckets (id, name, public)
+values ('branding', 'branding', true)
+on conflict (id) do nothing;
+drop policy if exists "Branding read" on storage.objects;
+create policy "Branding read" on storage.objects
+  for select using (bucket_id = 'branding');
+drop policy if exists "Branding insert" on storage.objects;
+create policy "Branding insert" on storage.objects
+  for insert with check (bucket_id = 'branding' and is_admin());
+drop policy if exists "Branding update" on storage.objects;
+create policy "Branding update" on storage.objects
+  for update using (bucket_id = 'branding' and is_admin());
+drop policy if exists "Branding delete" on storage.objects;
+create policy "Branding delete" on storage.objects
+  for delete using (bucket_id = 'branding' and is_admin());
+
 -- ============================================================================
 -- CORRECTIF FINAL — promotion du premier admin depuis le SQL Editor
 -- ============================================================================

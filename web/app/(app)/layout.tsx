@@ -5,11 +5,15 @@ import Footer from "@/components/layout/Footer"
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { isUserAdmin } from "@/lib/permissions"
+import { getPlatformSettings } from "@/lib/settings"
 import { ACCESS_ROLES } from "@/lib/constants"
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const [{ data: { user } }, settings] = await Promise.all([
+    supabase.auth.getUser(),
+    getPlatformSettings(),
+  ])
 
   let showAdmin = false
   let name = ""
@@ -43,11 +47,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex h-full min-h-screen">
-      <Sidebar showAdmin={showAdmin} />
+      <Sidebar showAdmin={showAdmin} brandName={settings.brandName} logoUrl={settings.logoUrl} />
       <div className="flex-1 flex flex-col overflow-auto" style={{ background: "#F5F6F4" }}>
         <Header name={name} email={email} avatarUrl={avatarUrl} roles={roles} isAdmin={showAdmin} />
         <main className="flex-1">{children}</main>
-        <Footer />
+        <Footer brandName={settings.brandName} />
       </div>
     </div>
   )

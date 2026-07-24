@@ -179,7 +179,7 @@ export default function EditCompletedTaskDialog({ task }: { task: TaskProps }) {
                 {error && <p className="text-sm rounded-lg px-3 py-2" style={{ background: "#F6E7E5", color: "#A3342C" }}>{error}</p>}
                 <div className="flex justify-end gap-2">
                   <button type="button" onClick={close} className="px-4 py-2 rounded-xl border text-sm font-medium" style={{ borderColor: "#E3E6E2", color: "#66716B" }}>Annuler</button>
-                  <button type="submit" disabled={pending} className="px-4 py-2 rounded-xl text-sm font-semibold text-white" style={{ background: "#0E6B5C", opacity: pending ? 0.7 : 1 }}>
+                  <button type="submit" disabled={pending} className="px-4 py-2 rounded-xl text-sm font-semibold text-white" style={{ background: "var(--brand-accent,#0E6B5C)", opacity: pending ? 0.7 : 1 }}>
                     {pending ? "Enregistrement…" : "Enregistrer les modifications"}
                   </button>
                 </div>

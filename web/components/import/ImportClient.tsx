@@ -87,8 +87,8 @@ export default function ImportClient({ canImport }: { canImport: boolean }) {
     <div>
       {step === "done" && result ? (
         <div className="bg-white rounded-2xl border p-12 text-center" style={{ borderColor: "#E3E6E2" }}>
-          <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: "#E4F0EC" }}>
-            <Check size={32} style={{ color: "#0E6B5C" }} />
+          <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: "var(--brand-accent-soft,#E4F0EC)" }}>
+            <Check size={32} style={{ color: "var(--brand-accent,#0E6B5C)" }} />
           </div>
           <h2 className="text-xl font-semibold mb-2" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>
             {result.created} ligne{result.created > 1 ? "s" : ""} importée{result.created > 1 ? "s" : ""}
@@ -98,7 +98,7 @@ export default function ImportClient({ canImport }: { canImport: boolean }) {
               ? `${result.skipped} ligne${result.skipped > 1 ? "s" : ""} ignorée${result.skipped > 1 ? "s" : ""} — détail dans le journal ci-dessous.`
               : "Toutes les lignes valides ont été enregistrées."}
           </p>
-          <button onClick={reset} className="mt-4 px-6 py-2.5 rounded-xl text-white font-semibold text-sm" style={{ background: "#0E6B5C" }}>
+          <button onClick={reset} className="mt-4 px-6 py-2.5 rounded-xl text-white font-semibold text-sm" style={{ background: "var(--brand-accent,#0E6B5C)" }}>
             Nouvel import
           </button>
         </div>
@@ -113,9 +113,9 @@ export default function ImportClient({ canImport }: { canImport: boolean }) {
                   onClick={() => setImportType(key)}
                   className="py-3 px-4 rounded-xl text-sm font-medium border transition-colors"
                   style={{
-                    background: importType === key ? "#E4F0EC" : "#fff",
-                    borderColor: importType === key ? "#0E6B5C" : "#E3E6E2",
-                    color: importType === key ? "#0E6B5C" : "#66716B",
+                    background: importType === key ? "var(--brand-accent-soft,#E4F0EC)" : "#fff",
+                    borderColor: importType === key ? "var(--brand-accent,#0E6B5C)" : "#E3E6E2",
+                    color: importType === key ? "var(--brand-accent,#0E6B5C)" : "#66716B",
                   }}
                 >
                   {label}
@@ -135,7 +135,7 @@ export default function ImportClient({ canImport }: { canImport: boolean }) {
             onDragOver={e => e.preventDefault()}
             onClick={() => fileRef.current?.click()}
           >
-            <Upload size={32} className="mx-auto mb-4" style={{ color: "#0E6B5C" }} />
+            <Upload size={32} className="mx-auto mb-4" style={{ color: "var(--brand-accent,#0E6B5C)" }} />
             <p className="font-medium mb-1" style={{ color: "#17211D" }}>Glissez votre fichier ici ou cliquez pour parcourir</p>
             <p className="text-sm" style={{ color: "#66716B" }}>Format CSV, séparateur ; · encodage UTF-8 recommandé · 500 lignes max</p>
             <input ref={fileRef} type="file" accept=".csv,.txt" className="hidden" onChange={e => e.target.files?.[0] && handleFile(e.target.files[0])} />
@@ -202,7 +202,7 @@ export default function ImportClient({ canImport }: { canImport: boolean }) {
               onClick={confirm}
               disabled={pending || rows.length === 0}
               className="w-full py-3 rounded-xl text-white font-semibold transition-opacity"
-              style={{ background: "#0E6B5C", opacity: pending || rows.length === 0 ? 0.6 : 1 }}
+              style={{ background: "var(--brand-accent,#0E6B5C)", opacity: pending || rows.length === 0 ? 0.6 : 1 }}
             >
               {pending ? "Import en cours…" : `Confirmer l'import de ${rows.length} ligne${rows.length > 1 ? "s" : ""}`}
             </button>

@@ -46,7 +46,7 @@ function Actions({ pending, onClose, label }: { pending: boolean; onClose: () =>
   return (
     <div className="flex justify-end gap-2 pt-1">
       <button type="button" onClick={onClose} className="px-4 py-2 rounded-xl border text-sm font-medium" style={{ ...border, color: "#66716B" }}>Annuler</button>
-      <button type="submit" disabled={pending} className="px-4 py-2 rounded-xl text-sm font-semibold text-white" style={{ background: "#0E6B5C", opacity: pending ? 0.7 : 1 }}>
+      <button type="submit" disabled={pending} className="px-4 py-2 rounded-xl text-sm font-semibold text-white" style={{ background: "var(--brand-accent,#0E6B5C)", opacity: pending ? 0.7 : 1 }}>
         {pending ? "…" : label}
       </button>
     </div>
@@ -74,7 +74,7 @@ export function BudgetLineDialog({ projectId, orgs, phases, line }: {
       {line ? (
         <button onClick={() => d.setOpen(true)} className="p-1 rounded-full hover:bg-gray-100" title="Modifier la ligne"><Pencil size={13} style={{ color: "#66716B" }} /></button>
       ) : (
-        <button onClick={() => d.setOpen(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold" style={{ background: "#0E6B5C" }}>
+        <button onClick={() => d.setOpen(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold" style={{ background: "var(--brand-accent,#0E6B5C)" }}>
           <Plus size={15} /> Ligne budgétaire
         </button>
       )}
@@ -153,7 +153,7 @@ export function IndicatorDialog({ projectId, phases }: { projectId: string; phas
   const d = useDialog(() => createIndicator({ projectId, ...form }))
   return (
     <>
-      <button onClick={() => d.setOpen(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold" style={{ background: "#0E6B5C" }}>
+      <button onClick={() => d.setOpen(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold" style={{ background: "var(--brand-accent,#0E6B5C)" }}>
         <Plus size={15} /> Indicateur
       </button>
       {d.open && (
@@ -209,7 +209,7 @@ export function MeasureDialog({ indicatorId, indicatorName, unit }: { indicatorI
   const d = useDialog(() => addMeasure({ indicatorId, ...form }))
   return (
     <>
-      <button onClick={() => d.setOpen(true)} className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border font-medium hover:bg-gray-50" style={{ ...border, color: "#0E6B5C" }}>
+      <button onClick={() => d.setOpen(true)} className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border font-medium hover:bg-gray-50" style={{ ...border, color: "var(--brand-accent,#0E6B5C)" }}>
         <Plus size={12} /> Mesure
       </button>
       {d.open && (
@@ -244,7 +244,7 @@ export function MeetingDialog({ projectId }: { projectId: string }) {
   const d = useDialog(() => createMeeting({ projectId, ...form }))
   return (
     <>
-      <button onClick={() => d.setOpen(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold" style={{ background: "#0E6B5C" }}>
+      <button onClick={() => d.setOpen(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold" style={{ background: "var(--brand-accent,#0E6B5C)" }}>
         <Plus size={15} /> Réunion
       </button>
       {d.open && (
@@ -294,7 +294,7 @@ export function DecisionDialog({ projectId, meetingId, members, decision }: {
       {decision ? (
         <button onClick={() => d.setOpen(true)} className="p-1 rounded-full hover:bg-gray-100" title="Modifier la décision"><Pencil size={12} style={{ color: "#66716B" }} /></button>
       ) : (
-        <button onClick={() => d.setOpen(true)} className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border font-medium hover:bg-gray-50" style={{ ...border, color: "#0E6B5C" }}>
+        <button onClick={() => d.setOpen(true)} className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border font-medium hover:bg-gray-50" style={{ ...border, color: "var(--brand-accent,#0E6B5C)" }}>
           <Plus size={12} /> Décision
         </button>
       )}

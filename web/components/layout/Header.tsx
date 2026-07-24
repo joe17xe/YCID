@@ -21,7 +21,7 @@ function Initials({ name, email }: { name: string; email: string }) {
   const initials = source.split(/[\s@.]+/).filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase()).join("")
   return (
     <span className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0"
-      style={{ background: "#E4F0EC", color: "#0E6B5C" }}>
+      style={{ background: "var(--brand-accent-soft,#E4F0EC)", color: "var(--brand-accent,#0E6B5C)" }}>
       {initials || "?"}
     </span>
   )
@@ -79,7 +79,7 @@ export default function Header({ name, email, avatarUrl, roles, isAdmin }: Heade
                     <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "#F0E9F5", color: "#6B4A8C" }}>{t("admin")}</span>
                   )}
                   {roles.slice(0, 3).map((r, i) => (
-                    <span key={i} className="text-xs px-2 py-0.5 rounded-full" style={{ background: "#E4F0EC", color: "#0E6B5C" }} title={r.project}>
+                    <span key={i} className="text-xs px-2 py-0.5 rounded-full" style={{ background: "var(--brand-accent-soft,#E4F0EC)", color: "var(--brand-accent,#0E6B5C)" }} title={r.project}>
                       {r.label} · {r.project}
                     </span>
                   ))}
@@ -99,9 +99,9 @@ export default function Header({ name, email, avatarUrl, roles, isAdmin }: Heade
                       onClick={() => setLocale(l)}
                       className="px-3 py-1 rounded-xl border text-xs font-semibold uppercase transition-colors"
                       style={{
-                        background: locale === l ? "#E4F0EC" : "#fff",
-                        borderColor: locale === l ? "#0E6B5C" : "#E3E6E2",
-                        color: locale === l ? "#0E6B5C" : "#66716B",
+                        background: locale === l ? "var(--brand-accent-soft,#E4F0EC)" : "#fff",
+                        borderColor: locale === l ? "var(--brand-accent,#0E6B5C)" : "#E3E6E2",
+                        color: locale === l ? "var(--brand-accent,#0E6B5C)" : "#66716B",
                       }}
                     >
                       {l}

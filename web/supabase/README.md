@@ -22,6 +22,7 @@ SQL Editor Supabase (ou via `supabase db push` avec la CLI) :
 | `migrations/0015_project_members_mgmt.sql` | Gestion des membres : admins YCID/LEY + lecture des profils par les connectés |
 | `migrations/0016_admin_crud.sql` | CRUD organisations par les admins + suppression de projet (cascade audit) |
 | `migrations/0017_user_management.sql` | Rôle plateforme (admin/ycid/user) + statut actif ; is_admin() étendu |
+| `migrations/0018_platform_settings.sql` | Configuration de la marque (white-label) : nom, accroche, couleurs, logo + bucket `branding` |
 
 `seed.sql` contient les données de démonstration CEM Liban et s'exécute
 **après** les migrations, uniquement sur un environnement de démo.

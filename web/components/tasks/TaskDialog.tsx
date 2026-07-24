@@ -55,7 +55,7 @@ export default function TaskDialog({ phaseId, members, task }: {
       ) : (
         <button onClick={() => setOpen(true)}
           className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border font-medium hover:bg-gray-50"
-          style={{ borderColor: "#E3E6E2", color: "#0E6B5C" }}>
+          style={{ borderColor: "#E3E6E2", color: "var(--brand-accent,#0E6B5C)" }}>
           <Plus size={12} /> Tâche
         </button>
       )}
@@ -118,7 +118,7 @@ export default function TaskDialog({ phaseId, members, task }: {
                 <button type="button" onClick={() => setOpen(false)}
                   className="px-4 py-2 rounded-xl border text-sm font-medium" style={{ borderColor: "#E3E6E2", color: "#66716B" }}>Annuler</button>
                 <button type="submit" disabled={pending}
-                  className="px-4 py-2 rounded-xl text-sm font-semibold text-white" style={{ background: "#0E6B5C", opacity: pending ? 0.7 : 1 }}>
+                  className="px-4 py-2 rounded-xl text-sm font-semibold text-white" style={{ background: "var(--brand-accent,#0E6B5C)", opacity: pending ? 0.7 : 1 }}>
                   {pending ? "…" : task ? "Enregistrer" : "Créer la tâche"}
                 </button>
               </div>

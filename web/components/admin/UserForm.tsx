@@ -83,7 +83,7 @@ export default function UserForm({ user, canCreateAdmin }: { user?: UserData; ca
       </div>
       {error && <p className="text-sm rounded-lg px-3 py-2" style={{ background: "#F6E7E5", color: "#A3342C" }}>{error}</p>}
       <div className="flex items-center gap-3 pt-2">
-        <button type="submit" disabled={pending} className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-semibold" style={{ background: "#0E6B5C", opacity: pending ? 0.7 : 1 }}>
+        <button type="submit" disabled={pending} className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-semibold" style={{ background: "var(--brand-accent,#0E6B5C)", opacity: pending ? 0.7 : 1 }}>
           <Check size={16} /> {pending ? "…" : "Enregistrer"}
         </button>
         <Link href="/admin/utilisateurs" className="text-sm underline" style={{ color: "#66716B" }}>Annuler</Link>

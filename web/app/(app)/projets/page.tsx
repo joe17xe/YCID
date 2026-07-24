@@ -36,7 +36,7 @@ export default async function ProjetsPage() {
           <Link
             href="/projets/nouveau"
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-semibold"
-            style={{ background: "#0E6B5C", fontFamily: "var(--font-sora)" }}
+            style={{ background: "var(--brand-accent,#0E6B5C)", fontFamily: "var(--font-sora)" }}
           >
             <Plus size={16} /> Nouveau projet
           </Link>
@@ -71,7 +71,7 @@ export default async function ProjetsPage() {
                   <span className="font-medium">{prog}%</span>
                 </div>
                 <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "#E3E6E2" }}>
-                  <div className="h-full rounded-full" style={{ width: `${prog}%`, background: "#0E6B5C" }} />
+                  <div className="h-full rounded-full" style={{ width: `${prog}%`, background: "var(--brand-accent,#0E6B5C)" }} />
                 </div>
               </div>
 
@@ -84,7 +84,7 @@ export default async function ProjetsPage() {
               </div>
 
               {porteur?.organizations && (
-                <div className="mt-2 pt-2 border-t text-xs" style={{ borderColor: "#E3E6E2", color: "#0E6B5C" }}>
+                <div className="mt-2 pt-2 border-t text-xs" style={{ borderColor: "#E3E6E2", color: "var(--brand-accent,#0E6B5C)" }}>
                   Porteur : {porteur.organizations.name}
                 </div>
               )}

@@ -1,7 +1,7 @@
 "use client"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { LayoutDashboard, FolderKanban, Building2, Upload, PieChart, Lightbulb, Users, ShieldCheck, HelpCircle, LogOut, ChevronLeft, ChevronRight } from "lucide-react"
+import { LayoutDashboard, FolderKanban, Building2, Upload, PieChart, Lightbulb, Users, ShieldCheck, Settings, HelpCircle, LogOut, ChevronLeft, ChevronRight } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { useState } from "react"
 import { useTranslations } from "next-intl"
@@ -19,9 +19,10 @@ const NAV = [
 const ADMIN_NAV = [
   { href: "/admin/utilisateurs", key: "users", Icon: Users },
   { href: "/admin/acces", key: "access", Icon: ShieldCheck },
+  { href: "/admin/configuration", key: "configuration", Icon: Settings },
 ]
 
-export default function Sidebar({ showAdmin = false }: { showAdmin?: boolean }) {
+export default function Sidebar({ showAdmin = false, brandName = "Solid'Pilot", logoUrl = null }: { showAdmin?: boolean; brandName?: string; logoUrl?: string | null }) {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
@@ -40,10 +41,15 @@ export default function Sidebar({ showAdmin = false }: { showAdmin?: boolean }) 
     >
       {/* Logo */}
       <div className="flex items-center gap-2 px-4 py-5 border-b" style={{ borderColor: "#E3E6E2" }}>
-        <div className="w-7 h-7 rounded-lg flex-shrink-0" style={{ background: "#0E6B5C" }} />
+        {logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={logoUrl} alt={brandName} className="w-7 h-7 rounded-lg flex-shrink-0 object-contain" />
+        ) : (
+          <div className="w-7 h-7 rounded-lg flex-shrink-0" style={{ background: "var(--brand-accent,#0E6B5C)" }} />
+        )}
         {!collapsed && (
           <span className="font-bold text-base leading-tight" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>
-            Solid&apos;Pilot
+            {brandName}
           </span>
         )}
       </div>
@@ -58,8 +64,8 @@ export default function Sidebar({ showAdmin = false }: { showAdmin?: boolean }) 
               href={href}
               className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors"
               style={{
-                background: active ? "#E4F0EC" : "transparent",
-                color: active ? "#0E6B5C" : "#66716B",
+                background: active ? "var(--brand-accent-soft,#E4F0EC)" : "transparent",
+                color: active ? "var(--brand-accent,#0E6B5C)" : "#66716B",
                 fontFamily: "var(--font-inter)",
                 fontWeight: active ? 600 : 400,
               }}
@@ -84,8 +90,8 @@ export default function Sidebar({ showAdmin = false }: { showAdmin?: boolean }) 
                   href={href}
                   className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors"
                   style={{
-                    background: active ? "#E4F0EC" : "transparent",
-                    color: active ? "#0E6B5C" : "#66716B",
+                    background: active ? "var(--brand-accent-soft,#E4F0EC)" : "transparent",
+                    color: active ? "var(--brand-accent,#0E6B5C)" : "#66716B",
                     fontFamily: "var(--font-inter)",
                     fontWeight: active ? 600 : 400,
                   }}

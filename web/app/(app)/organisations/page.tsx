@@ -50,8 +50,8 @@ export default async function OrganisationsPage() {
                   <td className="px-5 py-3" style={{ color: "#66716B" }}>{org.email ?? "—"}</td>
                   <td className="px-5 py-3">
                     <span className="text-xs px-2 py-0.5 rounded-full" style={{
-                      background: org.status === "active" ? "#E4F0EC" : "#EEF0EE",
-                      color: org.status === "active" ? "#0E6B5C" : "#66716B",
+                      background: org.status === "active" ? "var(--brand-accent-soft,#E4F0EC)" : "#EEF0EE",
+                      color: org.status === "active" ? "var(--brand-accent,#0E6B5C)" : "#66716B",
                     }}>
                       {org.status === "active" ? "Active" : "Inactive"}
                     </span>
@@ -77,7 +77,7 @@ export default async function OrganisationsPage() {
 
       {canManage && (
         <p className="mt-3 text-xs" style={{ color: "#66716B" }}>
-          L&apos;icône <span style={{ color: "#0E6B5C" }}>＋ personne</span> crée un compte utilisateur à partir de l&apos;email de l&apos;organisation (mot de passe temporaire affiché, sans email d&apos;invitation).
+          L&apos;icône <span style={{ color: "var(--brand-accent,#0E6B5C)" }}>＋ personne</span> crée un compte utilisateur à partir de l&apos;email de l&apos;organisation (mot de passe temporaire affiché, sans email d&apos;invitation).
         </p>
       )}
     </div>

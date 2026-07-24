@@ -26,7 +26,7 @@ export default async function AdminAccesPage() {
             <thead>
               <tr style={{ background: "#F5F6F4", borderBottom: "1px solid #E3E6E2" }}>
                 <th className="text-left px-5 py-3 text-xs font-semibold" style={{ color: "#66716B" }}>Permission</th>
-                <th className="text-center px-3 py-3 text-xs font-semibold" style={{ color: "#0E6B5C" }}>Admin YCID/LEY</th>
+                <th className="text-center px-3 py-3 text-xs font-semibold" style={{ color: "var(--brand-accent,#0E6B5C)" }}>Admin YCID/LEY</th>
                 {ROLE_COLUMNS.map(r => (
                   <th key={r.key} className="text-center px-3 py-3 text-xs font-semibold" style={{ color: "#66716B" }}>{r.label}</th>
                 ))}
@@ -41,12 +41,12 @@ export default async function AdminAccesPage() {
                     {p.note && <div className="text-xs mt-0.5" style={{ color: "#B4690E" }}>{p.note}</div>}
                   </td>
                   <td className="text-center px-3 py-3">
-                    {p.admin ? <Check size={16} className="inline" style={{ color: "#0E6B5C" }} /> : <span style={{ color: "#66716B" }}>—</span>}
+                    {p.admin ? <Check size={16} className="inline" style={{ color: "var(--brand-accent,#0E6B5C)" }} /> : <span style={{ color: "#66716B" }}>—</span>}
                   </td>
                   {ROLE_COLUMNS.map(r => (
                     <td key={r.key} className="text-center px-3 py-3">
                       {p.roles.includes(r.key)
-                        ? <Check size={16} className="inline" style={{ color: "#0E6B5C" }} />
+                        ? <Check size={16} className="inline" style={{ color: "var(--brand-accent,#0E6B5C)" }} />
                         : <span style={{ color: "#66716B" }}>—</span>}
                     </td>
                   ))}

@@ -48,7 +48,7 @@ export default function AvatarUploader({ userId, avatarUrl, name }: { userId: st
         ? <img src={avatarUrl} alt="Photo de profil" className="w-20 h-20 rounded-full object-cover" />
         : (
           <span className="w-20 h-20 rounded-full flex items-center justify-center text-xl font-semibold"
-            style={{ background: "#E4F0EC", color: "#0E6B5C" }}>
+            style={{ background: "var(--brand-accent-soft,#E4F0EC)", color: "var(--brand-accent,#0E6B5C)" }}>
             {initials}
           </span>
         )}
@@ -58,7 +58,7 @@ export default function AvatarUploader({ userId, avatarUrl, name }: { userId: st
             onClick={() => fileRef.current?.click()}
             disabled={busy}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white"
-            style={{ background: "#0E6B5C", opacity: busy ? 0.7 : 1 }}
+            style={{ background: "var(--brand-accent,#0E6B5C)", opacity: busy ? 0.7 : 1 }}
           >
             <Upload size={14} /> {busy ? "…" : "Changer la photo"}
           </button>

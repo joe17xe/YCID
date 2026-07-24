@@ -34,7 +34,7 @@ export default async function PilotagePage() {
       {/* KPI globaux */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {[
-          { label: "Budget total portefeuille", value: fmtEur(totalBudget), color: "#0E6B5C", bg: "#E4F0EC" },
+          { label: "Budget total portefeuille", value: fmtEur(totalBudget), color: "var(--brand-accent,#0E6B5C)", bg: "var(--brand-accent-soft,#E4F0EC)" },
           { label: "Projets en cours", value: (projects ?? []).filter((p: any) => p.status === "en_cours").length, color: "#3B5488", bg: "#E8ECF5" },
           { label: "Décisions ouvertes", value: (decisions ?? []).length, color: "#B4690E", bg: "#F7EDDD" },
           { label: "Décisions en retard", value: overdueDecisions.length, color: "#A3342C", bg: "#F6E7E5" },
@@ -68,7 +68,7 @@ export default async function PilotagePage() {
               return (
                 <tr key={p.id} style={{ borderBottom: "1px solid #E3E6E2" }}>
                   <td className="px-5 py-3">
-                    <Link href={`/projets/${p.id}`} className="font-medium hover:underline" style={{ color: "#0E6B5C" }}>{p.name}</Link>
+                    <Link href={`/projets/${p.id}`} className="font-medium hover:underline" style={{ color: "var(--brand-accent,#0E6B5C)" }}>{p.name}</Link>
                   </td>
                   <td className="px-5 py-3">
                     <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: s.bg, color: s.fg }}>{s.label}</span>
@@ -76,7 +76,7 @@ export default async function PilotagePage() {
                   <td className="px-5 py-3 w-40">
                     <div className="flex items-center gap-2">
                       <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: "#E3E6E2" }}>
-                        <div className="h-full rounded-full" style={{ width: `${prog}%`, background: "#0E6B5C" }} />
+                        <div className="h-full rounded-full" style={{ width: `${prog}%`, background: "var(--brand-accent,#0E6B5C)" }} />
                       </div>
                       <span className="text-xs w-8" style={{ color: "#66716B" }}>{prog}%</span>
                     </div>

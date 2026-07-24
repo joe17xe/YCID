@@ -21,7 +21,7 @@ function Badge({ label, fg, bg }: { label: string; fg: string; bg: string }) {
 function ProgressBar({ value }: { value: number }) {
   return (
     <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "#E3E6E2" }}>
-      <div className="h-full rounded-full" style={{ width: `${value}%`, background: "#0E6B5C" }} />
+      <div className="h-full rounded-full" style={{ width: `${value}%`, background: "var(--brand-accent,#0E6B5C)" }} />
     </div>
   )
 }
@@ -122,8 +122,8 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
             href={`/projets/${id}?tab=${key}`}
             className="px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px"
             style={{
-              borderColor: tab === key ? "#0E6B5C" : "transparent",
-              color: tab === key ? "#0E6B5C" : "#66716B",
+              borderColor: tab === key ? "var(--brand-accent,#0E6B5C)" : "transparent",
+              color: tab === key ? "var(--brand-accent,#0E6B5C)" : "#66716B",
               fontFamily: "var(--font-inter)",
             }}
           >
@@ -286,7 +286,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
           )}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             {[
-              { label: "Prévisionnel (hors valorisation)", value: fmtEur(totalPlanned), color: "#0E6B5C", bg: "#E4F0EC" },
+              { label: "Prévisionnel (hors valorisation)", value: fmtEur(totalPlanned), color: "var(--brand-accent,#0E6B5C)", bg: "var(--brand-accent-soft,#E4F0EC)" },
               { label: "Valorisations", value: fmtEur(totalValorisation), color: "#8A6A1F", bg: "#F5EFE2" },
               { label: "Lignes actives", value: (budgetLines ?? []).filter((l: any) => l.status === "active").length, color: "#3B5488", bg: "#E8ECF5" },
               { label: "Lignes prévues", value: (budgetLines ?? []).filter((l: any) => l.status === "prevue").length, color: "#66716B", bg: "#EEF0EE" },
@@ -369,7 +369,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                   <Badge label={ik.label} fg={ik.fg} bg={ik.bg} />
                 </div>
                 <div className="flex items-end gap-1 mb-1">
-                  <span className="text-3xl font-bold" style={{ fontFamily: "var(--font-sora)", color: "#0E6B5C" }}>
+                  <span className="text-3xl font-bold" style={{ fontFamily: "var(--font-sora)", color: "var(--brand-accent,#0E6B5C)" }}>
                     {lastMeasure ? lastMeasure.value : baseline}
                   </span>
                   <span className="text-sm mb-1" style={{ color: "#66716B" }}>{ind.unit}</span>
@@ -464,7 +464,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                   {new Date(a.at).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" })}
                 </div>
                 <div className="flex-1">
-                  <span className="text-xs font-medium px-2 py-0.5 rounded" style={{ background: "#E4F0EC", color: "#0E6B5C" }}>{a.action}</span>
+                  <span className="text-xs font-medium px-2 py-0.5 rounded" style={{ background: "var(--brand-accent-soft,#E4F0EC)", color: "var(--brand-accent,#0E6B5C)" }}>{a.action}</span>
                   {" "}
                   <span className="text-sm" style={{ color: "#17211D" }}>{a.label}</span>
                   {a.comment && <span className="text-xs ml-2" style={{ color: "#66716B" }}>· {a.comment}</span>}

@@ -17,9 +17,9 @@ export function VoteButton({ ideaId, votes, hasVoted }: { ideaId: string; votes:
         disabled={pending}
         className="flex items-center gap-1.5 px-4 py-2 rounded-xl border text-sm font-semibold transition-colors"
         style={{
-          background: hasVoted ? "#0E6B5C" : "#fff",
-          borderColor: hasVoted ? "#0E6B5C" : "#E3E6E2",
-          color: hasVoted ? "#fff" : "#0E6B5C",
+          background: hasVoted ? "var(--brand-accent,#0E6B5C)" : "#fff",
+          borderColor: hasVoted ? "var(--brand-accent,#0E6B5C)" : "#E3E6E2",
+          color: hasVoted ? "#fff" : "var(--brand-accent,#0E6B5C)",
           opacity: pending ? 0.7 : 1,
         }}
       >
@@ -70,8 +70,8 @@ export function AdminPanel({ ideaId, status, priority, difficulty }: { ideaId: s
         </select>
       </div>
       {error && <p className="text-xs rounded px-2 py-1" style={{ background: "#F6E7E5", color: "#A3342C" }}>{error}</p>}
-      {saved && <p className="text-xs rounded px-2 py-1" style={{ background: "#E4F0EC", color: "#0E6B5C" }}>Enregistré.</p>}
-      <button type="submit" disabled={pending} className="w-full py-2 rounded-xl text-sm font-semibold text-white" style={{ background: "#0E6B5C", opacity: pending ? 0.7 : 1 }}>
+      {saved && <p className="text-xs rounded px-2 py-1" style={{ background: "var(--brand-accent-soft,#E4F0EC)", color: "var(--brand-accent,#0E6B5C)" }}>Enregistré.</p>}
+      <button type="submit" disabled={pending} className="w-full py-2 rounded-xl text-sm font-semibold text-white" style={{ background: "var(--brand-accent,#0E6B5C)", opacity: pending ? 0.7 : 1 }}>
         {pending ? "…" : "Enregistrer"}
       </button>
     </form>
@@ -149,7 +149,7 @@ export function Comments({ ideaId, comments }: { ideaId: string; comments: Comme
         {error && <p className="text-xs mt-1 rounded px-2 py-1" style={{ background: "#F6E7E5", color: "#A3342C" }}>{error}</p>}
         <button type="submit" disabled={pending || !body.trim()}
           className="mt-2 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white"
-          style={{ background: "#0E6B5C", opacity: pending || !body.trim() ? 0.6 : 1 }}>
+          style={{ background: "var(--brand-accent,#0E6B5C)", opacity: pending || !body.trim() ? 0.6 : 1 }}>
           <Send size={13} /> Publier
         </button>
       </form>
