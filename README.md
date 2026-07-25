@@ -2,6 +2,27 @@
 
 Application de pilotage de projets de solidarité internationale multi-partenaires, développée pour YCID (Yvelines Coopération Internationale et Développement) et le programme CEM Liban-Yvelines.
 
+Développée par l'association **REFLEY** — powered by **EZRYA**.
+
+## Gouvernance produit
+
+| Rôle | Personne | Périmètre |
+|---|---|---|
+| Product Owner | Bérengère Ayoub (YCID) | Arbitrage du backlog, validation de la roadmap et des idées soumises |
+
+Le Product Owner arbitre le périmètre et les priorités du backlog
+(`docs/roadmap-prs.md`), et valide la roadmap participative ainsi que les
+idées déposées par les partenaires. Les décisions produit prises en cours
+de route sont consignées avec leur date, afin qu'un arbitrage puisse être
+retrouvé et rediscuté plutôt que redécouvert.
+
+⚠️ **Prérequis technique.** L'écran « Gestion produit » de la roadmap
+(statut d'une idée, priorisation) est réservé aux administrateurs au sens
+de `isUserAdmin()` : soit `profiles.is_platform_admin`, soit une adhésion
+de rôle `admin_org` dans une organisation dont le nom contient « YCID » ou
+« LEY ». Une simple appartenance à YCID ne suffit pas — vérifier le profil
+avant de compter sur ce droit.
+
 ## Contenu
 
 ### `/prototypes`

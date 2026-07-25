@@ -34,6 +34,14 @@ export default async function MentionsLegalesPage() {
           </section>
 
           <section className="space-y-2">
+            <h2 className="font-semibold" style={h2}>Conception et développement</h2>
+            <p className="text-sm" style={{ color: "#66716B" }}>
+              Application développée par l&apos;association <strong>REFLEY</strong>,
+              powered by <strong>EZRYA</strong>.
+            </p>
+          </section>
+
+          <section className="space-y-2">
             <h2 className="font-semibold" style={h2}>Hébergement</h2>
             <p className="text-sm" style={{ color: "#66716B" }}>
               Application hébergée sur un serveur privé virtuel opéré par
