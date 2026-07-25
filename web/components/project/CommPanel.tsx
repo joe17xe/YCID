@@ -77,11 +77,11 @@ function fmtD(d: string | null): string {
   return new Date(d + "T00:00:00").toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })
 }
 
-// Timeline horizontale : ● publiée · ○ planifiée · rouge = en retard.
-// Les libellés alternent sur deux niveaux et la largeur s'adapte au
-// nombre de campagnes, pour rester lisibles même quand les dates sont
+// Frise horizontale (desktop) : ● publiée · ○ planifiée · rouge = en
+// retard. Les libellés alternent sur deux niveaux et la largeur s'adapte
+// au nombre de campagnes, pour rester lisibles quand les dates sont
 // proches (elles se chevauchaient auparavant).
-function Timeline({ campaigns }: { campaigns: Campaign[] }) {
+function HorizontalTimeline({ campaigns }: { campaigns: Campaign[] }) {
   const today = new Date().toISOString().slice(0, 10)
   const dated = campaigns
     .filter(c => c.scheduled_date && c.status !== "annulee")
@@ -126,6 +126,79 @@ function Timeline({ campaigns }: { campaigns: Campaign[] }) {
         <span>● publiée</span><span>○ planifiée</span><span style={{ color: "#A3342C" }}>○ en retard</span>
       </div>
     </div>
+  )
+}
+
+// Frise VERTICALE (mobile) : une frise horizontale qui défile est
+// inutilisable au pouce. Même sémantique, lecture de haut en bas.
+// Repère « aujourd'hui » de la frise verticale (hors composant parent :
+// un composant déclaré pendant le rendu perdrait son état à chaque passe)
+function TodayMarker() {
+  return (
+    <div className="flex items-center gap-3 py-1">
+      <div className="w-3.5 flex justify-center flex-shrink-0">
+        <div className="w-2.5 h-2.5 rounded-full" style={{ background: "#17211D" }} />
+      </div>
+      <span className="text-xs font-semibold" style={{ color: "#17211D" }}>aujourd&apos;hui</span>
+    </div>
+  )
+}
+
+function VerticalTimeline({ campaigns }: { campaigns: Campaign[] }) {
+  const today = new Date().toISOString().slice(0, 10)
+  const dated = campaigns
+    .filter(c => c.scheduled_date && c.status !== "annulee")
+    .sort((a, b) => a.scheduled_date!.localeCompare(b.scheduled_date!))
+  if (dated.length === 0) return null
+  // Position du repère « aujourd'hui » dans la suite chronologique
+  const todayIndex = dated.findIndex(c => c.scheduled_date! > today)
+
+  return (
+    <div className="bg-white rounded-2xl border p-5 mb-4" style={{ borderColor: "#E3E6E2" }}>
+      <div className="relative">
+        {/* Ligne de temps verticale */}
+        <div className="absolute top-1 bottom-1 w-px" style={{ left: 7, background: "#E3E6E2" }} />
+        <div className="relative space-y-3">
+          {dated.map((c, i) => {
+            const late = c.scheduled_date! < today && c.status !== "publiee"
+            const filled = c.status === "publiee"
+            const color = late ? "#A3342C" : "var(--brand-accent,#0E6B5C)"
+            const st = STATUS_UI[c.status] ?? STATUS_UI.proposee
+            return (
+              <div key={c.id}>
+                {i === todayIndex && <TodayMarker />}
+                <div className="flex items-start gap-3">
+                  <div className="w-3.5 flex justify-center flex-shrink-0 mt-1">
+                    <div className="w-3.5 h-3.5 rounded-full border-2"
+                      style={{ borderColor: color, background: filled ? color : "#fff" }} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium leading-snug" style={{ color: late ? "#A3342C" : "#17211D" }}>{c.title}</div>
+                    <div className="text-xs mt-0.5 flex items-center gap-2 flex-wrap" style={{ color: "#66716B" }}>
+                      {fmtD(c.scheduled_date)}
+                      <span className="px-2 py-0.5 rounded-full font-medium" style={{ color: st.fg, background: st.bg }}>{st.label}</span>
+                      {late && <span style={{ color: "#A3342C" }}>en retard</span>}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+          {/* Toutes les campagnes sont passées : le repère ferme la frise */}
+          {todayIndex === -1 && <TodayMarker />}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Verticale sur mobile, horizontale à partir de md
+function Timeline({ campaigns }: { campaigns: Campaign[] }) {
+  return (
+    <>
+      <div className="md:hidden"><VerticalTimeline campaigns={campaigns} /></div>
+      <div className="hidden md:block"><HorizontalTimeline campaigns={campaigns} /></div>
+    </>
   )
 }
 
