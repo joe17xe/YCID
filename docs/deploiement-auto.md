@@ -129,6 +129,25 @@ clair et le reste de l'application fonctionne normalement.
 
 ---
 
+## Onglet « Déploiements » de la Roadmap (PR 30)
+
+L'onglet lit l'activité publique du dépôt GitHub (pull requests, releases,
+déploiements réussis). Aucune configuration n'est requise pour un dépôt
+public. Deux variables facultatives dans `.env.local` :
+
+```bash
+GITHUB_REPO=joe17xe/YCID   # défaut ; à changer si le dépôt est renommé
+GITHUB_TOKEN=ghp_...       # facultatif : lève la limite de 60 appels/heure
+```
+
+Les réponses sont mises en cache 5 minutes côté serveur. Sans jeton, si la
+limite est atteinte, l'onglet affiche un message explicite au lieu de
+planter. Tant qu'aucune release n'est publiée sur le dépôt, la colonne
+« Publiées » liste les **déploiements en production réussis** (le commit
+court correspond à la version affichée en pied de page).
+
+---
+
 ## Dépannage — variables d'environnement Supabase
 
 Les clés Supabase (`SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
