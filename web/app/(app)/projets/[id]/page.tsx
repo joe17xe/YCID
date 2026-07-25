@@ -11,6 +11,8 @@ import TaskDialog from "@/components/tasks/TaskDialog"
 import { BudgetLineDialog, CreateTaskFromLineButton, IndicatorDialog, MeasureDialog, MeetingDialog, DecisionDialog } from "@/components/project/ProjectDataDialogs"
 import TaskDocuments from "@/components/project/TaskDocuments"
 import BudgetLineDocuments from "@/components/project/BudgetLineDocuments"
+import PhasePhotos, { type PhasePhoto } from "@/components/project/PhasePhotos"
+import { GALLERY_URL_TTL, type DocMoment } from "@/lib/documents"
 import { MemberDialog, InviteUserDialog, RemoveMemberButton } from "@/components/project/MemberDialog"
 import HelpDialog from "@/components/help/HelpDialog"
 import DeleteProjectButton from "@/components/project/DeleteProjectButton"
@@ -38,15 +40,37 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/")
 
-  const [{ data: project }, { data: phases }, { data: budgetLines }, { data: indicators }, { data: meetings }, { data: audit }, canEditCompleted] = await Promise.all([
+  const [{ data: project }, { data: phases }, { data: budgetLines }, { data: indicators }, { data: meetings }, { data: audit }, { data: phasePhotos }, canEditCompleted] = await Promise.all([
     supabase.from("projects").select("*, project_organizations(org_id, role, organizations(id, name, type)), project_members(user_id, role, profiles(id, full_name, email)), validation_rules(id, role, doc_type)").eq("id", id).single(),
     supabase.from("phases").select("*, tasks(*, profiles:assignee_id(full_name), documents(*))").eq("project_id", id).order("position"),
     supabase.from("budget_lines").select("*, funder:funder_org_id(name), owner:owner_org_id(name), phase:phase_id(name), allocations:budget_line_tasks(task_id, amount, task:task_id(title)), documents(id, filename, type, amount, paid, paid_at, uploaded_at, validations(id, decision, comment, org:org_id(name)))").eq("project_id", id).order("year"),
     supabase.from("indicators").select("*, measures:indicator_measures(*)").eq("project_id", id),
     supabase.from("meetings").select("*, decisions(*, owner:owner_user_id(full_name))").eq("project_id", id).order("date", { ascending: false }),
     supabase.from("audit_log").select("*, profiles:user_id(full_name)").eq("project_id", id).order("at", { ascending: false }).limit(20),
+    // Photos de phase (PR 38c) : requête séparée car le join imbriqué
+    // sur phases remonterait aussi les photos des tâches, qui portent
+    // elles aussi un phase_id. Le critère est task_id IS NULL.
+    supabase.from("documents").select("id, phase_id, filename, moment, storage_path")
+      .eq("project_id", id).eq("type", "photo").is("task_id", null).order("uploaded_at"),
     canEditCompletedTasks(supabase, user.id),
   ])
+
+  // Bucket privé : les vignettes exigent des URL signées. Une seule
+  // signature groupée plutôt qu'un aller-retour par image.
+  const photoUrlByPath = new Map<string, string>()
+  const photoPaths = (phasePhotos ?? []).map((p: { storage_path: string | null }) => p.storage_path).filter(Boolean) as string[]
+  if (photoPaths.length) {
+    const { data: signed } = await supabase.storage.from("documents").createSignedUrls(photoPaths, GALLERY_URL_TTL)
+    for (const s of signed ?? []) if (s.path && s.signedUrl) photoUrlByPath.set(s.path, s.signedUrl)
+  }
+  const photosByPhase = new Map<string, PhasePhoto[]>()
+  for (const p of (phasePhotos ?? []) as { id: string; phase_id: string | null; filename: string; moment: DocMoment | null; storage_path: string | null }[]) {
+    if (!p.phase_id) continue
+    photosByPhase.set(p.phase_id, [...(photosByPhase.get(p.phase_id) ?? []), {
+      id: p.id, filename: p.filename, moment: p.moment,
+      url: p.storage_path ? photoUrlByPath.get(p.storage_path) ?? null : null,
+    }])
+  }
 
   if (!project) notFound()
 
@@ -300,6 +324,9 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                     </p>
                   )}
                   <div className="mt-2"><ProgressBar value={phProg} /></div>
+                  {/* Photos avant / pendant / après de la phase (PR 38c) */}
+                  <PhasePhotos projectId={id} phaseId={ph.id} canUpload={canTasks}
+                    photos={photosByPhase.get(ph.id) ?? []} />
                 </div>
                 <div className="divide-y" style={{ borderColor: "#E3E6E2" }}>
                   {phaseTasks.map((t: any) => {

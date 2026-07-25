@@ -50,6 +50,18 @@ export default function Modal({ open, onClose, title, icon, children, footer, he
     return () => { vv.removeEventListener("resize", update); setViewportH(null) }
   }, [open])
 
+  // `busy` et `onClose` passent par des refs, JAMAIS par les dépendances
+  // de l'effet ci-dessous. Tous les appelants passent une fonction fléchée
+  // (`onClose={() => setOpen(false)}`), donc d'identité neuve à chaque
+  // rendu. En dépendance, l'effet se rejouait à chaque frappe dans un
+  // champ contrôlé : son nettoyage exécutait `previousFocus.focus()`, qui
+  // sort le focus du dialogue, et sa réexécution le replaçait sur le
+  // PREMIER élément. Résultat, le focus quittait le champ en cours de
+  // saisie et le clavier virtuel se fermait à chaque caractère.
+  const onCloseRef = useRef(onClose)
+  const busyRef = useRef(busy)
+  useEffect(() => { onCloseRef.current = onClose; busyRef.current = busy })
+
   useEffect(() => {
     if (!open) return
     previousFocus.current = document.activeElement as HTMLElement | null
@@ -61,7 +73,7 @@ export default function Modal({ open, onClose, title, icon, children, footer, he
     ;(first ?? panel)?.focus()
 
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape" && !busy) { e.preventDefault(); onClose(); return }
+      if (e.key === "Escape" && !busyRef.current) { e.preventDefault(); onCloseRef.current(); return }
       if (e.key !== "Tab" || !panel) return
       const items = Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE))
         .filter(el => el.offsetParent !== null || el === document.activeElement)
@@ -78,7 +90,7 @@ export default function Modal({ open, onClose, title, icon, children, footer, he
       document.body.style.overflow = ""
       previousFocus.current?.focus()
     }
-  }, [open, busy, onClose])
+  }, [open])
 
   if (!open) return null
 

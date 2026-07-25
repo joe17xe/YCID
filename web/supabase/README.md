@@ -35,6 +35,8 @@ SQL Editor Supabase (ou via `supabase db push` avec la CLI) :
 | `migrations/0028_budget_line_task_split.sql` | Répartition d'une ligne sur plusieurs tâches : table `budget_line_tasks` (N:M + montant), reprise des données 0027, `budget_lines.task_id` supprimée (PR 40b) |
 | `migrations/0029_documents_storage.sql` | Socle documentaire : bucket Storage **privé** `documents`, `documents.project_id` / `phase_id`, RLS table + bucket (`can_upload_document`) (PR 38a) |
 | `migrations/0030_validations_circuit.sql` | Circuit devis → validé → facture → payé : policy d'INSERT manquante sur `validations`, `documents.paid_at`, `validation_orgs_for_document()` (PR 38b) |
+| `migrations/0031_validation_orgs_fallback.sql` | Correctif 38b : repli de validation ordonné (règles → financeur → porteuse) au lieu de solliciter financeur ET porteuse |
+| `migrations/0032_photos_moment.sql` | Photos avant/pendant/après : enum `doc_moment`, `documents.moment`, index galerie + durcissement du bucket (taille et types MIME côté serveur) (PR 38c) |
 
 `seed.sql` contient les données de démonstration CEM Liban et s'exécute
 **après** les migrations, uniquement sur un environnement de démo.

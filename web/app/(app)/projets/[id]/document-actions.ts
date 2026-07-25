@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
-import { DOC_TYPES, DOC_TYPE_LABELS, type DocType } from '@/lib/documents'
+import { DOC_TYPES, DOC_TYPE_LABELS, DOC_MOMENTS, GALLERY_URL_TTL, type DocType, type DocMoment } from '@/lib/documents'
 
 // ============================================================
 // PR 38a — Socle documentaire
@@ -22,6 +22,8 @@ export interface SaveDocumentInput {
   filename: string
   storagePath: string
   amount?: string | null
+  // Photos de terrain uniquement (PR 38c) : un devis n'a pas d'« avant ».
+  moment?: DocMoment | null
 }
 
 export async function saveDocument(input: SaveDocumentInput): Promise<{ ok: boolean; error?: string }> {
@@ -54,6 +56,9 @@ export async function saveDocument(input: SaveDocumentInput): Promise<{ ok: bool
     filename,
     storage_path: input.storagePath,
     amount,
+    // Ignoré hors photo : un moment sur un devis n'aurait aucun sens et
+    // polluerait la galerie.
+    moment: input.type === 'photo' && input.moment && DOC_MOMENTS.includes(input.moment) ? input.moment : null,
     uploaded_by: user.id,
   }).select('id').single()
   if (error || !created) return { ok: false, error: `Échec de l'enregistrement : ${error?.message ?? 'document non créé'}` }
