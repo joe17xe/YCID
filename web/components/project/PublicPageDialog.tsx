@@ -34,10 +34,17 @@ export default function PublicPageDialog({ projectId, token }: { projectId: stri
 
   return (
     <>
+      {/* En portrait, les trois boutons d'en-tête débordaient et
+          chevauchaient le fil d'Ariane : le libellé disparaît sous sm,
+          l'icône seule suffit (le titre reste annoncé aux lecteurs
+          d'écran par aria-label). */}
       <button onClick={() => setOpen(true)}
-        className="flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-medium"
+        title={`Page publique${token ? " · active" : ""}`}
+        aria-label={`Page publique${token ? " · active" : ""}`}
+        className="flex items-center justify-center gap-2 p-2 sm:px-4 sm:py-2 rounded-xl border text-sm font-medium"
         style={{ borderColor: token ? "var(--brand-accent,#0E6B5C)" : "#E3E6E2", color: token ? "var(--brand-accent,#0E6B5C)" : "#17211D" }}>
-        <Globe size={15} /> Page publique{token ? " · active" : ""}
+        <Globe size={15} aria-hidden="true" />
+        <span className="hidden sm:inline">Page publique{token ? " · active" : ""}</span>
       </button>
 
       <Modal

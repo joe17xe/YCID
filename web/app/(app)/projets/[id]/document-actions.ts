@@ -61,7 +61,10 @@ export async function saveDocument(input: SaveDocumentInput): Promise<{ ok: bool
   // Un devis part automatiquement en validation (PR 38b) : le laisser à
   // la main ferait des devis oubliés en attente de rien, et « engagé »
   // ne compte que les devis validés.
-  if (input.type === 'devis') {
+  // Uniquement s'il est rattaché à une ligne : sans ligne à créditer, la
+  // validation ne serait affichée nulle part et n'alimenterait aucun
+  // montant — un circuit ouvert dans le vide.
+  if (input.type === 'devis' && input.budgetLineId) {
     const subErr = await submitForValidation(created.id)
     if (subErr) console.error('[saveDocument] mise en validation impossible:', subErr)
   }
