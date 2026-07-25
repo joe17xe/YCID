@@ -25,7 +25,8 @@ export const HELP_STEPS: { title: string; text: string }[] = [
   { title: "2. Gérer le budget", text: "L'onglet Budget affiche les lignes avec leur financeur, les valorisations et les statuts. Chaque ligne se répartit sur les tâches qu'elle finance, et chaque tâche affiche le budget qui lui est affecté." },
   { title: "3. Faire valider", text: "Les justificatifs se déposent sur la tâche ou sur la ligne budgétaire concernée. Un devis déposé part automatiquement en validation ; une fois validé il compte comme engagé, et une facture marquée payée alimente le réalisé. Une tâche terminée ne se modifie plus sans double confirmation d'un administrateur." },
   { title: "4. Mesurer l'impact", text: "L'onglet Impact suit les indicateurs du projet (jeunes mobilisés, km de sentiers…). Une mesure par période — c'est ce qui alimente les rapports aux financeurs." },
-  { title: "5. Piloter et rendre compte", text: "L'onglet COPIL garde les comptes rendus et le suivi des décisions. La page Pilotage donne la santé de l'ensemble du portefeuille." },
+  { title: "5. Rassembler les pièces", text: "L'onglet Documents réunit toutes les pièces du projet, quel que soit l'endroit où elles ont été déposées : filtrables par nature, par phase et par date, avec téléchargement groupé en archive." },
+  { title: "6. Piloter et rendre compte", text: "L'onglet COPIL garde les comptes rendus et le suivi des décisions. La page Pilotage donne la santé de l'ensemble du portefeuille." },
 ]
 
 export const HELP_FAQ: { q: string; a: string }[] = [
@@ -53,6 +54,11 @@ export const TAB_HELP: Record<string, { title: string; anchor: string; excerpt: 
     title: "Budget",
     anchor: "premiers-pas",
     excerpt: "Chaque ligne budgétaire porte son poste, sa catégorie, son financeur et son statut. Les lignes « valorisation » (apports non financiers) sont comptées à part du prévisionnel.",
+  },
+  documents: {
+    title: "Documents",
+    anchor: "premiers-pas",
+    excerpt: "Toutes les pièces du projet réunies, quel que soit leur point de dépôt : tâche, ligne budgétaire, phase ou projet. Filtrables par nature, par phase et par date ; l'archive téléchargée reprend exactement la sélection affichée.",
   },
   impact: {
     title: "Impact",

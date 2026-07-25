@@ -12,6 +12,7 @@ import { BudgetLineDialog, CreateTaskFromLineButton, IndicatorDialog, MeasureDia
 import TaskDocuments from "@/components/project/TaskDocuments"
 import BudgetLineDocuments from "@/components/project/BudgetLineDocuments"
 import PhasePhotos, { type PhasePhoto } from "@/components/project/PhasePhotos"
+import DocumentsPanel, { type ProjectDoc } from "@/components/project/DocumentsPanel"
 import { GALLERY_URL_TTL, type DocMoment } from "@/lib/documents"
 import { MemberDialog, InviteUserDialog, RemoveMemberButton } from "@/components/project/MemberDialog"
 import HelpDialog from "@/components/help/HelpDialog"
@@ -40,7 +41,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/")
 
-  const [{ data: project }, { data: phases }, { data: budgetLines }, { data: indicators }, { data: meetings }, { data: audit }, { data: phasePhotos }, canEditCompleted] = await Promise.all([
+  const [{ data: project }, { data: phases }, { data: budgetLines }, { data: indicators }, { data: meetings }, { data: audit }, { data: phasePhotos }, { data: allDocs }, canEditCompleted] = await Promise.all([
     supabase.from("projects").select("*, project_organizations(org_id, role, organizations(id, name, type)), project_members(user_id, role, profiles(id, full_name, email)), validation_rules(id, role, doc_type)").eq("id", id).single(),
     supabase.from("phases").select("*, tasks(*, profiles:assignee_id(full_name), documents(*))").eq("project_id", id).order("position"),
     supabase.from("budget_lines").select("*, funder:funder_org_id(name), owner:owner_org_id(name), phase:phase_id(name), allocations:budget_line_tasks(task_id, amount, task:task_id(title)), documents(id, filename, type, amount, paid, paid_at, uploaded_at, validations(id, decision, comment, org:org_id(name)))").eq("project_id", id).order("year"),
@@ -52,6 +53,11 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
     // elles aussi un phase_id. Le critère est task_id IS NULL.
     supabase.from("documents").select("id, phase_id, filename, moment, storage_path")
       .eq("project_id", id).eq("type", "photo").is("task_id", null).order("uploaded_at"),
+    // Zone documentaire centralisée (PR 38d) : toutes les pièces du
+    // projet, quel que soit leur point de dépôt.
+    supabase.from("documents")
+      .select("id, filename, type, moment, amount, paid, uploaded_at, phase:phase_id(name), task:task_id(title), line:budget_line_id(poste), uploader:uploaded_by(full_name)")
+      .eq("project_id", id).order("uploaded_at", { ascending: false }),
     canEditCompletedTasks(supabase, user.id),
   ])
 
@@ -63,6 +69,18 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
     const { data: signed } = await supabase.storage.from("documents").createSignedUrls(photoPaths, GALLERY_URL_TTL)
     for (const s of signed ?? []) if (s.path && s.signedUrl) photoUrlByPath.set(s.path, s.signedUrl)
   }
+  // supabase-js type les jointures « to-one » tantôt en objet, tantôt en
+  // tableau selon l'inférence : on normalise une fois pour toutes.
+  const one = <T,>(v: T | T[] | null): T | null => (Array.isArray(v) ? v[0] ?? null : v)
+  const projectDocs: ProjectDoc[] = ((allDocs ?? []) as any[]).map(d => ({
+    id: d.id, filename: d.filename, type: d.type, moment: d.moment ?? null,
+    amount: d.amount ?? null, paid: !!d.paid, uploadedAt: d.uploaded_at,
+    uploaderName: one<{ full_name: string | null }>(d.uploader)?.full_name ?? null,
+    phaseName: one<{ name: string }>(d.phase)?.name ?? null,
+    taskTitle: one<{ title: string }>(d.task)?.title ?? null,
+    lineposte: one<{ poste: string }>(d.line)?.poste ?? null,
+  }))
+
   const photosByPhase = new Map<string, PhasePhoto[]>()
   for (const p of (phasePhotos ?? []) as { id: string; phase_id: string | null; filename: string; moment: DocMoment | null; storage_path: string | null }[]) {
     if (!p.phase_id) continue
@@ -145,6 +163,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
     { key: "apercu", label: "Aperçu" },
     { key: "taches", label: `Tâches (${allTasks.length})` },
     { key: "budget", label: "Budget" },
+    { key: "documents", label: `Documents${projectDocs.length ? ` (${projectDocs.length})` : ""}` },
     { key: "impact", label: "Impact" },
     { key: "copil", label: "COPIL" },
     { key: "comm", label: `Communication${campaigns.length ? ` (${campaigns.length})` : ""}` },
@@ -537,6 +556,11 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
             {!(budgetLines ?? []).length && <div className="p-8 text-center text-sm" style={{ color: "#66716B" }}>Aucune ligne budgétaire</div>}
           </div>
         </div>
+      )}
+
+      {/* ===== DOCUMENTS (PR 38d) ===== */}
+      {tab === "documents" && (
+        <DocumentsPanel projectId={id} projectName={project.name} docs={projectDocs} canManage={canTasks} />
       )}
 
       {/* ===== IMPACT ===== */}
