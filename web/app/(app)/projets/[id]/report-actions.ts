@@ -48,6 +48,7 @@ export async function generateExpertReport(projectId: string, instructions?: str
       { data: project },
       { data: orgs },
       { data: phases },
+      { data: docs },
       { data: budget },
       { data: indicators },
       { data: measures },
@@ -58,6 +59,11 @@ export async function generateExpertReport(projectId: string, instructions?: str
       supabase.from('projects').select('name, description, country, zone, start_date, end_date, status, budget, currency').eq('id', projectId).maybeSingle(),
       supabase.from('project_organizations').select('role, organizations:org_id(name, type)').eq('project_id', projectId),
       supabase.from('phases').select('id, name, position, start_date, end_date, status, budget, tasks(id, title, status, progress, start_date, end_date, assignee_id)').eq('project_id', projectId).order('position'),
+      // Pièces justificatives (PR 38e). Un rapport adossé à des preuves
+      // datées vaut mieux qu'un rapport adossé à des pourcentages
+      // déclaratifs — et l'absence de preuve sur une tâche déclarée
+      // terminée est en soi une information de pilotage.
+      supabase.from('documents').select('id, type, moment, phase_id, task_id, uploaded_at').eq('project_id', projectId),
       // phase_id et la répartition sont indispensables : sans eux le
       // modèle ne peut structurellement pas rapprocher une ligne de sa
       // phase ni des tâches qu'elle finance, donc pas commenter le
@@ -84,6 +90,19 @@ export async function generateExpertReport(projectId: string, instructions?: str
       phaseNameById.set(p.id, p.name)
       for (const t of (p.tasks ?? []) as { id: string; title: string }[]) taskTitleById.set(t.id, t.title)
     }
+    // Pièces par tâche et par phase (PR 38e). Les pièces de phase sont
+    // celles sans tâche : sinon chaque justificatif serait compté deux
+    // fois, la tâche portant aussi le phase_id.
+    const docsByTask = new Map<string, { type: string; uploaded_at: string }[]>()
+    const docsByPhase = new Map<string, { type: string; moment: string | null }[]>()
+    for (const d of (docs ?? []) as { type: string; moment: string | null; phase_id: string | null; task_id: string | null; uploaded_at: string }[]) {
+      if (d.task_id) {
+        docsByTask.set(d.task_id, [...(docsByTask.get(d.task_id) ?? []), { type: d.type, uploaded_at: d.uploaded_at }])
+      } else if (d.phase_id) {
+        docsByPhase.set(d.phase_id, [...(docsByPhase.get(d.phase_id) ?? []), { type: d.type, moment: d.moment }])
+      }
+    }
+
     const plannedByTask = new Map<string, number>()
     const plannedByPhase = new Map<string, number>()
     for (const l of budget ?? []) {
@@ -106,13 +125,27 @@ export async function generateExpertReport(projectId: string, instructions?: str
         // phase, et la somme réelle des lignes qui lui sont rattachées.
         budget_saisi_sur_la_phase: p.budget,
         budget_somme_des_lignes: plannedByPhase.get(p.id) ?? 0,
-        taches: (p.tasks ?? []).map((t: { id: string; title: string; status: string; progress: number; end_date: string | null }) => ({
-          titre: t.title, statut: t.status, avancement: t.progress, echeance: t.end_date,
-          // Toujours un nombre : 0 signifie « aucun budget affecté », ce
-          // qui est une information, pas une donnée manquante.
-          budget_prevu: plannedByTask.get(t.id) ?? 0,
-          en_retard: !!(t.end_date && t.end_date < today && t.status !== 'terminee'),
-        })),
+        // Photos de terrain : c'est la comparaison avant / après qui
+        // documente une réalisation, pas leur nombre total.
+        photos_avant: (docsByPhase.get(p.id) ?? []).filter(d => d.type === 'photo' && d.moment === 'avant').length,
+        photos_apres: (docsByPhase.get(p.id) ?? []).filter(d => d.type === 'photo' && d.moment === 'apres').length,
+        pieces_de_la_phase: (docsByPhase.get(p.id) ?? []).length,
+        taches: (p.tasks ?? []).map((t: { id: string; title: string; status: string; progress: number; end_date: string | null }) => {
+          const pieces = docsByTask.get(t.id) ?? []
+          return {
+            titre: t.title, statut: t.status, avancement: t.progress, echeance: t.end_date,
+            // Toujours un nombre : 0 signifie « aucun budget affecté », ce
+            // qui est une information, pas une donnée manquante.
+            budget_prevu: plannedByTask.get(t.id) ?? 0,
+            en_retard: !!(t.end_date && t.end_date < today && t.status !== 'terminee'),
+            nb_pieces_justificatives: pieces.length,
+            natures_des_pieces: Array.from(new Set(pieces.map(d => d.type))),
+            // Déclarée faite sans aucune pièce : le modèle doit pouvoir
+            // le signaler plutôt que de prendre le pourcentage pour argent
+            // comptant.
+            terminee_sans_justificatif: t.status === 'terminee' && pieces.length === 0,
+          }
+        }),
       })),
       lignes_budgetaires: (budget ?? []).map(l => ({
         poste: l.poste, categorie: l.category, annee: l.year,
@@ -139,6 +172,7 @@ RÈGLES ABSOLUES :
 - Utilise UNIQUEMENT les chiffres et faits présents dans les données fournies. N'invente JAMAIS un chiffre, une date ou un fait.
 - Quand une donnée manque, écris « donnée non renseignée » ET signale explicitement que la conclusion n'est pas étayée.
 - Mets en évidence les écarts, retards et risques réels visibles dans les données.
+- Distingue ce qui est DÉCLARÉ de ce qui est PROUVÉ : une tâche à 100 % sans pièce justificative (« terminee_sans_justificatif ») est un avancement déclaratif, à signaler comme tel. Une phase sans photo « avant » ni « après » ne documente pas sa réalisation.
 - N'écris AUCUNE consigne, instruction ni commentaire de méthode dans le document.
 - Markdown sobre : titres de niveau 2, listes à puces, gras pour les alertes. Pas d'italique.
 Emploie EXACTEMENT ces titres de section, sans rien ajouter entre parenthèses :
@@ -180,7 +214,7 @@ Ne commence pas par un titre de niveau 1 : il est ajouté par l'application.`
       `# Rapport d'expertise — ${project.name}`,
       '',
       `Généré le ${stamp} · modèle ${result.model ?? 'inconnu'} · données arrêtées au ${today}`,
-      `Périmètre analysé : ${(phases ?? []).length} phase(s), ${(budget ?? []).length} ligne(s) budgétaire(s), ${(indicators ?? []).length} indicateur(s), ${(meetings ?? []).length} réunion(s).`,
+      `Périmètre analysé : ${(phases ?? []).length} phase(s), ${(budget ?? []).length} ligne(s) budgétaire(s), ${(indicators ?? []).length} indicateur(s), ${(meetings ?? []).length} réunion(s), ${(docs ?? []).length} pièce(s) justificative(s).`,
       '',
       '**Document généré par intelligence artificielle — à vérifier et valider avant toute diffusion.**',
       '',

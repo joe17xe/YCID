@@ -329,6 +329,17 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                     </div>
                     <div className="flex items-center gap-3 text-sm flex-wrap justify-end" style={{ color: "#66716B" }}>
                       <span>{phaseTasks.length} tâche{phaseTasks.length > 1 ? "s" : ""}</span>
+                      {/* Preuve de réalisation (PR 38e) : compte agrégé,
+                          pour qu'on n'ait pas à déplier chaque tâche. */}
+                      {(() => {
+                        const n = phaseTasks.filter((t: any) => t.status === "terminee" && !(t.documents ?? []).length).length
+                        return n > 0 ? (
+                          <span className="px-1.5 py-0.5 rounded text-xs" style={{ background: "#F7EDDD", color: "#8A6A1F" }}
+                            title="Tâches déclarées terminées sans aucune pièce justificative">
+                            {n} sans justificatif
+                          </span>
+                        ) : null
+                      })()}
                       {phaseLinesTotal > 0 && <span title="Somme des lignes budgétaires de la phase">{fmtEur(phaseLinesTotal)}</span>}
                       <span title={weighted ? "Moyenne pondérée par le budget des tâches" : "Moyenne des tâches, à parts égales"}>
                         {phProg}%{weighted && <span className="text-xs"> pondéré</span>}
@@ -364,7 +375,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                                   l'origine mais restait à 0 : rien ne
                                   permettait de déposer une pièce (PR 38a). */}
                               <TaskDocuments projectId={id} phaseId={ph.id} taskId={t.id}
-                                canUpload={canTasks}
+                                canUpload={canTasks} taskDone={t.status === "terminee"}
                                 docs={[...(t.documents ?? [])]
                                   .sort((a: any, b: any) => String(b.uploaded_at).localeCompare(String(a.uploaded_at)))
                                   .map((d: any) => ({

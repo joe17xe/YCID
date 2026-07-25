@@ -48,7 +48,7 @@ export const TAB_HELP: Record<string, { title: string; anchor: string; excerpt: 
   taches: {
     title: "Tâches",
     anchor: "premiers-pas",
-    excerpt: "Les phases structurent le projet, les tâches portent l'avancement (statut, %, échéance, documents). Une tâche terminée est verrouillée : seule une double confirmation d'un administrateur permet de la rouvrir, avec motif tracé au Journal.",
+    excerpt: "Les phases structurent le projet, les tâches portent l'avancement (statut, %, échéance, pièces justificatives). Une tâche déclarée terminée sans aucune pièce est signalée « sans justificatif » — signalée, jamais bloquée. Une tâche terminée est verrouillée : seule une double confirmation d'un administrateur permet de la rouvrir, avec motif tracé au Journal.",
   },
   budget: {
     title: "Budget",

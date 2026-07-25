@@ -258,10 +258,15 @@ plusieurs natures de pièces réellement présentes.
 - Le chef de projet joint un justificatif à une tâche pour attester
   qu'elle est faite. Une tâche passée à « terminée » sans pièce jointe
   est **signalée, pas bloquée** — un blocage dur ferait renoncer à
-  marquer les tâches terminées.
-- `report-actions.ts` cite les pièces disponibles par phase : un rapport
-  adossé à des preuves datées vaut mieux qu'un rapport adossé à des
-  pourcentages déclaratifs.
+  marquer les tâches terminées, et l'on perdrait l'avancement en plus de
+  la preuve. Signalement sur la tâche, et compte agrégé sur la phase
+  pour n'avoir pas à déplier chacune.
+- `report-actions.ts` cite les pièces disponibles par phase et par
+  tâche, et distingue explicitement ce qui est DÉCLARÉ de ce qui est
+  PROUVÉ : une tâche à 100 % sans pièce est un avancement déclaratif, à
+  signaler comme tel. Les photos sont comptées par moment (avant /
+  après) : c'est la comparaison qui documente une réalisation, pas leur
+  nombre total.
 
 **Ordre recommandé** : 38a → 38b → 38c → 38d → 38e. La PR 39 peut
 démarrer dès la 38b livrée, sans attendre les trois dernières.
