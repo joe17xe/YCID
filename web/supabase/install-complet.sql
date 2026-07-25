@@ -381,10 +381,13 @@ create index on notifications(user_id, read_at);
 -- ============================================================
 -- TRIGGER : créer un profil automatiquement à l'inscription
 -- ============================================================
+-- search_path = public : le trigger s'exécute aussi dans la session de
+-- GoTrue, dont le search_path ne contient pas public (cf. migration 0022).
 create or replace function handle_new_user()
-returns trigger language plpgsql security definer as $$
+returns trigger language plpgsql security definer
+set search_path = public as $$
 begin
-  insert into profiles (id, email, full_name)
+  insert into public.profiles (id, email, full_name)
   values (
     new.id,
     new.email,
@@ -1334,6 +1337,27 @@ create policy "Responsible update campaigns" on comm_campaigns
 -- ============================================================
 alter table projects add column if not exists programme text;
 update projects set programme = 'CEM' where programme is null;
+
+-- ============================================================
+-- MIGRATION 0022 — Fix création de comptes : search_path des triggers
+-- ============================================================
+create or replace function public.protect_profile_flags()
+returns trigger language plpgsql security definer
+set search_path = public as $$
+begin
+  if auth.uid() is null then
+    return new;
+  end if;
+  if TG_OP = 'INSERT' then
+    if new.is_platform_admin and not is_admin() then
+      raise exception 'is_platform_admin ne peut être attribué que par un administrateur';
+    end if;
+  elsif new.is_platform_admin is distinct from old.is_platform_admin and not is_admin() then
+    raise exception 'is_platform_admin ne peut être modifié que par un administrateur';
+  end if;
+  return new;
+end;
+$$;
 
 -- ============================================================
 -- MIGRATION 0021 — Page vitrine publique par projet (PR 28)
