@@ -17,6 +17,16 @@ interface ReportResult {
   error?: string
   truncated?: boolean
   model?: string
+  reportId?: string
+}
+
+export interface ReportSummary {
+  id: string
+  createdAt: string
+  model: string | null
+  instructions: string | null
+  truncated: boolean
+  authorName: string
 }
 
 // `instructions` : consignes libres du chef de projet ou de l'expert
@@ -139,15 +149,84 @@ Ne commence pas par un titre de niveau 1 : il est ajouté par l'application.`
     ].join('\n')
     const report = header + (result.content ?? '').replace(/^#\s+[^\n]*\n/, '')
 
+    // Persistance : un rapport est une pièce datée, comparable dans le
+    // temps et annexable à un dossier de financement. Si la table n'existe
+    // pas encore (migration 0024), la génération reste utilisable.
+    let reportId: string | undefined
+    const { data: saved, error: saveErr } = await supabase.from('ai_reports').insert({
+      project_id: projectId,
+      content: report,
+      model: result.model ?? null,
+      instructions: consigne || null,
+      truncated: result.truncated ?? false,
+      tokens: result.usage?.total ?? null,
+      created_by: user.id,
+    }).select('id').maybeSingle()
+    if (saveErr) console.error('[generateExpertReport] historisation impossible:', saveErr.message)
+    else reportId = saved?.id
+
     await supabase.from('audit_log').insert({
-      project_id: projectId, entity: 'rapport_ia', entity_id: null,
+      project_id: projectId, entity: 'rapport_ia', entity_id: reportId ?? null,
       label: project.name, action: 'cree', user_id: user.id,
       comment: `Rapport d'expert IA généré — modèle ${result.model ?? '?'}${result.usage?.total ? `, ${result.usage.total} jetons` : ''}${result.truncated ? ' — TRONQUÉ' : ''}`,
     })
 
-    return { ok: true, report, truncated: result.truncated, model: result.model }
+    return { ok: true, report, truncated: result.truncated, model: result.model, reportId }
   } catch (e) {
     console.error('[generateExpertReport] exception:', e)
     return { ok: false, error: `Échec de la génération : ${e instanceof Error ? e.message : String(e)}` }
   }
+}
+
+
+// ------------------------------------------------------------
+// Historique : liste, lecture, suppression
+// ------------------------------------------------------------
+export async function listReports(projectId: string): Promise<{ ok: boolean; reports?: ReportSummary[]; error?: string }> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: false, error: 'Non authentifié.' }
+    const { data, error } = await supabase
+      .from('ai_reports')
+      .select('id, created_at, model, instructions, truncated, author:created_by(full_name)')
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: false })
+      .limit(20)
+    // Table absente (migration 0024 non appliquée) : historique vide
+    if (error) return { ok: true, reports: [] }
+    const reports: ReportSummary[] = (data ?? []).map((r: {
+      id: string; created_at: string; model: string | null; instructions: string | null
+      truncated: boolean; author: { full_name: string | null } | { full_name: string | null }[] | null
+    }) => {
+      const a = Array.isArray(r.author) ? r.author[0] : r.author
+      return {
+        id: r.id, createdAt: r.created_at, model: r.model,
+        instructions: r.instructions, truncated: r.truncated,
+        authorName: a?.full_name ?? '—',
+      }
+    })
+    return { ok: true, reports }
+  } catch (e) {
+    console.error('[listReports] exception:', e)
+    return { ok: false, error: `Échec : ${e instanceof Error ? e.message : String(e)}` }
+  }
+}
+
+export async function getReport(reportId: string): Promise<{ ok: boolean; report?: string; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Non authentifié.' }
+  const { data, error } = await supabase.from('ai_reports').select('content').eq('id', reportId).maybeSingle()
+  if (error || !data) return { ok: false, error: 'Rapport introuvable.' }
+  return { ok: true, report: data.content }
+}
+
+export async function deleteReport(reportId: string): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Non authentifié.' }
+  const { error } = await supabase.from('ai_reports').delete().eq('id', reportId)
+  if (error) return { ok: false, error: `Suppression refusée : ${error.message}` }
+  return { ok: true }
 }

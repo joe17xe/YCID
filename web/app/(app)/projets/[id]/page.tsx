@@ -76,7 +76,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
     .eq("project_id", id)
     .order("scheduled_date")
   const campaigns: Campaign[] = (rawCampaigns ?? []).map((c: any) => ({
-    ...c, responsible_name: c.responsible?.full_name ?? null,
+    ...c, responsible_name: c.responsible?.full_name ?? null, brief: c.brief ?? null,
   }))
 
   const allTasks = (phases ?? []).flatMap((ph: any) => ph.tasks ?? [])

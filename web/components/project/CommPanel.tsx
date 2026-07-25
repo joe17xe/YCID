@@ -11,6 +11,14 @@ import {
 // PR 26 — Onglet Communication : timeline + campagnes + éditeur
 // ============================================================
 
+export interface CampaignBrief {
+  channels: string[]
+  audience: string
+  objective: string
+  tone: string
+  keyMessage: string
+}
+
 export interface Campaign {
   id: string
   phase_id: string | null
@@ -23,6 +31,7 @@ export interface Campaign {
   languages: string[]
   contents: Record<string, Record<string, string>> | null
   checklist: Record<string, boolean>
+  brief: CampaignBrief | null
   published_at: string | null
 }
 
@@ -37,8 +46,25 @@ const TRIGGER_LABEL: Record<string, string> = {
   kickoff: "🚀 Lancement", phase: "✅ Réalisation", objectif: "🎯 Objectif", cloture: "🏁 Bilan", manuelle: "✍️ Manuelle",
 }
 const CHANNELS: Array<{ key: string; label: string }> = [
-  { key: "linkedin", label: "LinkedIn" }, { key: "facebook", label: "Facebook" }, { key: "communique", label: "Communiqué" },
+  { key: "linkedin", label: "LinkedIn" },
+  { key: "facebook", label: "Facebook" },
+  { key: "communique", label: "Communiqué de presse" },
+  { key: "newsletter", label: "Newsletter" },
+  { key: "affiche", label: "Affiche / visuel" },
+  { key: "bulletin", label: "Bulletin municipal" },
 ]
+const AUDIENCES = ["Élus du Département", "Financeur (MEAE, YCID)", "Grand public yvelinois", "Presse locale", "Diaspora libanaise", "Bénévoles et adhérents"]
+const OBJECTIVES = ["Informer de l'avancement", "Valoriser un résultat", "Remercier les partenaires", "Mobiliser / recruter", "Annoncer un événement"]
+const TONES = ["Institutionnel", "Chaleureux", "Factuel", "Inspirant"]
+// Pré-réglages selon le moment du projet : le brief est pré-rempli,
+// l'utilisateur ajuste au lieu de partir d'une page blanche.
+const BRIEF_PRESETS: Record<string, Partial<CampaignBrief>> = {
+  kickoff: { channels: ["linkedin", "facebook", "communique"], audience: "Élus du Département", objective: "Annoncer un événement", tone: "Institutionnel" },
+  phase: { channels: ["linkedin", "facebook"], audience: "Grand public yvelinois", objective: "Valoriser un résultat", tone: "Chaleureux" },
+  cloture: { channels: ["linkedin", "communique"], audience: "Financeur (MEAE, YCID)", objective: "Valoriser un résultat", tone: "Institutionnel" },
+  objectif: { channels: ["linkedin", "facebook"], audience: "Grand public yvelinois", objective: "Valoriser un résultat", tone: "Inspirant" },
+  manuelle: { channels: ["linkedin", "facebook", "communique"], audience: "", objective: "", tone: "Factuel" },
+}
 const LANG_LABEL: Record<string, string> = { fr: "Français", en: "English", ar: "العربية" }
 const CHECKLIST_ITEMS: Array<{ key: string; label: string }> = [
   { key: "chiffres_ok", label: "Les chiffres et faits cités sont vérifiés" },
@@ -226,6 +252,14 @@ function CampaignEditor({ campaign, members, canManage, userId, busy, error, run
   const [langs, setLangs] = useState<string[]>(campaign.languages ?? ["fr"])
   const [contents, setContents] = useState(campaign.contents)
   const [checklist, setChecklist] = useState<Record<string, boolean>>(campaign.checklist ?? {})
+  const preset = BRIEF_PRESETS[campaign.trigger_kind] ?? BRIEF_PRESETS.manuelle
+  const [brief, setBrief] = useState<CampaignBrief>({
+    channels: campaign.brief?.channels ?? preset.channels ?? ["linkedin", "facebook", "communique"],
+    audience: campaign.brief?.audience ?? preset.audience ?? "",
+    objective: campaign.brief?.objective ?? preset.objective ?? "",
+    tone: campaign.brief?.tone ?? preset.tone ?? "Institutionnel",
+    keyMessage: campaign.brief?.keyMessage ?? "",
+  })
   const [activeLang, setActiveLang] = useState((campaign.languages ?? ["fr"])[0] ?? "fr")
   const [copied, setCopied] = useState("")
   const st = STATUS_UI[campaign.status] ?? STATUS_UI.proposee
@@ -236,7 +270,8 @@ function CampaignEditor({ campaign, members, canManage, userId, busy, error, run
     setCopied(key); setTimeout(() => setCopied(""), 1500)
   }
   const save = () => run("save", () => updateCampaign(campaign.id, {
-    title, scheduled_date: date || null, responsible_id: responsible || null, languages: langs, contents, checklist,
+    title, scheduled_date: date || null, responsible_id: responsible || null,
+    languages: langs, contents, checklist, brief,
   }))
 
   return (
@@ -287,6 +322,63 @@ function CampaignEditor({ campaign, members, canManage, userId, busy, error, run
             </div>
           </div>
 
+          {/* Brief : sans lui, l'IA ne peut produire qu'un texte générique */}
+          <div className="rounded-xl border p-4 space-y-3" style={{ borderColor: "#E3E6E2" }}>
+            <div className="text-xs font-semibold tracking-wider" style={{ color: "#66716B" }}>BRIEF DE COMMUNICATION</div>
+            <div>
+              <span className="block text-xs mb-1.5" style={{ color: "#66716B" }}>Canaux à produire</span>
+              <div className="flex flex-wrap gap-1.5">
+                {CHANNELS.map(ch => {
+                  const on = brief.channels.includes(ch.key)
+                  return (
+                    <button key={ch.key} type="button" disabled={!canEdit} aria-pressed={on}
+                      onClick={() => setBrief(b => ({ ...b, channels: on ? b.channels.filter(c => c !== ch.key) : [...b.channels, ch.key] }))}
+                      className="px-2.5 py-1 rounded-lg border text-xs font-medium"
+                      style={{
+                        background: on ? "var(--brand-accent,#0E6B5C)" : "#fff",
+                        borderColor: on ? "var(--brand-accent,#0E6B5C)" : "#E3E6E2",
+                        color: on ? "#fff" : "#66716B",
+                      }}>{ch.label}</button>
+                  )
+                })}
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-xs mb-1" style={{ color: "#66716B" }}>Audience</label>
+                <input list="comm-audiences" value={brief.audience} disabled={!canEdit}
+                  onChange={e => setBrief(b => ({ ...b, audience: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl border text-sm" style={{ borderColor: "#E3E6E2" }} />
+                <datalist id="comm-audiences">{AUDIENCES.map(a => <option key={a} value={a} />)}</datalist>
+              </div>
+              <div>
+                <label className="block text-xs mb-1" style={{ color: "#66716B" }}>Objectif</label>
+                <input list="comm-objectives" value={brief.objective} disabled={!canEdit}
+                  onChange={e => setBrief(b => ({ ...b, objective: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl border text-sm" style={{ borderColor: "#E3E6E2" }} />
+                <datalist id="comm-objectives">{OBJECTIVES.map(o => <option key={o} value={o} />)}</datalist>
+              </div>
+              <div>
+                <label className="block text-xs mb-1" style={{ color: "#66716B" }}>Ton</label>
+                <select value={brief.tone} disabled={!canEdit}
+                  onChange={e => setBrief(b => ({ ...b, tone: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl border text-sm" style={{ borderColor: "#E3E6E2" }}>
+                  {TONES.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs mb-1" style={{ color: "#66716B" }}>Message clé / appel à l&apos;action</label>
+              <textarea rows={2} value={brief.keyMessage} disabled={!canEdit}
+                onChange={e => setBrief(b => ({ ...b, keyMessage: e.target.value }))}
+                className="w-full px-3 py-2 rounded-xl border text-sm" style={{ borderColor: "#E3E6E2" }}
+                placeholder="Ex. : remercier la municipalité de Jeïta et inviter à la visite du 12 septembre." />
+            </div>
+            <p className="text-xs" style={{ color: "#66716B" }}>
+              Enregistrez le brief avant de générer : il oriente le style, la longueur et l&apos;angle de chaque contenu.
+            </p>
+          </div>
+
           {/* Génération + contenus */}
           {canEdit && (
             <button onClick={() => run("gen", () => generateCampaignContents(campaign.id))} disabled={!!busy}
@@ -308,7 +400,7 @@ function CampaignEditor({ campaign, members, canManage, userId, busy, error, run
                 ))}
               </div>
               <div className="space-y-3">
-                {CHANNELS.map(ch => (
+                {CHANNELS.filter(ch => contents[activeLang]?.[ch.key] !== undefined || brief.channels.includes(ch.key)).map(ch => (
                   <div key={ch.key}>
                     <div className="flex items-center justify-between mb-1">
                       <label className="text-xs font-semibold tracking-wider" style={{ color: "#66716B" }}>{ch.label.toUpperCase()}</label>
