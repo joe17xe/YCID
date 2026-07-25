@@ -433,7 +433,7 @@ export async function saveDecision(input: DecisionInput): Promise<{ ok: boolean;
 // Gestion des membres du projet
 // ============================================================
 
-const MEMBER_ROLES = ['chef_projet', 'resp_financier', 'contributeur', 'validateur', 'auditeur', 'lecteur']
+const MEMBER_ROLES = ['chef_projet', 'referent_mairie', 'resp_financier', 'contributeur', 'validateur', 'auditeur', 'lecteur']
 
 export async function addProjectMember(input: { projectId: string; userId: string; role: string }): Promise<{ ok: boolean; error?: string }> {
   const supabase = await createClient()

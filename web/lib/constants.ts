@@ -22,6 +22,7 @@ export const ORG_TYPES: Record<string, string> = {
   collectivite: 'Collectivité',
   partenaire_local: 'Partenaire local',
   partenaire_medical: 'Partenaire médical',
+  expert: 'Expert / bureau d\'études',
   financeur: 'Financeur',
   financeur_public: 'Financeur public',
   mecene: 'Mécène',
@@ -39,7 +40,8 @@ export const PROJECT_ROLES: Record<string, { label: string; bg: string; fg: stri
 }
 
 export const ACCESS_ROLES: Record<string, { label: string; short: string; fg: string; bg: string }> = {
-  chef_projet: { label: 'Chef de projet · Comité', short: 'Comité', fg: '#0E6B5C', bg: '#E4F0EC' },
+  chef_projet: { label: 'Chef de projet · Expert', short: 'Chef', fg: '#0E6B5C', bg: '#E4F0EC' },
+  referent_mairie: { label: 'Référent Mairie', short: 'Mairie', fg: '#1F5F7A', bg: '#E3F0F5' },
   resp_financier: { label: 'Responsable financier', short: 'Finances', fg: '#3B5488', bg: '#E8ECF5' },
   contributeur: { label: 'Contributeur · Terrain', short: 'Terrain', fg: '#8A6A1F', bg: '#F5EFE2' },
   validateur: { label: 'Validateur / Financeur', short: 'Validateur', fg: '#6B4A8C', bg: '#F0E9F5' },

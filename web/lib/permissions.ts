@@ -39,7 +39,8 @@ export async function getProjectRole(supabase: SupabaseClient, userId: string, p
 // phases » + « Admins manage phases », migration 0011).
 export async function canManagePhases(supabase: SupabaseClient, userId: string, projectId: string): Promise<boolean> {
   if (await isUserAdmin(supabase, userId)) return true
-  return (await getProjectRole(supabase, userId, projectId)) === 'chef_projet'
+  const role = await getProjectRole(supabase, userId, projectId)
+  return role === 'chef_projet' || role === 'referent_mairie'
 }
 
 // Gérer les tâches : chef de projet, resp. financier, contributeur ou admin
@@ -47,7 +48,7 @@ export async function canManagePhases(supabase: SupabaseClient, userId: string, 
 export async function canManageTasks(supabase: SupabaseClient, userId: string, projectId: string): Promise<boolean> {
   if (await isUserAdmin(supabase, userId)) return true
   const role = await getProjectRole(supabase, userId, projectId)
-  return role === 'chef_projet' || role === 'resp_financier' || role === 'contributeur'
+  return role === 'chef_projet' || role === 'referent_mairie' || role === 'resp_financier' || role === 'contributeur'
 }
 
 // Gérer le budget et les indicateurs : chef, resp. financier ou admin
@@ -55,11 +56,12 @@ export async function canManageTasks(supabase: SupabaseClient, userId: string, p
 export async function canManageBudget(supabase: SupabaseClient, userId: string, projectId: string): Promise<boolean> {
   if (await isUserAdmin(supabase, userId)) return true
   const role = await getProjectRole(supabase, userId, projectId)
-  return role === 'chef_projet' || role === 'resp_financier'
+  return role === 'chef_projet' || role === 'referent_mairie' || role === 'resp_financier'
 }
 
 // Gérer les réunions et décisions COPIL : chef de projet ou admin.
 export async function canManageMeetings(supabase: SupabaseClient, userId: string, projectId: string): Promise<boolean> {
   if (await isUserAdmin(supabase, userId)) return true
-  return (await getProjectRole(supabase, userId, projectId)) === 'chef_projet'
+  const role = await getProjectRole(supabase, userId, projectId)
+  return role === 'chef_projet' || role === 'referent_mairie'
 }

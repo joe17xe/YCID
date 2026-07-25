@@ -51,9 +51,9 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
   // Droits d'édition : les admins (canEditCompleted couvre le même
   // périmètre) ou le rôle du membre dans ce projet.
   const myRole = await getProjectRole(supabase, user.id, id)
-  const canPhases = canEditCompleted || myRole === "chef_projet"
-  const canTasks = canEditCompleted || ["chef_projet", "resp_financier", "contributeur"].includes(myRole ?? "")
-  const canBudget = canEditCompleted || ["chef_projet", "resp_financier"].includes(myRole ?? "")
+  const canPhases = canEditCompleted || ["chef_projet", "referent_mairie"].includes(myRole ?? "")
+  const canTasks = canEditCompleted || ["chef_projet", "referent_mairie", "resp_financier", "contributeur"].includes(myRole ?? "")
+  const canBudget = canEditCompleted || ["chef_projet", "referent_mairie", "resp_financier"].includes(myRole ?? "")
   const canMeetings = canPhases
   const memberOptions = (project.project_members ?? [])
     .map((pm: any) => ({ id: pm.user_id, name: pm.profiles?.full_name ?? pm.user_id }))

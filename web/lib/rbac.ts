@@ -8,6 +8,7 @@ import type { ProjectMemberRole } from './types'
 
 export const ROLE_COLUMNS: { key: ProjectMemberRole; label: string }[] = [
   { key: 'chef_projet', label: 'Chef de projet' },
+  { key: 'referent_mairie', label: 'Référent Mairie' },
   { key: 'resp_financier', label: 'Resp. financier' },
   { key: 'contributeur', label: 'Contributeur' },
   { key: 'validateur', label: 'Validateur' },
@@ -23,22 +24,22 @@ interface PermissionRow {
   roles: ProjectMemberRole[]
 }
 
-const ALL: ProjectMemberRole[] = ['chef_projet', 'resp_financier', 'contributeur', 'validateur', 'auditeur', 'lecteur']
+const ALL: ProjectMemberRole[] = ['chef_projet', 'referent_mairie', 'resp_financier', 'contributeur', 'validateur', 'auditeur', 'lecteur']
 
 export const RBAC_MATRIX: PermissionRow[] = [
   { key: 'projets.view', label: 'Voir les projets dont on est membre', admin: true, roles: ALL },
-  { key: 'projets.update', label: 'Modifier un projet', admin: true, roles: ['chef_projet'] },
-  { key: 'phases.manage', label: 'Gérer les phases', admin: true, roles: ['chef_projet'] },
-  { key: 'taches.manage', label: 'Créer et modifier les tâches', admin: true, roles: ['chef_projet', 'resp_financier', 'contributeur'] },
+  { key: 'projets.update', label: 'Modifier un projet', admin: true, roles: ['chef_projet', 'referent_mairie'] },
+  { key: 'phases.manage', label: 'Gérer les phases', admin: true, roles: ['chef_projet', 'referent_mairie'] },
+  { key: 'taches.manage', label: 'Créer et modifier les tâches', admin: true, roles: ['chef_projet', 'referent_mairie', 'resp_financier', 'contributeur'] },
   { key: 'taches.reopen_terminee', label: 'Rouvrir une tâche terminée', note: 'Double confirmation + journal d’audit', admin: true, roles: [] },
   { key: 'budget.view', label: 'Voir le budget', admin: true, roles: ALL },
-  { key: 'budget.manage', label: 'Gérer les lignes budgétaires', admin: true, roles: ['chef_projet', 'resp_financier'] },
+  { key: 'budget.manage', label: 'Gérer les lignes budgétaires', admin: true, roles: ['chef_projet', 'referent_mairie', 'resp_financier'] },
   { key: 'documents.upload', label: 'Déposer des documents', admin: true, roles: ALL },
   { key: 'validations.decide', label: 'Valider un devis / une facture', note: 'Selon l’organisation validante du circuit', admin: true, roles: ['validateur'] },
-  { key: 'indicateurs.manage', label: 'Gérer les indicateurs d’impact', admin: true, roles: ['chef_projet', 'resp_financier'] },
+  { key: 'indicateurs.manage', label: 'Gérer les indicateurs d’impact', admin: true, roles: ['chef_projet', 'referent_mairie', 'resp_financier'] },
   { key: 'mesures.add', label: 'Saisir une mesure d’impact', admin: true, roles: ALL },
-  { key: 'copil.manage', label: 'Gérer les réunions COPIL', admin: true, roles: ['chef_projet'] },
-  { key: 'decisions.manage', label: 'Gérer les décisions', note: 'Le responsable d’une décision peut aussi la mettre à jour', admin: true, roles: ['chef_projet'] },
+  { key: 'copil.manage', label: 'Gérer les réunions COPIL', admin: true, roles: ['chef_projet', 'referent_mairie'] },
+  { key: 'decisions.manage', label: 'Gérer les décisions', note: 'Le responsable d’une décision peut aussi la mettre à jour', admin: true, roles: ['chef_projet', 'referent_mairie'] },
   { key: 'audit.view', label: 'Consulter le journal d’audit', admin: true, roles: ALL },
   { key: 'users.manage', label: 'Gérer les utilisateurs et invitations', admin: true, roles: [] },
   { key: 'orgs.create', label: 'Créer une organisation', admin: true, roles: [] },
