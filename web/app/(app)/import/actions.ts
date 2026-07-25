@@ -46,16 +46,20 @@ export async function runImport(input: { kind: ImportKind; filename: string; row
   if (input.rows.length > 500) return fail('500 lignes maximum par import.')
 
   // Référentiels pour résoudre les noms → identifiants
-  const [{ data: orgs }, { data: projects }, { data: phases }, { data: profiles }] = await Promise.all([
+  const [{ data: orgs }, { data: projects }, { data: phases }, { data: profiles }, { data: tasksAll }] = await Promise.all([
     supabase.from('organizations').select('id, name'),
     supabase.from('projects').select('id, name'),
     supabase.from('phases').select('id, project_id, name'),
     supabase.from('profiles').select('id, email'),
+    supabase.from('tasks').select('id, phase_id, title'),
   ])
   const orgByName = new Map((orgs ?? []).map(o => [norm(o.name), o.id]))
   const projectByName = new Map((projects ?? []).map(p => [norm(p.name), p.id]))
   const phaseByKey = new Map((phases ?? []).map(ph => [`${ph.project_id}::${norm(ph.name)}`, ph.id]))
   const profileByEmail = new Map((profiles ?? []).map(p => [String(p.email ?? '').toLowerCase(), p.id]))
+  // Clé phase + titre : deux phases peuvent porter une tâche homonyme
+  // (« Réception des travaux »), le titre seul ne suffit pas.
+  const taskByKey = new Map((tasksAll ?? []).map(t => [`${t.phase_id}::${norm(t.title)}`, t.id]))
   const phaseCountByProject = new Map<string, number>()
   for (const ph of phases ?? []) phaseCountByProject.set(ph.project_id, (phaseCountByProject.get(ph.project_id) ?? 0) + 1)
 
@@ -144,8 +148,18 @@ export async function runImport(input: { kind: ImportKind; filename: string; row
         if (row.organisation_responsable && !owner) throw new Error(`organisation responsable inconnue : « ${row.organisation_responsable} »`)
         const phaseId = row.phase ? phaseByKey.get(`${projectId}::${norm(row.phase)}`) : null
         if (row.phase && !phaseId) throw new Error(`phase inconnue : « ${row.phase} »`)
+        // Tâche financée (PR 40) : résolue dans la phase, jamais dans tout
+        // le projet. Les tâches créées dans le MÊME import ne sont pas
+        // encore en base — importer les tâches avant le budget, comme pour
+        // les phases.
+        let taskId: string | null = null
+        if (row.tache) {
+          if (!phaseId) throw new Error(`« tache » exige « phase » (tâche « ${row.tache} »)`)
+          taskId = taskByKey.get(`${phaseId}::${norm(row.tache)}`) ?? null
+          if (!taskId) throw new Error(`tâche inconnue dans cette phase : « ${row.tache} »`)
+        }
         budgetRows.push({
-          project_id: projectId, phase_id: phaseId ?? null, poste,
+          project_id: projectId, phase_id: phaseId ?? null, task_id: taskId, poste,
           description: String(row.description ?? '').trim() || null, category,
           funder_org_id: funder ?? null, owner_org_id: owner ?? null,
           year: row.annee ? Number(row.annee) : null, planned_amount: amount,

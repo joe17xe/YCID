@@ -240,6 +240,7 @@ export interface BudgetLineInput {
   funder_org_id: string
   owner_org_id: string
   phase_id: string
+  task_id: string
   year: string
   planned_amount: string
   is_valorisation: boolean
@@ -268,6 +269,10 @@ export async function saveBudgetLine(input: BudgetLineInput): Promise<{ ok: bool
     funder_org_id: input.funder_org_id || null,
     owner_org_id: input.owner_org_id || null,
     phase_id: input.phase_id || null,
+    // La cohérence tâche ↔ phase ↔ projet est garantie par le trigger
+    // check_budget_line_coherence (migration 0027) : c'est la base qui
+    // arbitre, pas l'interface, sinon l'import CSV pourrait la contourner.
+    task_id: input.task_id || null,
     year: input.year ? Number(input.year) : null,
     planned_amount: amount,
     is_valorisation: !!input.is_valorisation,

@@ -57,8 +57,11 @@ export async function generateExpertReport(projectId: string, instructions?: str
     ] = await Promise.all([
       supabase.from('projects').select('name, description, country, zone, start_date, end_date, status, budget, currency').eq('id', projectId).maybeSingle(),
       supabase.from('project_organizations').select('role, organizations:org_id(name, type)').eq('project_id', projectId),
-      supabase.from('phases').select('id, name, position, start_date, end_date, status, budget, tasks(title, status, progress, start_date, end_date, assignee_id)').eq('project_id', projectId).order('position'),
-      supabase.from('budget_lines').select('poste, category, year, planned_amount, is_valorisation, status').eq('project_id', projectId),
+      supabase.from('phases').select('id, name, position, start_date, end_date, status, budget, tasks(id, title, status, progress, start_date, end_date, assignee_id)').eq('project_id', projectId).order('position'),
+      // phase_id et task_id sont indispensables : sans eux le modèle ne
+      // peut structurellement pas rapprocher une ligne de sa phase ni de
+      // la tâche qu'elle finance, donc pas commenter le moindre écart.
+      supabase.from('budget_lines').select('poste, category, year, planned_amount, is_valorisation, status, phase_id, task_id').eq('project_id', projectId),
       supabase.from('indicators').select('id, name, kind, unit, baseline, target').eq('project_id', projectId),
       supabase.from('indicator_measures').select('indicator_id, period, value').order('period'),
       supabase.from('meetings').select('title, kind, date, minutes').eq('project_id', projectId).order('date', { ascending: false }).limit(10),
@@ -71,6 +74,23 @@ export async function generateExpertReport(projectId: string, instructions?: str
     const indicatorIds = new Set((indicators ?? []).map(i => i.id))
     const projectMeasures = (measures ?? []).filter(m => indicatorIds.has(m.indicator_id))
 
+    // Rattachement budget ↔ phases ↔ tâches (PR 40). On résout les
+    // identifiants en libellés : des UUID dans le digest ne seraient que
+    // du bruit pour le modèle.
+    const phaseNameById = new Map<string, string>()
+    const taskTitleById = new Map<string, string>()
+    for (const p of phases ?? []) {
+      phaseNameById.set(p.id, p.name)
+      for (const t of (p.tasks ?? []) as { id: string; title: string }[]) taskTitleById.set(t.id, t.title)
+    }
+    const plannedByTask = new Map<string, number>()
+    const plannedByPhase = new Map<string, number>()
+    for (const l of budget ?? []) {
+      const amount = l.planned_amount ?? 0
+      if (l.task_id) plannedByTask.set(l.task_id, (plannedByTask.get(l.task_id) ?? 0) + amount)
+      if (l.phase_id) plannedByPhase.set(l.phase_id, (plannedByPhase.get(l.phase_id) ?? 0) + amount)
+    }
+
     // Digest compact : seules ces données peuvent être citées par l'IA
     const digest = {
       date_du_jour: today,
@@ -78,13 +98,23 @@ export async function generateExpertReport(projectId: string, instructions?: str
       organisations: (orgs ?? []).map(o => ({ role: o.role, org: o.organizations })),
       nb_membres: (members ?? []).length,
       phases: (phases ?? []).map(p => ({
-        nom: p.name, statut: p.status, debut: p.start_date, fin: p.end_date, budget: p.budget,
-        taches: (p.tasks ?? []).map((t: { title: string; status: string; progress: number; end_date: string | null }) => ({
+        nom: p.name, statut: p.status, debut: p.start_date, fin: p.end_date,
+        // Deux montants distincts, à ne pas confondre : celui saisi sur la
+        // phase, et la somme réelle des lignes qui lui sont rattachées.
+        budget_saisi_sur_la_phase: p.budget,
+        budget_somme_des_lignes: plannedByPhase.get(p.id) ?? 0,
+        taches: (p.tasks ?? []).map((t: { id: string; title: string; status: string; progress: number; end_date: string | null }) => ({
           titre: t.title, statut: t.status, avancement: t.progress, echeance: t.end_date,
+          budget_prevu: plannedByTask.get(t.id) ?? null,
           en_retard: !!(t.end_date && t.end_date < today && t.status !== 'terminee'),
         })),
       })),
-      lignes_budgetaires: budget ?? [],
+      lignes_budgetaires: (budget ?? []).map(l => ({
+        poste: l.poste, categorie: l.category, annee: l.year,
+        montant_prevu: l.planned_amount, valorisation: l.is_valorisation, statut: l.status,
+        phase: l.phase_id ? phaseNameById.get(l.phase_id) ?? null : null,
+        tache_financee: l.task_id ? taskTitleById.get(l.task_id) ?? null : null,
+      })),
       indicateurs: (indicators ?? []).map(i => ({
         nom: i.name, type: i.kind, unite: i.unit, reference: i.baseline, cible: i.target,
         mesures: projectMeasures.filter(m => m.indicator_id === i.id).map(m => ({ periode: m.period, valeur: m.value })),

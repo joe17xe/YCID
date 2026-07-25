@@ -12,6 +12,9 @@ const inputCls = "w-full px-3 py-2 rounded-xl border text-sm focus:outline-none 
 const border = { borderColor: "#E3E6E2" }
 
 export interface Option { id: string; name: string }
+// Une tâche porte sa phase : le sélecteur de tâche se restreint à la
+// phase choisie, et choisir une tâche suffit à situer la ligne.
+export interface TaskOption extends Option { phase_id: string }
 
 // Dialogue accessible (RGAA) : le composant partagé gère role="dialog",
 // le piège de focus, Échap et la restitution du focus. Ici on ne monte le
@@ -65,17 +68,37 @@ function Actions({ pending, onClose, label }: { pending: boolean; onClose: () =>
 }
 
 /* ============ Ligne budgétaire ============ */
-export function BudgetLineDialog({ projectId, orgs, phases, line }: {
-  projectId: string; orgs: Option[]; phases: Option[]
+export function BudgetLineDialog({ projectId, orgs, phases, tasks = [], line }: {
+  projectId: string; orgs: Option[]; phases: Option[]; tasks?: TaskOption[]
   line?: Omit<BudgetLineInput, "projectId" | "lineId"> & { id: string }
 }) {
   const [form, setForm] = useState({
     poste: line?.poste ?? "", description: line?.description ?? "", category: line?.category ?? "autre",
     funder_org_id: line?.funder_org_id ?? "", owner_org_id: line?.owner_org_id ?? "", phase_id: line?.phase_id ?? "",
+    task_id: line?.task_id ?? "",
     year: line?.year ?? "", planned_amount: line?.planned_amount ?? "", is_valorisation: line?.is_valorisation ?? false,
     status: line?.status ?? "prevue", comment: line?.comment ?? "",
   })
   const d = useDialog(() => saveBudgetLine({ projectId, lineId: line?.id, ...form }))
+
+  // Tant qu'aucune phase n'est choisie, on propose toutes les tâches :
+  // en sélectionner une renseigne la phase, plutôt que d'imposer deux
+  // choix dans un ordre précis.
+  const visibleTasks = form.phase_id ? tasks.filter(t => t.phase_id === form.phase_id) : tasks
+
+  // Changer de phase invalide une tâche qui n'en fait plus partie —
+  // sinon le trigger de cohérence rejetterait l'enregistrement.
+  function selectPhase(phase_id: string) {
+    setForm(f => ({
+      ...f,
+      phase_id,
+      task_id: tasks.some(t => t.id === f.task_id && t.phase_id === phase_id) ? f.task_id : "",
+    }))
+  }
+  function selectTask(task_id: string) {
+    const t = tasks.find(x => x.id === task_id)
+    setForm(f => ({ ...f, task_id, phase_id: t ? t.phase_id : f.phase_id }))
+  }
   return (
     <>
       {line ? (
@@ -116,10 +139,22 @@ export function BudgetLineDialog({ projectId, orgs, phases, line }: {
                 </select>
               )}</Field>
               <Field label="Phase">{id => (
-                <select id={id} value={form.phase_id} onChange={e => setForm({ ...form, phase_id: e.target.value })} className={inputCls} style={border}>
+                <select id={id} value={form.phase_id} onChange={e => selectPhase(e.target.value)} className={inputCls} style={border}>
                   <option value="">—</option>
                   {phases.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
+              )}</Field>
+              <Field label="Tâche financée">{id => (
+                <>
+                  <select id={id} value={form.task_id} onChange={e => selectTask(e.target.value)} className={inputCls} style={border}>
+                    <option value="">— aucune</option>
+                    {visibleTasks.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </select>
+                  <p className="text-xs mt-1" style={{ color: "#66716B" }}>
+                    Plusieurs lignes peuvent financer la même tâche (co-financement).
+                    Laissez vide pour les valorisations et les frais de structure.
+                  </p>
+                </>
               )}</Field>
               <Field label="Année">{id => (
                 <input id={id} type="number" min={2000} max={2100} value={form.year} onChange={e => setForm({ ...form, year: e.target.value })} className={inputCls} style={border} />

@@ -22,7 +22,7 @@ const IMPORT_TYPES: Record<ImportKind, { label: string; columns: string[]; requi
   },
   budget: {
     label: "Lignes budgétaires",
-    columns: ["projet", "poste", "categorie", "montant_previsionnel", "description", "financeur", "organisation_responsable", "phase", "annee", "valorisation", "statut", "commentaire"],
+    columns: ["projet", "poste", "categorie", "montant_previsionnel", "description", "financeur", "organisation_responsable", "phase", "tache", "annee", "valorisation", "statut", "commentaire"],
     required: ["projet", "poste", "categorie", "montant_previsionnel"],
   },
 }
