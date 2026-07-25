@@ -59,7 +59,10 @@ export async function generateExpertReport(projectId: string, instructions?: str
     ] = await Promise.all([
       supabase.from('projects').select('name, description, country, zone, start_date, end_date, status, budget, currency').eq('id', projectId).maybeSingle(),
       supabase.from('project_organizations').select('role, organizations:org_id(name, type)').eq('project_id', projectId),
-      supabase.from('phases').select('id, name, position, start_date, end_date, status, budget, tasks(id, title, status, progress, start_date, end_date, assignee_id)').eq('project_id', projectId).order('position'),
+      // NB : plus de colonne budget ici — supprimée par la 0033. La
+      // laisser dans le select faisait échouer TOUTE la requête phases,
+      // et le rapport se générait avec zéro phase, sans erreur visible.
+      supabase.from('phases').select('id, name, position, start_date, end_date, status, tasks(id, title, status, progress, start_date, end_date, assignee_id)').eq('project_id', projectId).order('position'),
       // Pièces justificatives (PR 38e). Un rapport adossé à des preuves
       // datées vaut mieux qu'un rapport adossé à des pourcentages
       // déclaratifs — et l'absence de preuve sur une tâche déclarée
