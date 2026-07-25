@@ -35,8 +35,10 @@ Dites-moi simplement : voyez-vous « Administration » ? Oui ou non.
 
 1. Menu **Roadmap**.
 
-**Attendu** : 17 propositions. Certaines portent le badge « Acceptée »
-(le programme engagé), d'autres « Idée » (le reste à décider).
+**Attendu** : une liste de propositions (une vingtaine). Certaines
+portent le badge « Acceptée » — le programme engagé — d'autres « Idée »,
+le reste à décider. Le nombre exact bouge à chaque idée ajoutée, ne vous
+y arrêtez pas.
 
 2. Ouvrez « File "À valider" + notifications in-app et email ».
 
@@ -62,7 +64,9 @@ prévu.
 C'est **votre** fonction : arbitrer les priorités.
 
 1. Ouvrez une idée.
-2. Cherchez un panneau ou une section **« Gestion produit »**.
+2. **Faites défiler la page vers le bas**, sous le bloc « Fiche » :
+   le panneau **« Gestion produit »** s'y trouve, en dessous de la
+   ligne de flottaison.
 
 **Attendu** : vous pouvez modifier le **statut** (Idée / Acceptée / En
 cours / Livrée), la **priorité** (Basse / Moyenne / Haute) et la
@@ -70,7 +74,8 @@ cours / Livrée), la **priorité** (Basse / Moyenne / Haute) et la
 
 3. Changez la priorité d'une idée, puis remettez-la comme elle était.
 
-**Si vous ne voyez PAS ce panneau** : dites-le-moi immédiatement. Cela
+**Si vous ne voyez PAS ce panneau après avoir bien défilé jusqu'en bas
+de la page** : dites-le-moi. Cela
 signifie que votre compte n'a pas les droits nécessaires, et il faudra
 les ajuster. C'est un point que nous avions identifié comme incertain —
 vous êtes la seule à pouvoir le vérifier.
@@ -92,6 +97,9 @@ vous êtes la seule à pouvoir le vérifier.
 **Attendu** : les 3 projets du programme CEM, avec leurs montants, et un
 total autour de **105 700 €**.
 
+La Triade Villepreux affiche « 2 en retard » dans la colonne des tâches :
+c'est une donnée réelle du projet, pas une anomalie de l'outil.
+
 2. Menu **Projets**.
 
 **Attendu** : les mêmes 3 projets, avec leur statut et leur avancement.
@@ -110,8 +118,9 @@ engager, Valorisations.
 3. Regardez s'il y a un **bandeau orange** en haut.
 
 **Attendu** : il indique un écart entre le montant voté (48 650 €) et ce
-qui est réparti dans les lignes. C'est normal et voulu : il signale que
-la répartition ne couvre pas encore toute l'enveloppe votée.
+qui est réparti dans les lignes — de l'ordre de −5 000 €. C'est normal et
+voulu : il signale que la répartition ne couvre pas encore toute
+l'enveloppe votée. Le chiffre exact varie selon les lignes du moment.
 
 **La question qui compte** : ces six chiffres vous parlent-ils ?
 Comprenez-vous la différence entre « Prévu », « Engagé » et « Payé » sans
@@ -126,7 +135,9 @@ C'est la pièce que vous pourriez annexer à un dossier de financement.
 2. Patientez (30 à 60 secondes).
 
 **Attendu** : un rapport en 7 sections. En haut, une ligne « Périmètre
-analysé : 3 phase(s), 19 ligne(s) budgétaire(s)… ».
+analysé : 3 phase(s), une vingtaine de lignes budgétaires… ». Les
+nombres varient selon les données du moment ; seul compte le fait
+qu'aucun ne soit à zéro.
 
 3. **Vérifiez que le nombre de phases n'est pas 0.**
 4. Lisez la section **« Risques et alertes »**.
@@ -152,23 +163,42 @@ rattachée (une tâche, une ligne budgétaire, une phase).
 
 3. Utilisez le filtre **Nature** puis **Réinitialiser**.
 
-**Attendu** : après « Réinitialiser », **tous les filtres sont vidés, y
-compris le champ de recherche**. Merci de vérifier ce point précisément :
-un doute subsiste dessus.
+**Attendu** : après « Réinitialiser », tous les filtres sont vidés, y
+compris le champ de recherche.
 
-## B10. Validation d'un devis (si applicable)
+Un point connu, inutile de le signaler : la colonne « Déposé » peut
+afficher un jour de trop pour les pièces déposées en soirée. C'est un
+défaut d'affichage identifié, déjà corrigé et en attente de
+déploiement.
 
-YCID peut être sollicitée pour valider des devis.
+## B10. Validation d'un devis
 
-1. Onglet **Budget**, cherchez une ligne avec une icône trombone 📎.
-2. Cliquez dessus.
+Un devis part en validation auprès du **financeur de la ligne**
+concernée. Vous ne verrez donc de décision à prendre que sur les lignes
+financées par YCID.
 
-**Attendu** : le détail des pièces. Si un devis est « en attente » et
-qu'YCID fait partie des organisations sollicitées, vous devriez voir des
+1. Onglet **Budget**, ligne **« Équipement de sensibilisation (panneaux,
+   tablettes) »** — financée par YCID.
+2. Cliquez sur l'icône trombone 📎.
+
+**Attendu** : si Joe y a déposé un devis pour ce test, il apparaît « en
+attente » avec YCID comme organisation sollicitée, et vous voyez les
 boutons **Valider** / **Refuser**.
 
-**Ne validez rien pour de vrai** sans en parler à Joe — dites-moi
-seulement si vous voyez les boutons.
+3. Ouvrez maintenant la ligne **« Aménagement du site principal du
+   Shir »**, financée par le Département.
+
+**Attendu** : vous voyez le devis et son état, mais **aucun bouton
+Valider / Refuser** — cette décision revient au Département et à LEY,
+pas à YCID.
+
+**C'est ce second point qui nous intéresse le plus.** Si vous voyez des
+boutons de décision sur une ligne qui ne concerne pas YCID, dites-le
+tout de suite : cela signifierait qu'une organisation peut trancher au
+nom d'une autre.
+
+**Ne validez rien** sans en parler à Joe — dites-moi seulement ce que
+vous voyez.
 
 ## B11. Sur téléphone
 

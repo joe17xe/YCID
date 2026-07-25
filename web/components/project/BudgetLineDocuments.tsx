@@ -20,6 +20,11 @@ export interface LineValidation {
   decision: "en_attente" | "valide" | "refuse"
   comment: string | null
   orgName: string | null
+  deciderName: string | null
+  // Calculé côté serveur, par validation : membre de l'organisation
+  // sollicitée, ou administrateur plateforme. Un droit global serait faux
+  // — on peut décider pour une organisation et pas pour la suivante.
+  canDecide: boolean
 }
 
 export interface LineDoc {
@@ -43,9 +48,9 @@ export function isEngaged(d: LineDoc): boolean {
   return d.validations.some(v => v.decision === "valide")
 }
 
-export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste, docs, canManage, canDecide }: {
+export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste, docs, canManage }: {
   projectId: string; phaseId: string | null; lineId: string; poste: string
-  docs: LineDoc[]; canManage: boolean; canDecide: boolean
+  docs: LineDoc[]; canManage: boolean
 }) {
   const router = useRouter()
   const supabase = createClient()
@@ -221,7 +226,7 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
                             {v.decision === "en_attente" ? (
                               <>
                                 <span style={{ color: "#B4690E" }}>en attente</span>
-                                {canDecide && (refusing === v.id ? (
+                                {v.canDecide && (refusing === v.id ? (
                                   <span className="flex items-center gap-1 flex-wrap">
                                     <input value={refusalReason} onChange={e => setRefusalReason(e.target.value)}
                                       placeholder="Motif du refus (facultatif)"
@@ -255,6 +260,11 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
                             ) : (
                               <span style={{ color: v.decision === "valide" ? "var(--brand-accent,#0E6B5C)" : "#A3342C" }}>
                                 {v.decision === "valide" ? "validé" : "refusé"}
+                                {/* Nommer le décideur : une décision prise au nom
+                                    d'une organisation par quelqu'un d'extérieur ne
+                                    doit pas se lire comme la décision de cette
+                                    organisation. */}
+                                {v.deciderName ? ` par ${v.deciderName}` : ""}
                                 {v.comment ? ` — ${v.comment}` : ""}
                               </span>
                             )}
