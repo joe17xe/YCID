@@ -1,7 +1,7 @@
 "use client"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { LayoutDashboard, FolderKanban, Building2, Upload, PieChart, Lightbulb, Users, ShieldCheck, Settings, HelpCircle, LogOut, ChevronLeft, ChevronRight } from "lucide-react"
+import { LayoutDashboard, FolderKanban, Building2, Upload, PieChart, Lightbulb, Users, ShieldCheck, Settings, HardDrive, HelpCircle, LogOut, ChevronLeft, ChevronRight } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { useState } from "react"
 import { useTranslations } from "next-intl"
@@ -20,6 +20,7 @@ export const NAV = [
 export const ADMIN_NAV = [
   { href: "/admin/utilisateurs", key: "users", Icon: Users },
   { href: "/admin/acces", key: "access", Icon: ShieldCheck },
+  { href: "/admin/stockage", key: "storage", Icon: HardDrive },
   { href: "/admin/configuration", key: "configuration", Icon: Settings },
 ]
 

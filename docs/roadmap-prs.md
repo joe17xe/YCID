@@ -420,3 +420,28 @@ Ordre de livraison : **PR 38** (documents, source du réalisé) → **PR 40**
 (le lien) → **PR 39** (prévu / engagé / réalisé, qui s'appuie sur les
 deux). La PR 40 peut aussi se livrer avant la 38 si l'on veut d'abord la
 pondération de l'avancement, qui n'a besoin que du prévisionnel.
+
+---
+
+## ⚙️ Exploitation
+
+### PR 41 — Écran Stockage (Admin)
+Inspiré de la Médiathèque d'OrthoPilot, mais **réduit à l'inventaire**.
+Une médiathèque généraliste aurait été un quatrième endroit où déposer
+des fichiers, concurrent de l'onglet Documents — exactement le motif de
+divergence combattu tout au long de la Phase 5 (`phases.budget` face aux
+lignes, devis sur une tâche au lieu d'une ligne). Aucun bouton
+« Importer » : on regarde et on nettoie, on ne dépose pas.
+
+Deux besoins réels, nés des PR 38a → 38e :
+- **Personne ne voit le quota se remplir.** Les photos de chantier
+  arrivent en HEIC depuis des iPhone, 3 à 5 Mo l'unité.
+- **Des fichiers orphelins s'accumulent.** `deleteDocument` retire la
+  ligne puis le fichier ; si le second échoue, l'échec est journalisé
+  sans bloquer — l'utilisateur ne doit pas rester avec une ligne qu'il
+  croit supprimée. Rien ne remontait ces résidus.
+
+Livrables : occupation par bucket et par projet, liste des orphelins
+avec purge, le tout via des fonctions SQL réservées aux admins
+(`storage.list()` est paginé et ne descend que d'un niveau ; le
+rapprochement avec `documents` se fait de toute façon mieux en SQL).
