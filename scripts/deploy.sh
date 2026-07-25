@@ -19,8 +19,20 @@ if [ "$(id -un)" != "root" ]; then
 fi
 
 cd "$APP_DIR"
-echo "==> 1/6 Droits sur $APP_DIR (utilisateur $RUN_AS)"
-chown -R "$RUN_AS:$RUN_AS" "$APP_DIR"
+
+# Le dépôt Git est à la RACINE (/opt/ycid-app) : web/, scripts/ et docs/
+# en sont des sous-dossiers. Ne remettre les droits que sur web/ laissait
+# donc .git/ intact — et il suffisait qu'une commande git ait été lancée
+# en root sur le VPS pour que .git/objects contienne des fichiers root.
+# Le pull suivant échouait alors, en tant que deploy, sur :
+#   « insufficient permission for adding an object to repository database »
+# (déploiement 31 en échec, 25/07/2026). On corrige donc tout le dépôt.
+REPO_ROOT="$(git -C "$APP_DIR" -c safe.directory='*' rev-parse --show-toplevel 2>/dev/null || dirname "$APP_DIR")"
+echo "==> 1/6 Droits sur $REPO_ROOT (utilisateur $RUN_AS)"
+chown -R "$RUN_AS:$RUN_AS" "$REPO_ROOT"
+# chown ne rétablit pas les modes : sans le bit d'écriture sur les dossiers,
+# git échoue avec la même erreur alors que le propriétaire est correct.
+chmod -R u+rwX "$REPO_ROOT"
 
 echo "==> 2/6 Mise à jour du code (origin/master)"
 sudo -u "$RUN_AS" git -C "$APP_DIR" pull origin master

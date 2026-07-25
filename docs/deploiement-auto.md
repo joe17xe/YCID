@@ -193,3 +193,38 @@ sudo -u deploy pm2 save
 ID=$(sudo -u deploy pm2 id ycid | tr -dc '0-9')
 sudo -u deploy pm2 env "$ID" | grep -i SUPABASE_SERVICE_ROLE_KEY | cut -c1-40
 ```
+
+## Dépannage — « insufficient permission for adding an object »
+
+Symptôme : le déploiement échoue à l'étape `2/6 Mise à jour du code`.
+
+```
+error: insufficient permission for adding an object to repository database .git/objects
+fatal: failed to write object
+fatal: unpack-objects failed
+```
+
+Cause : le dépôt Git est à la racine `/opt/ycid-app` (web/, scripts/ et
+docs/ en sont des sous-dossiers), donc `.git/` est **hors** de
+`/opt/ycid-app/web`. Toute commande `git` lancée **en root** sur le VPS
+(diagnostic à la main, outil d'assistance de l'hébergeur…) laisse des
+fichiers root dans `.git/objects` ; le `git pull` suivant, exécuté en
+tant que `deploy`, ne peut plus y écrire.
+
+Corrigé dans `scripts/deploy.sh` le 25/07/2026 : l'étape 1/6 remet
+désormais les droits sur **tout le dépôt**, pas seulement sur `web/`.
+
+⚠️ Le correctif ne s'applique qu'après un `git pull` réussi — c'est-à-dire
+après avoir débloqué le dépôt une fois à la main. Sur le VPS, en root :
+
+```bash
+sudo chown -R deploy:deploy /opt/ycid-app
+sudo chmod -R u+rwX /opt/ycid-app
+```
+
+Puis relancer le déploiement depuis GitHub (**Actions → Déploiement
+Solid'Pilot → Run workflow**), ou sur le VPS :
+`sudo bash /opt/ycid-app/scripts/deploy.sh`.
+
+Règle générale : ne jamais lancer `git` en root dans `/opt/ycid-app`.
+Utiliser `sudo -u deploy git -C /opt/ycid-app <commande>`.
