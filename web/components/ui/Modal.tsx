@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useId, useRef } from "react"
+import { useEffect, useId, useRef, useState } from "react"
 import { X } from "lucide-react"
 
 // ============================================================
@@ -32,6 +32,23 @@ export default function Modal({ open, onClose, title, icon, children, footer, he
   const titleId = useId()
   const panelRef = useRef<HTMLDivElement>(null)
   const previousFocus = useRef<HTMLElement | null>(null)
+  const [viewportH, setViewportH] = useState<number | null>(null)
+
+  // Clavier virtuel (mobile). `vh` mesure le viewport de MISE EN PAGE,
+  // qui ne rétrécit pas à l'ouverture du clavier : un dialogue en
+  // max-h-[92vh] croit donc disposer de tout l'écran et laisse sa moitié
+  // basse sous le clavier. Seul le viewport VISUEL reflète la surface
+  // réellement libre — d'où visualViewport, qui couvre iOS comme Android
+  // (les unités `dvh` ne réagissent pas au clavier sur iOS).
+  useEffect(() => {
+    if (!open) return
+    const vv = window.visualViewport
+    if (!vv) return
+    const update = () => setViewportH(vv.height)
+    update()
+    vv.addEventListener("resize", update)
+    return () => { vv.removeEventListener("resize", update); setViewportH(null) }
+  }, [open])
 
   useEffect(() => {
     if (!open) return
@@ -66,7 +83,14 @@ export default function Modal({ open, onClose, title, icon, children, footer, he
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    // Alignement haut sur mobile, centré à partir de sm : centrer
+    // verticalement fait glisser le champ actif dès que la hauteur du
+    // contenu change en cours de frappe (compteur de répartition,
+    // message de dépassement).
+    <div
+      className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4"
+      style={viewportH ? { height: `${viewportH}px` } : undefined}
+    >
       <div className="absolute inset-0 bg-black/40" onClick={() => !busy && onClose()} aria-hidden="true" />
       <div
         ref={panelRef}
@@ -74,7 +98,7 @@ export default function Modal({ open, onClose, title, icon, children, footer, he
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className={`relative bg-white rounded-2xl shadow-xl w-full ${maxWidth} max-h-[92vh] flex flex-col focus:outline-none`}
+        className={`relative bg-white rounded-2xl shadow-xl w-full ${maxWidth} ${viewportH ? "max-h-full" : "max-h-[92dvh]"} flex flex-col focus:outline-none`}
       >
         <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: "#E3E6E2" }}>
           <h2 id={titleId} className="font-bold flex items-center gap-2 min-w-0" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>
