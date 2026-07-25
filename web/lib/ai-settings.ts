@@ -78,14 +78,20 @@ export const getAiConfig = cache(async (): Promise<AiConfig> => {
       .from('ai_settings')
       .select('provider, base_url, model, api_key')
       .maybeSingle()
-    // Table absente (migration 0023 non appliquée) ou vide : repli env
-    if (error || !data?.api_key) return envConfig
+    // Table absente (migration 0023 non appliquée) : repli complet
+    if (error || !data) return envConfig
+    // Fusion CHAMP PAR CHAMP : chaque réglage saisi dans l'interface prime
+    // sur son équivalent d'environnement. Auparavant l'absence de clé en
+    // base faisait ignorer AUSSI le modèle et l'URL enregistrés, si bien
+    // qu'un modèle changé dans l'écran restait sans effet tant que la clé
+    // vivait dans .env.local (incident du 25/07/2026).
+    const apiKey = data.api_key || envConfig.apiKey
     return {
       provider: data.provider ?? 'autre',
       baseUrl: data.base_url || envConfig.baseUrl,
       model: data.model || envConfig.model,
-      apiKey: data.api_key,
-      source: 'base',
+      apiKey,
+      source: data.api_key ? 'base' : (apiKey ? 'environnement' : 'aucune'),
     }
   } catch {
     return envConfig

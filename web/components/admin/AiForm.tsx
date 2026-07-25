@@ -83,7 +83,7 @@ export default function AiForm({ settings, providers }: { settings: AiSettingsVi
     setTesting(true); setError(""); setTestResult(null)
     const res = await testAiConnection()
     setTestResult(res.ok
-      ? { ok: true, text: `Connexion réussie — le modèle a répondu : « ${res.reply} »` }
+      ? { ok: true, text: `Connexion réussie avec « ${settings.model} » — le modèle a répondu : « ${res.reply} »` }
       : { ok: false, text: res.error ?? "Échec du test." })
     setTesting(false)
   }
@@ -111,6 +111,11 @@ export default function AiForm({ settings, providers }: { settings: AiSettingsVi
             <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "#F6E7E5", color: "#A3342C" }}>Aucune clé — les fonctions IA sont inactives</span>
           )}
         </div>
+        {/* Configuration RÉELLEMENT utilisée par le serveur : lève toute
+            ambiguïté entre ce qui est saisi ici et les variables du serveur */}
+        <p className="text-xs -mt-3" style={{ color: "#66716B" }}>
+          Actuellement utilisé : modèle <span className="font-mono">{settings.model}</span> sur <span className="font-mono">{settings.baseUrl}</span>
+        </p>
 
         <div>
           <label className={labelCls} style={{ color: "#66716B" }}>FOURNISSEUR</label>

@@ -16,17 +16,36 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* L'application a une identité visuelle CLAIRE (fonds blancs et #F5F6F4).
+   Une bascule automatique en mode sombre rendait le texte gris très clair
+   sur ces fonds restés blancs — illisible sur mobile en thème sombre
+   (signalé le 25/07/2026). On force donc le schéma clair : les contrôles
+   de formulaire ne sont plus assombris par le navigateur.
+   Un vrai mode sombre reste possible plus tard, comme préférence
+   utilisateur explicite (cf. /preferences). */
+:root {
+  color-scheme: light;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Champs de saisie : couleurs explicites, jamais héritées du thème
+   système (cause du texte invisible en mode sombre sur mobile). */
+input,
+textarea,
+select {
+  color: #17211D;
+  background-color: #FFFFFF;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #9AA39D;
+  opacity: 1;
 }
 
 /* ============================================================
