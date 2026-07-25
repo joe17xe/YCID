@@ -57,6 +57,8 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
   const [error, setError] = useState("")
   const [payingDoc, setPayingDoc] = useState<LineDoc | null>(null)
   const [payDate, setPayDate] = useState("")
+  const [refusing, setRefusing] = useState<string | null>(null)
+  const [refusalReason, setRefusalReason] = useState("")
   const [pending, startTransition] = useTransition()
 
   const engaged = docs.filter(isEngaged).reduce((s, d) => s + (d.amount ?? 0), 0)
@@ -84,19 +86,25 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
     router.refresh()
   }
 
-  function decide(validationId: string, decision: "valide" | "refuse") {
-    const comment = decision === "refuse"
-      ? window.prompt("Motif du refus (facultatif) :") ?? ""
-      : ""
-    // Purger le message AVANT l'action : sans cela une erreur ancienne
-    // restait affichée sous une action qui venait de réussir — on lisait
-    // « payé le 20/07 » juste au-dessus de l'échec précédent.
+  // Purger le message AVANT chaque action : sans cela une erreur
+  // ancienne restait affichée sous une action qui venait de réussir —
+  // on lisait « payé le 20/07 » juste au-dessus de l'échec précédent.
+  function runDecision(validationId: string, decision: "valide" | "refuse", comment: string) {
     setError("")
     startTransition(async () => {
       const res = await decideValidation({ validationId, projectId, decision, comment })
       if (!res.ok) setError(res.error ?? "Décision impossible.")
-      else router.refresh()
+      else { setRefusing(null); setRefusalReason(""); router.refresh() }
     })
+  }
+
+  // Le motif de refus passait lui aussi par window.prompt() : même
+  // défaut que la date de paiement — boîte système qui bloque le rendu,
+  // non stylée, pénible sur mobile. Saisie en place, dans le flux.
+  function startRefusal(validationId: string) {
+    setError("")
+    setRefusalReason("")
+    setRefusing(validationId)
   }
 
   // Marquer payé passait par window.prompt() : boîte système non
@@ -213,20 +221,36 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
                             {v.decision === "en_attente" ? (
                               <>
                                 <span style={{ color: "#B4690E" }}>en attente</span>
-                                {canDecide && (
+                                {canDecide && (refusing === v.id ? (
+                                  <span className="flex items-center gap-1 flex-wrap">
+                                    <input value={refusalReason} onChange={e => setRefusalReason(e.target.value)}
+                                      placeholder="Motif du refus (facultatif)"
+                                      aria-label="Motif du refus"
+                                      className="px-2 py-1 rounded-lg border text-xs" style={{ borderColor: "#E3E6E2", minWidth: 180 }} />
+                                    <button type="button" onClick={() => runDecision(v.id, "refuse", refusalReason)} disabled={pending}
+                                      className="px-2 py-1 rounded-lg font-medium"
+                                      style={{ background: "#F6E7E5", color: "#A3342C" }}>
+                                      Confirmer le refus
+                                    </button>
+                                    <button type="button" onClick={() => setRefusing(null)}
+                                      className="px-2 py-1 rounded-lg border font-medium" style={{ borderColor: "#E3E6E2", color: "#66716B" }}>
+                                      Annuler
+                                    </button>
+                                  </span>
+                                ) : (
                                   <span className="flex gap-1">
-                                    <button type="button" onClick={() => decide(v.id, "valide")} disabled={pending}
+                                    <button type="button" onClick={() => runDecision(v.id, "valide", "")} disabled={pending}
                                       className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg font-medium"
                                       style={{ background: "var(--brand-accent-soft,#E4F0EC)", color: "var(--brand-accent,#0E6B5C)" }}>
                                       <Check size={11} aria-hidden="true" /> Valider
                                     </button>
-                                    <button type="button" onClick={() => decide(v.id, "refuse")} disabled={pending}
+                                    <button type="button" onClick={() => startRefusal(v.id)} disabled={pending}
                                       className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg font-medium"
                                       style={{ background: "#F6E7E5", color: "#A3342C" }}>
                                       <XIcon size={11} aria-hidden="true" /> Refuser
                                     </button>
                                   </span>
-                                )}
+                                ))}
                               </>
                             ) : (
                               <span style={{ color: v.decision === "valide" ? "var(--brand-accent,#0E6B5C)" : "#A3342C" }}>

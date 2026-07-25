@@ -146,7 +146,12 @@ export default function ImportClient({ canImport }: { canImport: boolean }) {
           <div className="flex items-center justify-between">
             <div>
               <span className="font-semibold" style={{ color: "#17211D" }}>{filename}</span>
-              <span className="ml-3 text-sm" style={{ color: "#66716B" }}>{rows.length} ligne{rows.length > 1 ? "s" : ""} valide{rows.length > 1 ? "s" : ""}</span>
+              {/* « valides » était trompeur : l'aperçu ne vérifie que la
+                  présence des colonnes obligatoires. Projets, phases,
+                  tâches et montants ne sont contrôlés qu'au serveur —
+                  un fichier annoncé « 3 lignes valides » pouvait être
+                  refusé intégralement à la confirmation. */}
+              <span className="ml-3 text-sm" style={{ color: "#66716B" }}>{rows.length} ligne{rows.length > 1 ? "s" : ""} lisible{rows.length > 1 ? "s" : ""}</span>
             </div>
             <button onClick={reset} className="flex items-center gap-1 text-sm" style={{ color: "#66716B" }}>
               <X size={14} /> Annuler
@@ -198,14 +203,21 @@ export default function ImportClient({ canImport }: { canImport: boolean }) {
           )}
 
           {canImport ? (
-            <button
-              onClick={confirm}
-              disabled={pending || rows.length === 0}
-              className="w-full py-3 rounded-xl text-white font-semibold transition-opacity"
-              style={{ background: "var(--brand-accent,#0E6B5C)", opacity: pending || rows.length === 0 ? 0.6 : 1 }}
-            >
-              {pending ? "Import en cours…" : `Confirmer l'import de ${rows.length} ligne${rows.length > 1 ? "s" : ""}`}
-            </button>
+            <>
+              <button
+                onClick={confirm}
+                disabled={pending || rows.length === 0}
+                className="w-full py-3 rounded-xl text-white font-semibold transition-opacity"
+                style={{ background: "var(--brand-accent,#0E6B5C)", opacity: pending || rows.length === 0 ? 0.6 : 1 }}
+              >
+                {pending ? "Import en cours…" : `Confirmer l'import de ${rows.length} ligne${rows.length > 1 ? "s" : ""}`}
+              </button>
+              <p className="text-xs text-center" style={{ color: "#66716B" }}>
+                Cet aperçu ne vérifie que la présence des colonnes obligatoires. Les projets,
+                phases, tâches et montants sont contrôlés à la confirmation : des lignes peuvent
+                encore être refusées à ce moment-là.
+              </p>
+            </>
           ) : (
             <div className="flex items-start gap-2 rounded-xl p-4 text-sm" style={{ background: "#E8ECF5", color: "#3B5488" }}>
               <Info size={16} className="flex-shrink-0 mt-0.5" />
