@@ -1,7 +1,7 @@
 "use client"
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { Paperclip, Upload, Trash2, Download, Plus } from "lucide-react"
+import { Paperclip, Upload, Trash2, Download, Plus, AlertTriangle } from "lucide-react"
 import Modal, { ErrorMessage } from "@/components/ui/Modal"
 import { createClient } from "@/lib/supabase/client"
 import { TASK_DOC_TYPES, DOC_TYPE_LABELS, MAX_DOC_SIZE, buildStoragePath, type DocType } from "@/lib/documents"
@@ -21,9 +21,13 @@ export interface TaskDoc {
 // structurellement à 0 : rien ne permettait de déposer quoi que ce soit.
 // Ce composant est le premier usage réel de la table `documents`.
 
-export default function TaskDocuments({ projectId, phaseId, taskId, docs, canUpload }: {
+export default function TaskDocuments({ projectId, phaseId, taskId, docs, canUpload, taskDone }: {
   projectId: string; phaseId: string; taskId: string
   docs: TaskDoc[]; canUpload: boolean
+  // Une tâche déclarée terminée sans aucune pièce est SIGNALÉE, jamais
+  // bloquée (PR 38e) : un blocage dur ferait renoncer à marquer les
+  // tâches terminées, et on perdrait l'avancement en plus de la preuve.
+  taskDone?: boolean
 }) {
   const router = useRouter()
   const supabase = createClient()
@@ -96,6 +100,13 @@ export default function TaskDocuments({ projectId, phaseId, taskId, docs, canUpl
             style={{ color: "var(--brand-accent,#0E6B5C)" }}>
             <Plus size={11} aria-hidden="true" /> pièce
           </button>
+        )}
+        {taskDone && docs.length === 0 && (
+          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded"
+            style={{ background: "#F7EDDD", color: "#8A6A1F" }}
+            title="Tâche déclarée terminée sans pièce justificative : l'avancement est déclaratif.">
+            <AlertTriangle size={10} aria-hidden="true" /> sans justificatif
+          </span>
         )}
       </span>
 
