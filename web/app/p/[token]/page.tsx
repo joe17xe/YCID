@@ -166,6 +166,7 @@ export default async function PublicProjectPage({ params }: { params: Promise<{ 
         <footer className="text-center text-xs space-y-1 pb-6" style={{ color: "#66716B" }}>
           <div>Projet soutenu dans le cadre du programme {project.programme || "CEM"} avec l&apos;appui d&apos;YCID — Yvelines Coopération Internationale et Développement.</div>
           <div>Suivi assuré avec {s.brandName}.</div>
+          <div>Application développée par l&apos;association REFLEY — powered by EZRYA.</div>
           <div>
             <a href="/mentions-legales" className="underline">Mentions légales</a>
             {" · "}

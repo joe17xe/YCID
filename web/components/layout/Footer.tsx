@@ -18,6 +18,12 @@ export default function Footer({ brandName = "Solid'Pilot" }: { brandName?: stri
         {/* Mention obligatoire de l'état de conformité (décret 2019-768) */}
         <Link href="/accessibilite" className="underline">Accessibilité : non conforme</Link>
       </div>
+      {/* Attribution du développement. Volontairement HORS de la
+          configuration white-label : le nom de la plateforme change d'un
+          déploiement à l'autre, celui de qui l'a développée non. */}
+      <div>
+        Application développée par l&apos;association <strong>REFLEY</strong> — powered by <strong>EZRYA</strong>
+      </div>
     </footer>
   )
 }
