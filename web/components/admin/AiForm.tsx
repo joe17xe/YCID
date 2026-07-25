@@ -2,7 +2,7 @@
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { Check, Sparkles, ExternalLink, AlertTriangle } from "lucide-react"
-import { updateAiSettings, testAiConnection } from "@/app/(app)/admin/configuration/settings-actions"
+import { updateAiSettings, testAiConnection, listAiModels } from "@/app/(app)/admin/configuration/settings-actions"
 
 // ============================================================
 // PR 31 — Configuration du fournisseur IA (Admin ▸ Configuration)
@@ -28,6 +28,8 @@ export default function AiForm({ settings, providers }: { settings: AiSettingsVi
   const [error, setError] = useState("")
   const [saved, setSaved] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; text: string } | null>(null)
+  const [models, setModels] = useState<string[]>([])
+  const [loadingModels, setLoadingModels] = useState(false)
   const [form, setForm] = useState({
     provider: settings.provider,
     baseUrl: settings.baseUrl,
@@ -55,6 +57,26 @@ export default function AiForm({ settings, providers }: { settings: AiSettingsVi
       if (res.ok) { setSaved(true); setForm(f => ({ ...f, apiKey: "" })); router.refresh() }
       else setError(res.error ?? "Une erreur est survenue.")
     })
+  }
+
+  // Interroge le fournisseur : les identifiants de modèles changent
+  // (ex. gemini-2.5-flash retiré le 09/07/2026), mieux vaut les lire
+  // que les deviner.
+  async function loadModels() {
+    setLoadingModels(true); setError(""); setTestResult(null)
+    const res = await listAiModels({ baseUrl: form.baseUrl, apiKey: form.apiKey })
+    if (res.ok && res.models) {
+      setModels(res.models)
+      // Si le modèle saisi n'existe plus, on propose le premier compatible
+      if (!res.models.includes(form.model)) {
+        const suggestion = res.models.find(m => /flash|mini|haiku|turbo/i.test(m)) ?? res.models[0]
+        setForm(f => ({ ...f, model: suggestion }))
+        setError(`Le modèle « ${form.model} » n'est pas proposé par le fournisseur — remplacé par « ${suggestion} ». Vérifiez puis enregistrez.`)
+      }
+    } else {
+      setError(res.error ?? "Impossible de récupérer la liste des modèles.")
+    }
+    setLoadingModels(false)
   }
 
   async function test() {
@@ -126,8 +148,16 @@ export default function AiForm({ settings, providers }: { settings: AiSettingsVi
           </div>
           <div>
             <label className={labelCls} style={{ color: "#66716B" }}>MODÈLE</label>
-            <input value={form.model} onChange={e => { setForm({ ...form, model: e.target.value }); setSaved(false) }}
-              className={inputCls} style={border} placeholder="gemini-2.5-flash" />
+            <input list="ai-models" value={form.model}
+              onChange={e => { setForm({ ...form, model: e.target.value }); setSaved(false) }}
+              className={inputCls} style={border} placeholder="gemini-3.5-flash" />
+            <datalist id="ai-models">
+              {models.map(m => <option key={m} value={m} />)}
+            </datalist>
+            <button type="button" onClick={loadModels} disabled={loadingModels}
+              className="text-xs underline mt-1" style={{ color: "var(--brand-accent,#0E6B5C)" }}>
+              {loadingModels ? "Chargement…" : models.length ? `${models.length} modèles disponibles — recharger` : "Charger les modèles disponibles"}
+            </button>
           </div>
         </div>
         <p className="text-xs" style={{ color: "#66716B" }}>
