@@ -275,3 +275,60 @@ Livrables :
   dans le select des lignes budgétaires — aujourd'hui `phase_id` en est
   absent, donc le modèle ne *peut pas* rapprocher une ligne de sa phase,
   ni commenter un écart qu'il ne voit pas.
+
+### PR 40 — Lier les lignes budgétaires aux tâches
+**Cadrage produit YCID du 25/07/2026 :** « une ligne budgétaire est une
+tâche ; on peut ajouter une tâche supplémentaire sans budget (signer un
+contrat…) pour une phase donnée ». Phases, tâches et budget doivent être
+synchronisés.
+
+État actuel : **aucun lien n'existe**. `tasks` ne porte que `phase_id`
+(`0001_schema.sql:120-134`), `budget_lines` porte `project_id` et
+`phase_id` (`0001_schema.sql:173-190`). Aucune clé étrangère entre les
+deux tables, dans aucun sens. Leur seul ancêtre commun est la phase :
+c'est pourquoi l'onglet Budget et l'onglet Tâches racontent aujourd'hui
+deux histoires parallèles sur la même phase.
+
+**Modèle retenu : `budget_lines.task_id` (nullable), N lignes → 1 tâche.**
+Plutôt qu'une correspondance stricte un pour un. Raison : trois cas
+réels du programme CEM ne rentrent pas dans un 1:1.
+- **Co-financement.** Un même livrable financé par le Département, la
+  Mairie et l'association donne trois lignes budgétaires (financeurs
+  distincts, `funder_org_id`). En 1:1 strict, le même travail
+  apparaîtrait trois fois dans la liste des tâches.
+- **Valorisations.** Les lignes `is_valorisation` (bénévolat, mise à
+  disposition de locaux) ne sont pas des tâches à exécuter.
+- **Frais de structure.** Les lignes de catégorie `fonctionnement` ne
+  correspondent à aucun livrable daté.
+
+Le N:1 couvre le cas demandé — chaque ligne pointe vers la tâche qu'elle
+finance — sans casser ces trois-là. Et il autorise les deux extrémités
+voulues : tâche **sans** ligne (« signer la convention »), ligne **sans**
+tâche (frais de structure).
+
+Livrables :
+- Migration : `budget_lines.task_id uuid references tasks(id) on delete
+  set null` + index. Contrainte de cohérence : la tâche référencée doit
+  appartenir à la même phase que la ligne (trigger ou check applicatif) —
+  aujourd'hui rien ne vérifie même que `phase_id` appartient au projet
+  (`actions.ts:275`).
+- Sélecteur « Tâche financée » dans le dialogue de ligne budgétaire,
+  limité aux tâches de la phase choisie.
+- Création croisée en un geste : depuis une ligne, « créer la tâche
+  correspondante » ; depuis une tâche, « ajouter une ligne budgétaire ».
+  C'est ce qui rend la saisie synchrone en pratique, pas la contrainte.
+- Onglet Tâches : montant prévu (puis engagé / payé après PR 39) affiché
+  sur chaque tâche, et distinction visuelle des tâches sans budget.
+- Onglet Budget : les lignes rattachées à une tâche l'affichent ;
+  section dédiée aux lignes hors tâche.
+- **Avancement de phase pondéré par le budget** devient enfin possible —
+  aujourd'hui c'est une moyenne arithmétique des `progress`
+  (`page.tsx:225`), où « signer un contrat » pèse autant qu'un chantier
+  de 40 000 €. C'est probablement le gain le plus concret de cette PR.
+- Import CSV : colonne `tache` sur le gabarit des lignes budgétaires,
+  rattachement par titre au sein de la phase.
+
+Ordre de livraison : **PR 38** (documents, source du réalisé) → **PR 40**
+(le lien) → **PR 39** (prévu / engagé / réalisé, qui s'appuie sur les
+deux). La PR 40 peut aussi se livrer avant la 38 si l'on veut d'abord la
+pondération de l'avancement, qui n'a besoin que du prévisionnel.
