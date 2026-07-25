@@ -169,3 +169,80 @@ les tests via LLM_BASE_URL/LLM_API_KEY/LLM_MODEL).
 ### PR 28 — Page vitrine publique par projet
 - Page publique en lecture seule (avancement, indicateurs) partageable
 - Canal de publication n°1 des campagnes de communication
+
+---
+
+## 🟤 Phase 5 — Preuves, justificatifs et vérité budgétaire (demandé le 25/07/2026)
+
+Demandes formulées par YCID après parcours du site côté projet. Deux
+sujets distincts mais liés : **prouver** ce qui a été fait, et **fiabiliser**
+les chiffres qui en découlent.
+
+### PR 38 — Documents réels : preuves, photos avant/après, devis et factures
+Reprend et élargit l'ancienne PR 14, jamais réalisée. État actuel à
+connaître avant de commencer : la table `documents` existe depuis la
+migration 0001 (colonnes `storage_path`, `type doc_type`, `amount`,
+`paid`, `uploaded_by`) et l'enum `doc_type` couvre déjà
+`devis, facture, recu, justificatif, convention, note, etude, photo,
+livrable, rapport`. **Mais rien n'est branché** : aucun bucket Storage
+`documents`, aucune server action, aucun composant d'upload, aucune
+requête `from('documents')` dans l'application. Le seul usage est le
+compteur « 📎 N doc » sur chaque tâche, structurellement toujours à 0.
+
+Livrables :
+- Bucket Supabase Storage privé `documents`, chemins
+  `projets/<project_id>/<phase_id|_>/<uuid>-<nom>`, policies alignées sur
+  `is_project_member()` (lecture) et sur le rôle projet (dépôt).
+- **Rattachement élargi** : `documents` ne peut aujourd'hui se rattacher
+  qu'à une tâche (`task_id`) ou une ligne budgétaire (`budget_line_id`).
+  Ajouter `project_id` et `phase_id` pour permettre le dépôt au niveau
+  d'une phase et au niveau du projet, sans passer par une tâche.
+- **Photos avant / après par phase** : champ `moment` (`avant`, `apres`,
+  `pendant`) sur les documents de type `photo`, galerie comparative dans
+  l'onglet Tâches au niveau de la phase. C'est la matière première des
+  rapports terrain et des supports de communication.
+- **Preuve de réalisation** : le chef de projet joint un justificatif à
+  une tâche pour attester qu'elle est faite. Une tâche passée à
+  « terminée » sans pièce jointe est signalée (pas bloquée).
+- **Devis et factures** : dépôt sur la ligne budgétaire, avec montant et
+  statut payé. Réactive la table `validations` (existante, inutilisée) :
+  circuit devis déposé → validé → facture → payé.
+- **Zone documentaire centralisée par projet** : nouvel onglet
+  « Documents » listant *tout* le projet d'un coup, filtrable par type,
+  par phase, par tâche et par date, avec téléchargement groupé (ZIP).
+  C'est la demande explicite : accéder à l'ensemble en un seul endroit.
+- **Rapports IA** : `report-actions.ts` devra citer les pièces
+  disponibles par phase — un rapport qui s'appuie sur des preuves
+  datées vaut mieux qu'un rapport qui s'appuie sur des pourcentages.
+
+⚠️ Dette d'honnêteté à corriger dans la même PR : l'aide contextuelle
+(`lib/help-content.ts`) affirme déjà que « les justificatifs se déposent
+directement sur la ligne concernée » et que les tâches portent des
+« documents ». C'est faux tant que cette PR n'est pas livrée.
+
+### PR 39 — Réconciliation budgétaire par phase
+Constat, à confirmer en revue : il existe **trois** montants qui ne se
+parlent pas — `projects.budget`, `phases.budget` et la somme des
+`budget_lines.planned_amount` rattachées à cette phase via `phase_id`.
+`phases.budget` est saisi à la main dans le dialogue de phase, affiché
+tel quel dans l'onglet Tâches, et **jamais confronté** aux lignes
+budgétaires. Rien n'empêche une phase à 50 000 € dont les lignes
+totalisent 12 000 €. L'onglet Budget, lui, est un tableau plat où la
+phase n'est qu'une colonne : aucun regroupement, aucun sous-total.
+
+Livrables :
+- Onglet Budget **regroupé par phase**, avec sous-total par phase et
+  ligne « hors phase » pour les lignes non rattachées.
+- Affichage de l'écart : `budget déclaré de la phase` vs
+  `Σ lignes rattachées`, signalé visuellement quand il diverge.
+- Décision produit à trancher : soit `phases.budget` devient un
+  **plafond déclaré** (et l'écart est une information de pilotage), soit
+  il devient **calculé** et le champ de saisie disparaît. Ne pas garder
+  deux chiffres modifiables qui prétendent dire la même chose.
+- Nombre de tâches par phase affiché à côté de l'avancement (aujourd'hui
+  seul le total projet est visible, dans le libellé de l'onglet).
+- Avancement de phase : décider s'il reste une moyenne simple des tâches
+  ou s'il est pondéré (par budget, ou par durée).
+- `report-actions.ts` : inclure `phase_id` dans le select des lignes
+  budgétaires — aujourd'hui il ne l'inclut pas, donc le modèle ne *peut
+  pas* rapprocher une ligne de sa phase, même s'il le voulait.
