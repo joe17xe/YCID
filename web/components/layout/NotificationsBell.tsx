@@ -33,18 +33,17 @@ export default function NotificationsBell() {
   const [items, setItems] = useState<NotificationRow[]>([])
   const [unread, setUnread] = useState(0)
 
+  // Une seule requête : le non-lu est déduit des 15 dernières (le badge
+  // plafonne à 9+ de toute façon). La requête HEAD count séparée provoquait
+  // des 503 répétés côté Supabase (incident du 25/07/2026).
   const refresh = useCallback(async () => {
-    const [{ data }, { count }] = await Promise.all([
-      supabase.from("notifications")
-        .select("id, type, payload, read_at, created_at")
-        .order("created_at", { ascending: false })
-        .limit(15),
-      supabase.from("notifications")
-        .select("id", { count: "exact", head: true })
-        .is("read_at", null),
-    ])
-    setItems((data as NotificationRow[]) ?? [])
-    setUnread(count ?? 0)
+    const { data } = await supabase.from("notifications")
+      .select("id, type, payload, read_at, created_at")
+      .order("created_at", { ascending: false })
+      .limit(15)
+    const rows = (data as NotificationRow[]) ?? []
+    setItems(rows)
+    setUnread(rows.filter(r => !r.read_at).length)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

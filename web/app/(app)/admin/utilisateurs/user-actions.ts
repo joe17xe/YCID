@@ -105,9 +105,16 @@ export async function createUser(input: UserFormInput): Promise<Result> {
       user_metadata: { full_name: input.fullName.trim() },
     })
     if (error) {
-      console.error('[createUser] échec auth.admin.createUser:', { email, status: (error as { status?: number }).status, code: (error as { code?: string }).code, name: error.name, message: error.message, error })
-      if ((error as { status?: number }).status === 422 || /already|exist|registered|duplicate/i.test(error.message)) {
+      const status = (error as { status?: number }).status
+      console.error('[createUser] échec auth.admin.createUser:', { email, status, code: (error as { code?: string }).code, name: error.name, message: error.message, error: JSON.stringify(error, Object.getOwnPropertyNames(error)) })
+      if (status === 422 || /already|exist|registered|duplicate/i.test(error.message)) {
         return { ok: false, error: 'Un utilisateur avec cet email existe déjà.' }
+      }
+      // 5xx = erreur INTERNE de Supabase Auth (souvent « Database error
+      // saving new user » : trigger en échec, ou projet en surcharge/pause).
+      // La cause exacte est dans le Dashboard Supabase, pas ici.
+      if (status && status >= 500) {
+        return { ok: false, error: `Le service d'authentification Supabase a renvoyé une erreur interne (HTTP ${status}). Consultez Dashboard Supabase → Logs → Auth (au moment de l'essai) pour la cause exacte, et vérifiez l'état du projet (page d'accueil du Dashboard : pause, quotas, incidents).` }
       }
       return { ok: false, error: `Échec de la création : ${withKeyHint(describeError(error))}` }
     }
