@@ -10,6 +10,7 @@ import PhaseDialog from "@/components/tasks/PhaseDialog"
 import TaskDialog from "@/components/tasks/TaskDialog"
 import { BudgetLineDialog, CreateTaskFromLineButton, IndicatorDialog, MeasureDialog, MeetingDialog, DecisionDialog } from "@/components/project/ProjectDataDialogs"
 import TaskDocuments from "@/components/project/TaskDocuments"
+import BudgetLineDocuments from "@/components/project/BudgetLineDocuments"
 import { MemberDialog, InviteUserDialog, RemoveMemberButton } from "@/components/project/MemberDialog"
 import HelpDialog from "@/components/help/HelpDialog"
 import DeleteProjectButton from "@/components/project/DeleteProjectButton"
@@ -40,7 +41,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
   const [{ data: project }, { data: phases }, { data: budgetLines }, { data: indicators }, { data: meetings }, { data: audit }, canEditCompleted] = await Promise.all([
     supabase.from("projects").select("*, project_organizations(org_id, role, organizations(id, name, type)), project_members(user_id, role, profiles(id, full_name, email)), validation_rules(id, role, doc_type)").eq("id", id).single(),
     supabase.from("phases").select("*, tasks(*, profiles:assignee_id(full_name), documents(*))").eq("project_id", id).order("position"),
-    supabase.from("budget_lines").select("*, funder:funder_org_id(name), owner:owner_org_id(name), phase:phase_id(name), allocations:budget_line_tasks(task_id, amount, task:task_id(title))").eq("project_id", id).order("year"),
+    supabase.from("budget_lines").select("*, funder:funder_org_id(name), owner:owner_org_id(name), phase:phase_id(name), allocations:budget_line_tasks(task_id, amount, task:task_id(title)), documents(id, filename, type, amount, paid, paid_at, uploaded_at, validations(id, decision, comment, org:org_id(name)))").eq("project_id", id).order("year"),
     supabase.from("indicators").select("*, measures:indicator_measures(*)").eq("project_id", id),
     supabase.from("meetings").select("*, decisions(*, owner:owner_user_id(full_name))").eq("project_id", id).order("date", { ascending: false }),
     supabase.from("audit_log").select("*, profiles:user_id(full_name)").eq("project_id", id).order("at", { ascending: false }).limit(20),
@@ -467,7 +468,24 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                         <td className="px-4 py-3"><Badge label={lc.label} fg={lc.fg} bg={lc.bg} /></td>
                         <td className="px-4 py-3 text-xs" style={{ color: "#66716B" }}>{l.funder?.name ?? "—"}</td>
                         <td className="px-4 py-3 text-xs" style={{ color: "#66716B" }}>{l.year ?? "—"}</td>
-                        <td className="px-4 py-3 font-semibold" style={{ color: "#17211D" }}>{fmtEur(l.planned_amount)}</td>
+                        <td className="px-4 py-3 font-semibold" style={{ color: "#17211D" }}>
+                          {fmtEur(l.planned_amount)}
+                          {/* Devis, factures et reçus de la ligne (PR 38b) :
+                              c'est ici que « engagé » et « payé » prennent
+                              leur source, agrégés par la PR 39. */}
+                          <div className="mt-1 font-normal">
+                            <BudgetLineDocuments projectId={id} phaseId={l.phase_id ?? null} lineId={l.id} poste={l.poste}
+                              canManage={canBudget} canDecide={canBudget}
+                              docs={(l.documents ?? []).map((d: any) => ({
+                                id: d.id, filename: d.filename, type: d.type,
+                                amount: d.amount ?? null, paid: !!d.paid, paid_at: d.paid_at ?? null,
+                                validations: (d.validations ?? []).map((v: any) => ({
+                                  id: v.id, decision: v.decision, comment: v.comment ?? null,
+                                  orgName: (Array.isArray(v.org) ? v.org[0]?.name : v.org?.name) ?? null,
+                                })),
+                              }))} />
+                          </div>
+                        </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-1">
                             <Badge label={ls.label} fg={ls.fg} bg={ls.bg} />

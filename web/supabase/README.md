@@ -34,6 +34,7 @@ SQL Editor Supabase (ou via `supabase db push` avec la CLI) :
 | `migrations/0027_task_budget_link.sql` | Lien lignes budgétaires ↔ tâches (`budget_lines.task_id`, N lignes → 1 tâche) + trigger de cohérence tâche/phase/projet (PR 40) |
 | `migrations/0028_budget_line_task_split.sql` | Répartition d'une ligne sur plusieurs tâches : table `budget_line_tasks` (N:M + montant), reprise des données 0027, `budget_lines.task_id` supprimée (PR 40b) |
 | `migrations/0029_documents_storage.sql` | Socle documentaire : bucket Storage **privé** `documents`, `documents.project_id` / `phase_id`, RLS table + bucket (`can_upload_document`) (PR 38a) |
+| `migrations/0030_validations_circuit.sql` | Circuit devis → validé → facture → payé : policy d'INSERT manquante sur `validations`, `documents.paid_at`, `validation_orgs_for_document()` (PR 38b) |
 
 `seed.sql` contient les données de démonstration CEM Liban et s'exécute
 **après** les migrations, uniquement sur un environnement de démo.
