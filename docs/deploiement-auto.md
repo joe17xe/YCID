@@ -110,6 +110,15 @@ sudo bash /opt/ycid-app/scripts/deploy.sh
 
 ## IA — rapport d'expert & génération de contenus (PR 25+)
 
+**Depuis la PR 31, le plus simple est l'interface** : connectez-vous avec
+un compte administrateur → **Administration ▸ Configuration ▸
+Intelligence artificielle** → choisissez le fournisseur, collez la clé,
+cliquez sur « Tester la connexion ». Aucun accès au serveur nécessaire,
+prise en compte immédiate (migration `0023_ai_settings.sql` requise).
+
+Les variables d'environnement ci-dessous restent prises en charge comme
+**solution de repli** si aucune clé n'est enregistrée dans l'interface.
+
 Les fonctions IA utilisent un fournisseur **compatible API OpenAI**,
 configuré par 3 variables dans `/opt/ycid-app/web/.env.local` (jamais
 commitées) :

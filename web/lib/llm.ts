@@ -10,6 +10,8 @@
 // OpenAI (Kimi/Moonshot, OpenAI, Mistral, Anthropic via passerelle…) :
 // changer de modèle = changer 3 variables, zéro code.
 
+import { getAiConfig } from '@/lib/ai-settings'
+
 export interface LlmResult {
   ok: boolean
   content?: string
@@ -19,8 +21,8 @@ export interface LlmResult {
 const DEFAULT_BASE_URL = 'https://api.moonshot.ai/v1'
 const DEFAULT_MODEL = 'kimi-k2-0711-preview'
 
-export function llmConfigured(): boolean {
-  return !!process.env.LLM_API_KEY
+export async function llmConfigured(): Promise<boolean> {
+  return !!(await getAiConfig()).apiKey
 }
 
 export async function chatComplete(opts: {
@@ -29,12 +31,15 @@ export async function chatComplete(opts: {
   temperature?: number
   maxTokens?: number
 }): Promise<LlmResult> {
-  const apiKey = process.env.LLM_API_KEY
+  // Configuration saisie dans Admin ▸ Configuration ▸ Intelligence
+  // artificielle ; à défaut, variables LLM_* du serveur.
+  const config = await getAiConfig()
+  const apiKey = config.apiKey
   if (!apiKey) {
-    return { ok: false, error: "IA non configurée : ajoutez LLM_API_KEY (et LLM_BASE_URL / LLM_MODEL si besoin) dans l'environnement du serveur." }
+    return { ok: false, error: "IA non configurée : renseignez le fournisseur et la clé API dans Administration ▸ Configuration ▸ Intelligence artificielle." }
   }
-  const baseUrl = (process.env.LLM_BASE_URL || DEFAULT_BASE_URL).replace(/\/+$/, '')
-  const model = process.env.LLM_MODEL || DEFAULT_MODEL
+  const baseUrl = (config.baseUrl || DEFAULT_BASE_URL).replace(/\/+$/, '')
+  const model = config.model || DEFAULT_MODEL
 
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 180_000)
