@@ -56,11 +56,17 @@ function useDialog(action: () => Promise<{ ok: boolean; error?: string }>) {
   return { open, setOpen, error, pending, submit }
 }
 
-function Actions({ pending, onClose, label }: { pending: boolean; onClose: () => void; label: string }) {
+// `pending` = traitement en cours (libellé « … »), `blocked` = saisie
+// invalide. Confondre les deux affichait « … » sur un bouton bloqué par
+// une répartition excédentaire : l'utilisateur croyait l'enregistrement
+// en cours alors qu'il était refusé.
+function Actions({ pending, blocked = false, onClose, label }: {
+  pending: boolean; blocked?: boolean; onClose: () => void; label: string
+}) {
   return (
     <div className="flex justify-end gap-2 pt-1">
       <button type="button" onClick={onClose} className="px-4 py-2 rounded-xl border text-sm font-medium" style={{ ...border, color: "#66716B" }}>Annuler</button>
-      <button type="submit" disabled={pending} className="px-4 py-2 rounded-xl text-sm font-semibold text-white" style={{ background: "var(--brand-accent,#0E6B5C)", opacity: pending ? 0.7 : 1 }}>
+      <button type="submit" disabled={pending || blocked} className="px-4 py-2 rounded-xl text-sm font-semibold text-white" style={{ background: "var(--brand-accent,#0E6B5C)", opacity: pending || blocked ? 0.5 : 1 }}>
         {pending ? "…" : label}
       </button>
     </div>
@@ -244,7 +250,7 @@ export function BudgetLineDialog({ projectId, orgs, phases, tasks = [], line, pr
               <input id={id} value={form.comment} onChange={e => setForm({ ...form, comment: e.target.value })} className={inputCls} style={border} />
             )}</Field>
             <ErrorMessage>{d.error}</ErrorMessage>
-            <Actions pending={d.pending || overAllocated} onClose={() => d.setOpen(false)} label={line ? "Enregistrer" : "Créer la ligne"} />
+            <Actions pending={d.pending} blocked={overAllocated} onClose={() => d.setOpen(false)} label={line ? "Enregistrer" : "Créer la ligne"} />
           </form>
         </Modal>
       )}

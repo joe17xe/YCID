@@ -39,7 +39,13 @@ function ProgressBar({ value }: { value: number }) {
 
 export default async function ProjetDetailPage({ params, searchParams }: { params: Promise<{ id: string }>, searchParams: Promise<{ tab?: string }> }) {
   const { id } = await params
-  const { tab = "apercu" } = await searchParams
+  // Un onglet inconnu (?tab=journal au lieu de ?tab=audit, lien périmé,
+  // faute de frappe) affichait une page entièrement vide : aucune
+  // section ne correspondait, et rien ne le disait. On retombe sur
+  // l'aperçu, comportement attendu d'une URL qui ne mène nulle part.
+  const VALID_TABS = ["apercu", "taches", "budget", "documents", "impact", "copil", "comm", "audit"]
+  const { tab: rawTab } = await searchParams
+  const tab = rawTab && VALID_TABS.includes(rawTab) ? rawTab : "apercu"
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/")

@@ -55,6 +55,8 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
   const [amount, setAmount] = useState("")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
+  const [payingDoc, setPayingDoc] = useState<LineDoc | null>(null)
+  const [payDate, setPayDate] = useState("")
   const [pending, startTransition] = useTransition()
 
   const engaged = docs.filter(isEngaged).reduce((s, d) => s + (d.amount ?? 0), 0)
@@ -86,6 +88,10 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
     const comment = decision === "refuse"
       ? window.prompt("Motif du refus (facultatif) :") ?? ""
       : ""
+    // Purger le message AVANT l'action : sans cela une erreur ancienne
+    // restait affichée sous une action qui venait de réussir — on lisait
+    // « payé le 20/07 » juste au-dessus de l'échec précédent.
+    setError("")
     startTransition(async () => {
       const res = await decideValidation({ validationId, projectId, decision, comment })
       if (!res.ok) setError(res.error ?? "Décision impossible.")
@@ -93,11 +99,36 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
     })
   }
 
-  function togglePaid(d: LineDoc) {
-    const paidAt = d.paid ? null : (window.prompt("Date de paiement (AAAA-MM-JJ) :", new Date().toISOString().slice(0, 10)) ?? "")
-    if (!d.paid && !paidAt) return
+  // Marquer payé passait par window.prompt() : boîte système non
+  // stylée, qui BLOQUE le rendu de la page tant qu'elle est ouverte, et
+  // n'impose aucun format — une date saisie « 20/07/2026 », ce que fait
+  // naturellement un francophone, remontait l'erreur Postgres brute.
+  // D'où un champ date natif, qui contraint le format par construction.
+  function confirmPaid(d: LineDoc) {
+    setError("")
+    const today = new Date()
+    const p = (n: number) => String(n).padStart(2, "0")
+    setPayDate(`${today.getFullYear()}-${p(today.getMonth() + 1)}-${p(today.getDate())}`)
+    setPayingDoc(d)
+  }
+
+  function submitPaid(e: React.FormEvent) {
+    e.preventDefault()
+    if (!payingDoc) return
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(payDate)) { setError("Date invalide."); return }
+    const doc = payingDoc
+    setError("")
     startTransition(async () => {
-      const res = await setDocumentPaid({ documentId: d.id, projectId, paid: !d.paid, paidAt })
+      const res = await setDocumentPaid({ documentId: doc.id, projectId, paid: true, paidAt: payDate })
+      if (!res.ok) setError(res.error ?? "Échec.")
+      else { setPayingDoc(null); router.refresh() }
+    })
+  }
+
+  function cancelPaid(d: LineDoc) {
+    setError("")
+    startTransition(async () => {
+      const res = await setDocumentPaid({ documentId: d.id, projectId, paid: false, paidAt: null })
       if (!res.ok) setError(res.error ?? "Échec.")
       else router.refresh()
     })
@@ -105,6 +136,7 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
 
   function remove(d: LineDoc) {
     if (!window.confirm(`Supprimer définitivement « ${d.filename} » ?`)) return
+    setError("")
     startTransition(async () => {
       const res = await deleteDocument(d.id)
       if (!res.ok) setError(res.error ?? "Suppression impossible.")
@@ -113,6 +145,7 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
   }
 
   async function download(id: string) {
+    setError("")
     const res = await getDocumentUrl(id)
     if (res.ok && res.url) window.open(res.url, "_blank", "noopener")
     else setError(res.error ?? "Lien indisponible.")
@@ -208,11 +241,33 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
 
                     {/* Facture, reçu, justificatif : marquer payé */}
                     {canManage && d.type !== "devis" && (
-                      <button type="button" onClick={() => togglePaid(d)} disabled={pending}
-                        className="mt-2 text-xs font-medium"
-                        style={{ color: d.paid ? "#66716B" : "var(--brand-accent,#0E6B5C)" }}>
-                        {d.paid ? "Annuler le paiement" : "Marquer payée"}
-                      </button>
+                      payingDoc?.id === d.id ? (
+                        <form onSubmit={submitPaid} className="mt-2 flex items-end gap-2 flex-wrap">
+                          <div>
+                            <label htmlFor={`paid-at-${d.id}`} className="block text-xs mb-1" style={{ color: "#66716B" }}>
+                              Date de paiement
+                            </label>
+                            <input id={`paid-at-${d.id}`} type="date" required value={payDate}
+                              onChange={e => setPayDate(e.target.value)}
+                              className="px-3 py-1.5 rounded-lg border text-sm" style={{ borderColor: "#E3E6E2" }} />
+                          </div>
+                          <button type="submit" disabled={pending}
+                            className="px-3 py-1.5 rounded-lg text-white text-xs font-semibold"
+                            style={{ background: "var(--brand-accent,#0E6B5C)", opacity: pending ? 0.6 : 1 }}>
+                            {pending ? "…" : "Confirmer"}
+                          </button>
+                          <button type="button" onClick={() => setPayingDoc(null)}
+                            className="px-3 py-1.5 rounded-lg border text-xs font-medium" style={{ borderColor: "#E3E6E2", color: "#66716B" }}>
+                            Annuler
+                          </button>
+                        </form>
+                      ) : (
+                        <button type="button" onClick={() => d.paid ? cancelPaid(d) : confirmPaid(d)} disabled={pending}
+                          className="mt-2 text-xs font-medium"
+                          style={{ color: d.paid ? "#66716B" : "var(--brand-accent,#0E6B5C)" }}>
+                          {d.paid ? "Annuler le paiement" : "Marquer payée"}
+                        </button>
+                      )
                     )}
                   </li>
                 ))}
@@ -238,10 +293,18 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
                       className="w-full px-3 py-2 rounded-xl border text-sm" style={{ borderColor: "#E3E6E2" }} />
                   </div>
                 </div>
-                <p className="text-xs" style={{ color: "#66716B" }}>
-                  Un devis part automatiquement en validation auprès du financeur de la ligne,
-                  ou de l&apos;organisation porteuse à défaut.
-                </p>
+                {/* Message conditionnel : il ne concerne que le devis, et
+                    s'affichait à tort sur Facture ou Reçu. */}
+                {type === "devis" ? (
+                  <p className="text-xs" style={{ color: "#66716B" }}>
+                    Un devis part automatiquement en validation auprès du financeur de la ligne,
+                    ou de l&apos;organisation porteuse à défaut.
+                  </p>
+                ) : (
+                  <p className="text-xs" style={{ color: "#66716B" }}>
+                    Renseignez le montant pour que cette pièce alimente le « payé » une fois marquée réglée.
+                  </p>
+                )}
                 <div className="flex justify-end">
                   <button type="submit" disabled={busy}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white"
