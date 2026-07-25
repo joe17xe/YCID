@@ -84,12 +84,12 @@ create extension if not exists "uuid-ossp";
 -- ============================================================
 -- ÉNUMÉRATIONS
 -- ============================================================
-create type org_type as enum ('association','collectivite','partenaire_local','partenaire_medical','financeur','financeur_public','mecene','autre');
+create type org_type as enum ('association','collectivite','partenaire_local','partenaire_medical','expert','financeur','financeur_public','mecene','autre');
 create type org_status as enum ('active','inactive');
 create type membership_role as enum ('admin_org','membre');
 create type project_status as enum ('en_preparation','en_cours','suspendu','termine');
 create type project_org_role as enum ('porteur','partenaire','financeur','observateur','partenaire_terrain','partenaire_medical','beneficiaire');
-create type project_member_role as enum ('chef_projet','resp_financier','contributeur','validateur','auditeur','lecteur');
+create type project_member_role as enum ('chef_projet','referent_mairie','resp_financier','contributeur','validateur','auditeur','lecteur');
 create type phase_status as enum ('a_venir','en_cours','terminee');
 create type task_status as enum ('a_faire','en_cours','terminee','bloquee');
 create type doc_type as enum ('devis','facture','recu','justificatif','convention','note','etude','photo','livrable','rapport');
@@ -1452,6 +1452,51 @@ alter table platform_settings add column if not exists legal_address text;
 alter table platform_settings add column if not exists legal_publisher text;
 alter table platform_settings add column if not exists legal_email text;
 alter table platform_settings add column if not exists legal_retention text;
+
+-- ============================================================
+-- MIGRATION 0026 — Modèle de rôles : expert et référent Mairie
+-- ============================================================
+-- Décision produit du 25/07/2026 :
+--  · un chef de projet est rattaché à une organisation « expert » et
+--    peut intervenir sur PLUSIEURS projets, y compris de communes
+--    différentes — déjà possible, les rôles étant portés par projet ;
+--  · une commune ne voit QUE ses projets — déjà garanti par
+--    is_project_member(), qui accorde la visibilité aux membres d'une
+--    organisation rattachée au projet (memberships → project_organizations) ;
+--  · le référent d'une commune est un rôle DISTINCT du chef de projet :
+--    sans cette distinction, la règle « chef de projet = organisation
+--    expert » contredisait le cas d'un agent municipal pilotant le
+--    projet de sa propre commune.
+--
+-- YCID / Département des Yvelines conserve la vision de l'ensemble des
+-- projets via is_admin() / is_lead_org_admin() (inchangé).
+
+-- 1. Type d'organisation « expert » (cabinets, experts indépendants)
+-- (base neuve : valeur déjà présente dans l'énumération)
+
+-- 2. Rôle projet « référent Mairie » (agent de la collectivité porteuse)
+-- (base neuve : valeur déjà présente dans l'énumération)
+
+-- 3. Durcissement : is_project_member() est SECURITY DEFINER sans
+--    search_path figé — même faiblesse que celle corrigée en 0022 pour
+--    les triggers. La logique est inchangée (membre du projet OU membre
+--    d'une organisation rattachée au projet).
+create or replace function public.is_project_member(pid uuid)
+returns boolean
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.project_members
+    where project_id = pid and user_id = auth.uid()
+  ) or exists (
+    select 1 from public.project_organizations po
+    join public.memberships m on m.org_id = po.org_id
+    where po.project_id = pid and m.user_id = auth.uid()
+  );
+$$;
 
 -- ============================================================================
 -- CORRECTIF FINAL — promotion du premier admin depuis le SQL Editor

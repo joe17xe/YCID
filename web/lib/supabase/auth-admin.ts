@@ -41,7 +41,12 @@ export async function adminCreateUser(input: {
     return { ok: false, error: "Création non configurée : SUPABASE_SERVICE_ROLE_KEY et NEXT_PUBLIC_SUPABASE_URL doivent être définis sur le serveur." }
   }
 
+  // Une réponse 401/403 « invalid JWT … ES256 » est parfois TRANSITOIRE
+  // (cache de clés de vérification côté Supabase) : constaté le
+  // 25/07/2026, une création échouait tandis que les autres passaient.
+  // On retente une fois avant de conclure à une clé invalide.
   let res: Response
+  let attempt = 0
   try {
     res = await fetch(`${url.replace(/\/+$/, '')}/auth/v1/admin/users`, {
       method: 'POST',
@@ -63,7 +68,23 @@ export async function adminCreateUser(input: {
     return { ok: false, error: `Contact impossible avec Supabase : ${e instanceof Error ? e.message : String(e)}` }
   }
 
-  const raw = await res.text()
+  let raw = await res.text()
+  while ((res.status === 401 || res.status === 403) && attempt < 1) {
+    attempt++
+    console.error('[adminCreateUser] refus transitoire, nouvelle tentative:', { status: res.status, detail: raw.slice(0, 200) })
+    await new Promise(r => setTimeout(r, 800))
+    res = await fetch(`${url.replace(/\/+$/, '')}/auth/v1/admin/users`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: key, Authorization: `Bearer ${key}` },
+      body: JSON.stringify({
+        email: input.email, password: input.password, email_confirm: true,
+        user_metadata: { full_name: input.fullName },
+      }),
+      cache: 'no-store',
+    })
+    raw = await res.text()
+  }
+
   let body: Record<string, unknown> = {}
   try { body = raw ? JSON.parse(raw) : {} } catch { /* réponse non JSON */ }
 
