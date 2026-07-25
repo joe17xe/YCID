@@ -1,5 +1,6 @@
 'use server'
 
+import { createHash } from 'crypto'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
@@ -58,12 +59,19 @@ function describeError(e: unknown): string {
 // JAMAIS la clé : uniquement son format, ce qui suffit au diagnostic
 // (une clé « eyJ… » légale est rejetée par les projets passés aux clés
 // asymétriques ES256 ; il faut la clé secrète « sb_secret_… »).
+// Empreinte SHA-256 (8 hex) : irréversible, donc sûre à afficher. Elle
+// permet de comparer la clé chargée EN MÉMOIRE avec celle du fichier :
+//   printf '%s' "$KEY" | sha256sum | cut -c1-8
+// Empreintes identiques => même clé ; différentes => l'app utilise une
+// autre valeur (env résiduel, fichier modifié après le démarrage…).
 function serviceKeyScheme(): string {
   const k = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!k) return 'absente'
-  if (k.startsWith('sb_secret_')) return 'sb_secret_… (format attendu)'
-  if (k.startsWith('eyJ')) return 'eyJ… (ANCIENNE clé légale — à remplacer par la clé secrète sb_secret_…)'
-  return `format inattendu (« ${k.slice(0, 4)}… »)`
+  const fingerprint = createHash('sha256').update(k).digest('hex').slice(0, 8)
+  const format = k.startsWith('sb_secret_') ? 'sb_secret_… (format attendu)'
+    : k.startsWith('eyJ') ? 'eyJ… (ANCIENNE clé légale — à remplacer par la clé secrète sb_secret_…)'
+    : `format inattendu (« ${k.slice(0, 4)}… »)`
+  return `${format}, ${k.length} caractères, empreinte ${fingerprint}`
 }
 
 // Quand l'appel à l'API admin échoue de façon opaque (message vide/{}, JWT
@@ -71,7 +79,7 @@ function serviceKeyScheme(): string {
 // On ajoute un indice actionnable, avec le format de la clé chargée.
 function withKeyHint(message: string): string {
   if (/jwt|kid|signature|api key|clé api|invalid.*key|401|403|^\{?\}?$/i.test(message.trim())) {
-    return `${message || 'réponse vide du service'} — clé actuellement chargée par le serveur : ${serviceKeyScheme()}. Corrigez SUPABASE_SERVICE_ROLE_KEY dans /opt/ycid-app/web/.env.local (une seule ligne, clé « service_role » secrète sb_secret_… du projet Supabase), puis redéployez.`
+    return `${message || 'réponse vide du service'} — clé chargée par le serveur : ${serviceKeyScheme()}. Comparez cette empreinte à celle du fichier : printf '%s' "$KEY" | sha256sum | cut -c1-8 (si elles diffèrent, l'application n'utilise pas la clé de .env.local — redémarrez pm2 à neuf).`
   }
   return message
 }
