@@ -110,13 +110,16 @@ d'un programme public — elle mérite les preuves.
 2. **Agrégats redondants dans la page projet** : `plannedByPhase`
    coexiste avec `finByPhase` dont `planned` porte la même valeur.
    Une seule structure suffit.
-3. **Moyenne pondérée quasi morte** : elle ne s'active que si TOUTES
-   les tâches d'une phase ont un budget > 0. Avec la règle « toute
-   tâche porte un budget, 0 compris », une phase réelle contient
-   presque toujours une tâche à 0 € (« signer la convention ») → le
-   mode pondéré ne se déclenchera à peu près jamais. **Décision PO** :
-   la retirer (simplification) ou pondérer en excluant les 0 avec
-   mention explicite.
+3. **Moyenne pondérée quasi morte** : elle ne s'activait que si TOUTES
+   les tâches d'une phase avaient un budget > 0 — donc jamais, avec la
+   règle « toute tâche porte un budget, 0 compris ». **Arbitré le
+   25/07 au soir (plancher 2 %)** : pondération systématique dès que la
+   phase a du budget, avec poids = max(budget de la tâche, 2 % du
+   budget de la phase). Une tâche à 0 € pèse toujours au moins 2 % : la
+   phase ne peut pas atteindre 100 % tant qu'elle n'est pas faite — « on
+   sait qu'il reste quelque chose à faire ». Le plancher vaut pour
+   toutes les tâches (une tâche à 100 € ne doit pas peser moins qu'une
+   tâche à 0 €). Phase sans budget → moyenne simple.
 4. **`montant_tache` dans l'import CSV** : règle ajoutée « au cas où »,
    d'usage improbable (une tâche par ligne CSV, répartitions à
    l'écran). À confirmer à l'usage ; candidate au retrait si personne
@@ -131,11 +134,11 @@ d'un programme public — elle mérite les preuves.
 ### P1 — le matin (haute valeur, faible/moyen effort)
 | # | Sujet | Pourquoi d'abord |
 |---|---|---|
-| 1 | **File « À valider » + notifications** (soumission → org sollicitée ; décision → déposant) | Sans elle le circuit 38b ne tourne pas en vrai : personne ne sait qu'on l'attend |
+| 1 | **File « À valider » + notifications in-app ET email** (soumission → org sollicitée ; décision → déposant ; tâche terminée → chef de projet). Infra email **entièrement configurable** : migration `0035_email_settings`, écran Configuration ▸ Email (SMTP, expéditeur, marche/arrêt, bouton test), `lib/mailer.ts`, repli silencieux tant que rien n'est configuré. Dépendance : `nodemailer`. | Sans elle le circuit 38b ne tourne pas en vrai : personne ne sait qu'on l'attend — et l'unanimité (décision PO) rend l'attente bloquante |
 | 2 | **Dépôt de pièce niveau projet/phase** dans l'onglet Documents | La convention n'a aucun point de dépôt ; débloque l'usage réel de la 38a |
 | 3 | **Édition de la fiche projet** (dont montant voté, tracée au Journal) | La référence de la PR 39 est aujourd'hui figée par accident, pas par choix |
 | 4 | **Renommer « Budget (€) » → « Montant voté (€) »** (création projet, aperçu, pilotage) | Ancrer la sémantique PR 39 partout où le chiffre apparaît |
-| 5 | **Simplifications 1 + 2** (dédup `isEngaged`, fusion des agrégats) | 30 min, évite la prochaine divergence |
+| 5 | **Simplifications 1 + 2** (dédup `isEngaged`, fusion des agrégats) + **unanimité des validations** (un devis n'est engagé que si CHAQUE org sollicitée a validé ; un refus rejette) + **pondération plancher 2 %** | 30 min de dédup qui évite la prochaine divergence, et les deux règles PO arbitrées le 25/07 au soir |
 
 ### P2 — l'après-midi
 | # | Sujet |
@@ -153,10 +156,23 @@ d'un programme public — elle mérite les preuves.
 | 12 | Mobile : tableau Budget en cartes sous `sm` |
 | 13 | Découpage de la page projet par onglet (dette) |
 | 14 | Taille du digest IA à surveiller sur gros projets (lignes × pièces × validations) |
+| 15 | Onglet Déploiements / changelog (reliquat PR 18) — le fil des livraisons n'est visible que dans GitHub |
 
-### Décisions PO à trancher avant de coder
-- Moyenne pondérée : retirer, ou pondérer hors tâches à 0 € ?
-- Validation : quand `validation_rules` est configurée avec plusieurs
-  organisations, une seule validation suffit-elle toujours (règle
-  actuelle) ou faut-il l'accord de chacune ?
-- `montant_tache` (import CSV) : conserver ?
+### Décisions PO — arbitrées le 25/07 au soir
+- **Pondération** : conservée, plancher 2 % (voir Simplifications §3).
+- **Validation** : **unanimité** — chaque organisation sollicitée doit
+  valider ; un refus rejette. Conséquence assumée : une organisation
+  silencieuse bloque l'engagé, d'où l'urgence des notifications email
+  (P1-①).
+- **Emails** : obligatoires sur validation et action terminée,
+  **entièrement configurables** (SMTP saisi en admin, jamais en dur) —
+  même motif que la configuration IA (0023).
+- **`montant_tache`** (import CSV) : conservé (« ça ne mange pas de
+  pain »).
+
+### Hors programme, à ne pas perdre de vue
+- Vérifier les droits de Bérengère Ayoub (admin plateforme ou
+  `admin_org` YCID) — action manuelle dans Administration ▸ Utilisateurs.
+- PR 20 (tests, monitoring, sauvegardes) : toujours au backlog — neuf
+  PR déployées sans un test automatisé, c'est un choix assumé, pas un
+  oubli.
