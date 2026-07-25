@@ -54,12 +54,24 @@ function describeError(e: unknown): string {
   return String(e)
 }
 
+// Nature de la clé service réellement chargée par le serveur. Ne révèle
+// JAMAIS la clé : uniquement son format, ce qui suffit au diagnostic
+// (une clé « eyJ… » légale est rejetée par les projets passés aux clés
+// asymétriques ES256 ; il faut la clé secrète « sb_secret_… »).
+function serviceKeyScheme(): string {
+  const k = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!k) return 'absente'
+  if (k.startsWith('sb_secret_')) return 'sb_secret_… (format attendu)'
+  if (k.startsWith('eyJ')) return 'eyJ… (ANCIENNE clé légale — à remplacer par la clé secrète sb_secret_…)'
+  return `format inattendu (« ${k.slice(0, 4)}… »)`
+}
+
 // Quand l'appel à l'API admin échoue de façon opaque (message vide/{}, JWT
 // rejeté, clé API invalide), la cause est presque toujours la clé service.
-// On ajoute un indice actionnable au message brut.
+// On ajoute un indice actionnable, avec le format de la clé chargée.
 function withKeyHint(message: string): string {
   if (/jwt|kid|signature|api key|clé api|invalid.*key|401|403|^\{?\}?$/i.test(message.trim())) {
-    return `${message || 'réponse vide du service'} — vérifiez SUPABASE_SERVICE_ROLE_KEY sur le serveur (clé « service_role » / secrète sb_secret_… du projet Supabase).`
+    return `${message || 'réponse vide du service'} — clé actuellement chargée par le serveur : ${serviceKeyScheme()}. Corrigez SUPABASE_SERVICE_ROLE_KEY dans /opt/ycid-app/web/.env.local (une seule ligne, clé « service_role » secrète sb_secret_… du projet Supabase), puis redéployez.`
   }
   return message
 }
