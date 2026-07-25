@@ -203,7 +203,7 @@ export default function CommPanel({ projectId, campaigns, members, canManage, us
       {/* Éditeur de campagne */}
       {open && (
         <CampaignEditor key={open.id} campaign={open} members={members} canManage={canManage} userId={userId}
-          busy={busy} error={error} run={run} onClose={() => setOpenId(null)} />
+          busy={busy} error={error} run={run} onClose={() => { setOpenId(null); setError("") }} />
       )}
     </div>
   )

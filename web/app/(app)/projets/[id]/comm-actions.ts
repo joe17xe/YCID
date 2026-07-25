@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { canManagePhases } from '@/lib/permissions'
-import { chatComplete } from '@/lib/llm'
+import { chatComplete, extractJson } from '@/lib/llm'
 import { notifyUser } from '@/lib/notify'
 
 // ============================================================
@@ -133,17 +133,36 @@ Projet (faits vérifiés, seuls utilisables) :
 ${JSON.stringify({ projet: project, phase_concernee: phase, etat_des_phases: phases }, null, 1)}
 Langues demandées : ${langs.join(', ')} (ar = arabe standard moderne, sens RTL).`
 
-    const result = await chatComplete({ system, user: userMsg, temperature: 0.5, maxTokens: 4096 })
-    if (!result.ok || !result.content) return { ok: false, error: result.error ?? 'Réponse IA vide.' }
+    // Mode JSON natif + budget large : le format n'est plus laissé au
+    // bon vouloir du modèle (échecs 100 % constatés le 25/07/2026).
+    const result = await chatComplete({
+      system, user: userMsg, temperature: 0.5, maxTokens: 12_000, json: true, attempts: 2,
+    })
+    if (!result.ok || !result.content) {
+      await supabase.from('audit_log').insert({
+        project_id: campaign.project_id, entity: 'campagne_ia', entity_id: campaign.id,
+        label: campaign.title, action: 'cree', user_id: user.id,
+        comment: `Échec de génération des contenus — ${result.error ?? 'cause inconnue'}`,
+      })
+      return { ok: false, error: result.error ?? 'Réponse IA vide.' }
+    }
 
-    // Parse strict (tolère un éventuel bloc ```json)
-    let contents: Record<string, Record<string, string>>
-    try {
-      const raw = result.content.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim()
-      contents = JSON.parse(raw)
-    } catch {
-      console.error('[generateCampaignContents] JSON invalide:', result.content.slice(0, 400))
-      return { ok: false, error: "L'IA a renvoyé un format inattendu — réessayez." }
+    // Extraction tolérante (blocs de code, texte autour, virgules
+    // terminales) plutôt qu'un JSON.parse strict
+    const contents = extractJson<Record<string, Record<string, string>>>(result.content)
+    if (!contents || typeof contents !== 'object') {
+      console.error('[generateCampaignContents] JSON illisible:', result.content.slice(0, 500))
+      await supabase.from('audit_log').insert({
+        project_id: campaign.project_id, entity: 'campagne_ia', entity_id: campaign.id,
+        label: campaign.title, action: 'cree', user_id: user.id,
+        comment: `Échec de génération des contenus — format illisible${result.truncated ? ' (réponse tronquée)' : ''}`,
+      })
+      return {
+        ok: false,
+        error: result.truncated
+          ? `Réponse tronquée par le modèle « ${result.model ?? '?'} » : réduisez le nombre de langues, ou choisissez un modèle « flash » non raisonnant dans Administration ▸ Configuration ▸ IA.`
+          : "Le modèle n'a pas renvoyé un JSON exploitable. Réessayez ; si cela persiste, changez de modèle dans Administration ▸ Configuration ▸ IA.",
+      }
     }
 
     const { error } = await supabase.from('comm_campaigns').update({

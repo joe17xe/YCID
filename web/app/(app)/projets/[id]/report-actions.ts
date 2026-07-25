@@ -15,9 +15,13 @@ interface ReportResult {
   ok: boolean
   report?: string
   error?: string
+  truncated?: boolean
+  model?: string
 }
 
-export async function generateExpertReport(projectId: string): Promise<ReportResult> {
+// `instructions` : consignes libres du chef de projet ou de l'expert
+// local (contexte terrain, angle attendu, points à approfondir).
+export async function generateExpertReport(projectId: string, instructions?: string): Promise<ReportResult> {
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -83,34 +87,65 @@ export async function generateExpertReport(projectId: string): Promise<ReportRes
 Tu rédiges en français, de façon factuelle, professionnelle et directement exploitable en comité de pilotage (COPIL).
 RÈGLES ABSOLUES :
 - Utilise UNIQUEMENT les chiffres et faits présents dans les données fournies. N'invente JAMAIS un chiffre, une date ou un fait.
-- Si une donnée manque, écris « donnée non renseignée » et recommande de la compléter.
+- Quand une donnée manque, écris « donnée non renseignée » ET signale explicitement que la conclusion n'est pas étayée.
 - Mets en évidence les écarts, retards et risques réels visibles dans les données.
-Structure EXACTE du rapport (Markdown) :
-# Rapport d'expertise — {nom du projet}
-## 1. Synthèse exécutive (5 lignes max)
-## 2. Avancement du projet (par phase, avec les retards)
-## 3. Analyse budgétaire (prévu, répartition, points d'attention)
-## 4. Indicateurs & impact (cibles vs mesures)
-## 5. Gouvernance (réunions, décisions en attente)
-## 6. Risques & alertes (priorisés)
-## 7. Recommandations pour le COPIL (concrètes, numérotées)`
+- N'écris AUCUNE consigne, instruction ni commentaire de méthode dans le document.
+- Markdown sobre : titres de niveau 2, listes à puces, gras pour les alertes. Pas d'italique.
+Emploie EXACTEMENT ces titres de section, sans rien ajouter entre parenthèses :
+## 1. Synthèse exécutive
+## 2. Avancement du projet
+## 3. Analyse budgétaire
+## 4. Indicateurs et impact
+## 5. Gouvernance
+## 6. Risques et alertes
+## 7. Recommandations pour le COPIL
+Ne commence pas par un titre de niveau 1 : il est ajouté par l'application.`
 
+    const consigne = (instructions ?? '').trim().slice(0, 2000)
     const result = await chatComplete({
       system,
-      user: `Données réelles du projet (JSON) :\n${JSON.stringify(digest, null, 1)}`,
+      user: [
+        consigne ? `Consignes du chef de projet / de l'expert local, à respecter en priorité :\n${consigne}\n` : '',
+        `Données réelles du projet (JSON) :\n${JSON.stringify(digest, null, 1)}`,
+      ].filter(Boolean).join('\n'),
       temperature: 0.2,
-      maxTokens: 4096,
+      maxTokens: 12_000,
     })
-    if (!result.ok) return { ok: false, error: result.error }
+    if (!result.ok) {
+      // Les ÉCHECS sont tracés eux aussi : sans cela, impossible de
+      // mesurer un taux d'échec en production.
+      await supabase.from('audit_log').insert({
+        project_id: projectId, entity: 'rapport_ia', entity_id: null,
+        label: project.name, action: 'cree', user_id: user.id,
+        comment: `Échec de génération du rapport — ${result.error ?? 'cause inconnue'}`,
+      })
+      return { ok: false, error: result.error }
+    }
 
-    // Trace d'audit : qui a généré un rapport, quand
+    // En-tête de traçabilité imposé par l'APPLICATION (jamais par le
+    // modèle) : indispensable pour une pièce annexée à un rapport
+    // destiné à un financeur public.
+    const stamp = new Date().toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' })
+    const header = [
+      `# Rapport d'expertise — ${project.name}`,
+      '',
+      `Généré le ${stamp} · modèle ${result.model ?? 'inconnu'} · données arrêtées au ${today}`,
+      `Périmètre analysé : ${(phases ?? []).length} phase(s), ${(budget ?? []).length} ligne(s) budgétaire(s), ${(indicators ?? []).length} indicateur(s), ${(meetings ?? []).length} réunion(s).`,
+      '',
+      '**Document généré par intelligence artificielle — à vérifier et valider avant toute diffusion.**',
+      '',
+      '---',
+      '',
+    ].join('\n')
+    const report = header + (result.content ?? '').replace(/^#\s+[^\n]*\n/, '')
+
     await supabase.from('audit_log').insert({
       project_id: projectId, entity: 'rapport_ia', entity_id: null,
       label: project.name, action: 'cree', user_id: user.id,
-      comment: 'Génération du rapport d\'expert IA',
+      comment: `Rapport d'expert IA généré — modèle ${result.model ?? '?'}${result.usage?.total ? `, ${result.usage.total} jetons` : ''}${result.truncated ? ' — TRONQUÉ' : ''}`,
     })
 
-    return { ok: true, report: result.content }
+    return { ok: true, report, truncated: result.truncated, model: result.model }
   } catch (e) {
     console.error('[generateExpertReport] exception:', e)
     return { ok: false, error: `Échec de la génération : ${e instanceof Error ? e.message : String(e)}` }
