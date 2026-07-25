@@ -39,7 +39,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
   const [{ data: project }, { data: phases }, { data: budgetLines }, { data: indicators }, { data: meetings }, { data: audit }, canEditCompleted] = await Promise.all([
     supabase.from("projects").select("*, project_organizations(org_id, role, organizations(id, name, type)), project_members(user_id, role, profiles(id, full_name, email)), validation_rules(id, role, doc_type)").eq("id", id).single(),
     supabase.from("phases").select("*, tasks(*, profiles:assignee_id(full_name), documents(*))").eq("project_id", id).order("position"),
-    supabase.from("budget_lines").select("*, funder:funder_org_id(name), owner:owner_org_id(name), phase:phase_id(name)").eq("project_id", id).order("year"),
+    supabase.from("budget_lines").select("*, funder:funder_org_id(name), owner:owner_org_id(name), phase:phase_id(name), task:task_id(title)").eq("project_id", id).order("year"),
     supabase.from("indicators").select("*, measures:indicator_measures(*)").eq("project_id", id),
     supabase.from("meetings").select("*, decisions(*, owner:owner_user_id(full_name))").eq("project_id", id).order("date", { ascending: false }),
     supabase.from("audit_log").select("*, profiles:user_id(full_name)").eq("project_id", id).order("at", { ascending: false }).limit(20),
@@ -85,6 +85,29 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
 
   const totalPlanned = (budgetLines ?? []).filter((l: any) => !l.is_valorisation).reduce((s: number, l: any) => s + (l.planned_amount ?? 0), 0)
   const totalValorisation = (budgetLines ?? []).filter((l: any) => l.is_valorisation).reduce((s: number, l: any) => s + (l.planned_amount ?? 0), 0)
+
+  // ---- Lien tâches ↔ budget (PR 40) --------------------------------
+  // Une tâche peut être financée par plusieurs lignes (co-financement),
+  // et une ligne peut n'en financer aucune (valorisation, frais de
+  // structure). D'où deux agrégats distincts, jamais un simple 1:1.
+  const taskOptions = (phases ?? []).flatMap((ph: any) =>
+    (ph.tasks ?? []).map((t: any) => ({ id: t.id, name: t.title, phase_id: ph.id })))
+  const plannedByTask = new Map<string, number>()
+  const plannedByPhase = new Map<string, number>()
+  const linesByPhase = new Map<string, any[]>()
+  for (const l of budgetLines ?? []) {
+    const amount = l.planned_amount ?? 0
+    if (l.task_id) plannedByTask.set(l.task_id, (plannedByTask.get(l.task_id) ?? 0) + amount)
+    const key = l.phase_id ?? "__hors_phase__"
+    plannedByPhase.set(key, (plannedByPhase.get(key) ?? 0) + amount)
+    linesByPhase.set(key, [...(linesByPhase.get(key) ?? []), l])
+  }
+  // Regroupement du tableau budgétaire : phases dans l'ordre du projet,
+  // puis les lignes non rattachées. Les groupes vides sont omis.
+  const budgetGroups = [
+    ...(phases ?? []).map((ph: any) => ({ id: ph.id, name: ph.name, lines: linesByPhase.get(ph.id) ?? [] })),
+    { id: "__hors_phase__", name: "Hors phase", lines: linesByPhase.get("__hors_phase__") ?? [] },
+  ].filter(g => g.lines.length)
 
   const TABS = [
     { key: "apercu", label: "Aperçu" },
@@ -222,7 +245,24 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
           )}
           {(phases ?? []).map((ph: any) => {
             const phaseTasks = ph.tasks ?? []
-            const phProg = phaseTasks.length ? Math.round(phaseTasks.reduce((s: number, t: any) => s + t.progress, 0) / phaseTasks.length) : 0
+            // Avancement pondéré par le budget — mais SEULEMENT si chaque
+            // tâche de la phase est chiffrée. Pondérer alors qu'une tâche
+            // vaut 0 la ferait disparaître du calcul en silence : « signer
+            // la convention » ne compterait plus du tout. Tant que le
+            // chiffrage est partiel, on garde la moyenne simple et on le
+            // dit (mention « pondéré » sinon absente).
+            const weights = phaseTasks.map((t: any) => plannedByTask.get(t.id) ?? 0)
+            const weighted = phaseTasks.length > 0 && weights.every((w: number) => w > 0)
+            const totalWeight = weights.reduce((s: number, w: number) => s + w, 0)
+            const phProg = !phaseTasks.length ? 0
+              : weighted
+                ? Math.round(phaseTasks.reduce((s: number, t: any, i: number) => s + t.progress * weights[i], 0) / totalWeight)
+                : Math.round(phaseTasks.reduce((s: number, t: any) => s + t.progress, 0) / phaseTasks.length)
+            // Deux chiffres coexistent : le budget saisi sur la phase et
+            // la somme des lignes qui lui sont rattachées. On montre
+            // l'écart au lieu de laisser croire qu'ils sont synchronisés.
+            const phaseLinesTotal = plannedByPhase.get(ph.id) ?? 0
+            const budgetGap = ph.budget != null && phaseLinesTotal > 0 && Math.round(ph.budget) !== Math.round(phaseLinesTotal)
             return (
               <div key={ph.id} className="bg-white rounded-2xl border" style={{ borderColor: "#E3E6E2" }}>
                 <div className="p-4 border-b" style={{ borderColor: "#E3E6E2" }}>
@@ -236,12 +276,21 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                         }} />
                       )}
                     </div>
-                    <div className="flex items-center gap-3 text-sm" style={{ color: "#66716B" }}>
-                      {ph.budget && <span>{fmtEur(ph.budget)}</span>}
-                      <span>{phProg}%</span>
+                    <div className="flex items-center gap-3 text-sm flex-wrap justify-end" style={{ color: "#66716B" }}>
+                      <span>{phaseTasks.length} tâche{phaseTasks.length > 1 ? "s" : ""}</span>
+                      {phaseLinesTotal > 0 && <span title="Somme des lignes budgétaires de la phase">{fmtEur(phaseLinesTotal)}</span>}
+                      <span title={weighted ? "Moyenne pondérée par le budget des tâches" : "Moyenne des tâches, à parts égales"}>
+                        {phProg}%{weighted && <span className="text-xs"> pondéré</span>}
+                      </span>
                       {canTasks && <TaskDialog phaseId={ph.id} members={memberOptions} />}
                     </div>
                   </div>
+                  {budgetGap && (
+                    <p className="mt-2 text-xs rounded-lg px-3 py-2" style={{ background: "#F7EDDD", color: "#8A6A1F" }}>
+                      Budget saisi sur la phase : {fmtEur(ph.budget)} — somme des lignes rattachées : {fmtEur(phaseLinesTotal)}.
+                      Les deux montants divergent ; les lignes budgétaires font foi.
+                    </p>
+                  )}
                   <div className="mt-2"><ProgressBar value={phProg} /></div>
                 </div>
                 <div className="divide-y" style={{ borderColor: "#E3E6E2" }}>
@@ -258,6 +307,11 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                               {t.profiles?.full_name && <span>👤 {t.profiles.full_name}</span>}
                               {t.end_date && <span>📅 {fmtDate(t.end_date)}</span>}
                               {(t.documents ?? []).length > 0 && <span>📎 {t.documents.length} doc</span>}
+                              {plannedByTask.get(t.id)
+                                ? <span title="Somme des lignes budgétaires qui financent cette tâche" style={{ color: "var(--brand-accent,#0E6B5C)" }}>
+                                    💶 {fmtEur(plannedByTask.get(t.id))}
+                                  </span>
+                                : <span style={{ color: "#9AA39D" }}>sans budget</span>}
                             </div>
                           </div>
                           <div className="flex flex-col items-end gap-1">
@@ -306,7 +360,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
         <div>
           {canBudget && (
             <div className="flex justify-end mb-4">
-              <BudgetLineDialog projectId={id} orgs={orgOptions} phases={phaseOptions} />
+              <BudgetLineDialog projectId={id} orgs={orgOptions} phases={phaseOptions} tasks={taskOptions} />
             </div>
           )}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -326,44 +380,61 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ background: "#F5F6F4", borderBottom: "1px solid #E3E6E2" }}>
-                  {["Poste", "Catégorie", "Financeur", "Phase", "Année", "Prévisionnel", "Statut"].map(h => (
+                  {["Poste", "Tâche financée", "Catégorie", "Financeur", "Année", "Prévisionnel", "Statut"].map(h => (
                     <th key={h} className="text-left px-4 py-3 text-xs font-semibold" style={{ color: "#66716B" }}>{h}</th>
                   ))}
                 </tr>
               </thead>
-              <tbody>
-                {(budgetLines ?? []).map((l: any, i: number) => {
-                  const ls = LINE_STATUS[l.status] ?? { label: l.status, fg: "#66716B", bg: "#EEF0EE" }
-                  const lc = LINE_CATEGORIES[l.category] ?? { label: l.category, fg: "#66716B", bg: "#EEF0EE" }
-                  return (
-                    <tr key={l.id} style={{ borderBottom: "1px solid #E3E6E2", background: i % 2 === 0 ? "#fff" : "#FAFAFA" }}>
-                      <td className="px-4 py-3 font-medium" style={{ color: "#17211D" }}>
-                        {l.poste}
-                        {l.is_valorisation && <span className="ml-1 text-xs px-1.5 py-0.5 rounded" style={{ background: "#F5EFE2", color: "#8A6A1F" }}>Valorisation</span>}
-                      </td>
-                      <td className="px-4 py-3"><Badge label={lc.label} fg={lc.fg} bg={lc.bg} /></td>
-                      <td className="px-4 py-3 text-xs" style={{ color: "#66716B" }}>{l.funder?.name ?? "—"}</td>
-                      <td className="px-4 py-3 text-xs" style={{ color: "#66716B" }}>{l.phase?.name ?? "—"}</td>
-                      <td className="px-4 py-3 text-xs" style={{ color: "#66716B" }}>{l.year ?? "—"}</td>
-                      <td className="px-4 py-3 font-semibold" style={{ color: "#17211D" }}>{fmtEur(l.planned_amount)}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-1">
-                          <Badge label={ls.label} fg={ls.fg} bg={ls.bg} />
-                          {canBudget && (
-                            <BudgetLineDialog projectId={id} orgs={orgOptions} phases={phaseOptions} line={{
-                              id: l.id, poste: l.poste, description: l.description ?? "",
-                              category: l.category, funder_org_id: l.funder_org_id ?? "",
-                              owner_org_id: l.owner_org_id ?? "", phase_id: l.phase_id ?? "",
-                              year: l.year != null ? String(l.year) : "", planned_amount: String(l.planned_amount ?? 0),
-                              is_valorisation: !!l.is_valorisation, status: l.status, comment: l.comment ?? "",
-                            }} />
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
+              {/* Regroupé par phase, avec sous-total : la colonne « Phase »
+                  répétée sur chaque ligne ne permettait pas de lire ce que
+                  coûte une phase. */}
+              {budgetGroups.map(group => (
+                <tbody key={group.id}>
+                  <tr style={{ background: "#EEF0EE", borderBottom: "1px solid #E3E6E2" }}>
+                    <th scope="colgroup" colSpan={5} className="text-left px-4 py-2 text-xs font-semibold" style={{ color: "#17211D" }}>
+                      {group.name}
+                    </th>
+                    <td className="px-4 py-2 text-xs font-bold" style={{ color: "#17211D" }}>
+                      {fmtEur(group.lines.reduce((s: number, l: any) => s + (l.planned_amount ?? 0), 0))}
+                    </td>
+                    <td />
+                  </tr>
+                  {group.lines.map((l: any, i: number) => {
+                    const ls = LINE_STATUS[l.status] ?? { label: l.status, fg: "#66716B", bg: "#EEF0EE" }
+                    const lc = LINE_CATEGORIES[l.category] ?? { label: l.category, fg: "#66716B", bg: "#EEF0EE" }
+                    return (
+                      <tr key={l.id} style={{ borderBottom: "1px solid #E3E6E2", background: i % 2 === 0 ? "#fff" : "#FAFAFA" }}>
+                        <td className="px-4 py-3 font-medium" style={{ color: "#17211D" }}>
+                          {l.poste}
+                          {l.is_valorisation && <span className="ml-1 text-xs px-1.5 py-0.5 rounded" style={{ background: "#F5EFE2", color: "#8A6A1F" }}>Valorisation</span>}
+                        </td>
+                        <td className="px-4 py-3 text-xs" style={{ color: l.task?.title ? "#17211D" : "#9AA39D" }}>
+                          {l.task?.title ?? "—"}
+                        </td>
+                        <td className="px-4 py-3"><Badge label={lc.label} fg={lc.fg} bg={lc.bg} /></td>
+                        <td className="px-4 py-3 text-xs" style={{ color: "#66716B" }}>{l.funder?.name ?? "—"}</td>
+                        <td className="px-4 py-3 text-xs" style={{ color: "#66716B" }}>{l.year ?? "—"}</td>
+                        <td className="px-4 py-3 font-semibold" style={{ color: "#17211D" }}>{fmtEur(l.planned_amount)}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-1">
+                            <Badge label={ls.label} fg={ls.fg} bg={ls.bg} />
+                            {canBudget && (
+                              <BudgetLineDialog projectId={id} orgs={orgOptions} phases={phaseOptions} tasks={taskOptions} line={{
+                                id: l.id, poste: l.poste, description: l.description ?? "",
+                                category: l.category, funder_org_id: l.funder_org_id ?? "",
+                                owner_org_id: l.owner_org_id ?? "", phase_id: l.phase_id ?? "",
+                                task_id: l.task_id ?? "",
+                                year: l.year != null ? String(l.year) : "", planned_amount: String(l.planned_amount ?? 0),
+                                is_valorisation: !!l.is_valorisation, status: l.status, comment: l.comment ?? "",
+                              }} />
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              ))}
             </table>
             {!(budgetLines ?? []).length && <div className="p-8 text-center text-sm" style={{ color: "#66716B" }}>Aucune ligne budgétaire</div>}
           </div>

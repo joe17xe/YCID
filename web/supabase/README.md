@@ -31,6 +31,7 @@ SQL Editor Supabase (ou via `supabase db push` avec la CLI) :
 | `migrations/0024_reports_history_and_brief.sql` | Historique des rapports IA (ai_reports) + brief de campagne (comm_campaigns.brief) (PR 33) |
 | `migrations/0025_legal_settings.sql` | Mentions légales administrables (éditeur, adresse, directeur, contact, conservation) (PR 34) |
 | `migrations/0026_role_model.sql` | Modèle de rôles : type d'organisation `expert`, rôle projet `referent_mairie`, durcissement de is_project_member (PR 36) |
+| `migrations/0027_task_budget_link.sql` | Lien lignes budgétaires ↔ tâches (`budget_lines.task_id`, N lignes → 1 tâche) + trigger de cohérence tâche/phase/projet (PR 40) |
 
 `seed.sql` contient les données de démonstration CEM Liban et s'exécute
 **après** les migrations, uniquement sur un environnement de démo.
