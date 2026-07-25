@@ -38,6 +38,7 @@ SQL Editor Supabase (ou via `supabase db push` avec la CLI) :
 | `migrations/0031_validation_orgs_fallback.sql` | Correctif 38b : repli de validation ordonné (règles → financeur → porteuse) au lieu de solliciter financeur ET porteuse |
 | `migrations/0032_photos_moment.sql` | Photos avant/pendant/après : enum `doc_moment`, `documents.moment`, index galerie + durcissement du bucket (taille et types MIME côté serveur) (PR 38c) |
 | `migrations/0033_phase_budget_computed.sql` | **Destructive** : `phases.budget` supprimée (valeurs archivées au journal d'audit) — le budget d'une phase devient la somme de ses lignes ; `projects.budget` conservé comme montant voté (PR 39) |
+| `migrations/0034_storage_stats.sql` | Écran Stockage : `storage_stats()`, `storage_orphans()`, `storage_by_project()` — lecture agrégée de `storage.objects`, réservée aux admins (PR 41) |
 
 `seed.sql` contient les données de démonstration CEM Liban et s'exécute
 **après** les migrations, uniquement sur un environnement de démo.
