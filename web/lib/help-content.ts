@@ -13,12 +13,9 @@ export const HELP_SECURITY =
 
 export const HELP_ROLES: { role: string; desc: string }[] = [
   { role: "chef_projet", desc: "Définit le projet, les phases, le budget, les membres. Vérifie les éléments soumis." },
-  // Le dépôt de devis et de factures SUR LA LIGNE budgétaire, leur
-  // montant et le statut payé arrivent en PR 38b : ne pas le promettre
-  // ici tant que ce n'est pas livré.
-  { role: "resp_financier", desc: "Gère les lignes budgétaires et la répartition du budget sur les tâches." },
+  { role: "resp_financier", desc: "Gère les lignes budgétaires et leur répartition sur les tâches, dépose devis et factures, marque les factures payées." },
   { role: "contributeur", desc: "Crée des tâches, dépose pièces et livrables sur les tâches, saisit les mesures d'indicateurs." },
-  { role: "validateur", desc: "Validation finale des éléments en revue." },
+  { role: "validateur", desc: "Validation finale des éléments en revue et des devis." },
   { role: "auditeur", desc: "Lecture seule intégrale, y compris le journal d'audit." },
   { role: "lecteur", desc: "Consultation du projet et des rapports." },
 ]
@@ -26,7 +23,7 @@ export const HELP_ROLES: { role: string; desc: string }[] = [
 export const HELP_STEPS: { title: string; text: string }[] = [
   { title: "1. Suivre l'avancement", text: "Ouvrez votre projet depuis le Tableau de bord ou Projets. L'onglet Tâches liste les phases et les tâches : statut, avancement, échéances, documents." },
   { title: "2. Gérer le budget", text: "L'onglet Budget affiche les lignes avec leur financeur, les valorisations et les statuts. Chaque ligne se répartit sur les tâches qu'elle finance, et chaque tâche affiche le budget qui lui est affecté." },
-  { title: "3. Faire valider", text: "Les pièces justificatives se déposent sur la tâche concernée. Une tâche terminée ne se modifie plus sans double confirmation d'un administrateur. Tout est tracé dans le Journal." },
+  { title: "3. Faire valider", text: "Les justificatifs se déposent sur la tâche ou sur la ligne budgétaire concernée. Un devis déposé part automatiquement en validation ; une fois validé il compte comme engagé, et une facture marquée payée alimente le réalisé. Une tâche terminée ne se modifie plus sans double confirmation d'un administrateur." },
   { title: "4. Mesurer l'impact", text: "L'onglet Impact suit les indicateurs du projet (jeunes mobilisés, km de sentiers…). Une mesure par période — c'est ce qui alimente les rapports aux financeurs." },
   { title: "5. Piloter et rendre compte", text: "L'onglet COPIL garde les comptes rendus et le suivi des décisions. La page Pilotage donne la santé de l'ensemble du portefeuille." },
 ]
