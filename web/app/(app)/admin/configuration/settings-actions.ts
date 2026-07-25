@@ -163,3 +163,47 @@ export async function listAiModels(input?: { baseUrl?: string; apiKey?: string }
     return { ok: false, error: `Contact impossible avec le fournisseur : ${e instanceof Error ? e.message : String(e)}` }
   }
 }
+
+
+// ------------------------------------------------------------
+// Mentions légales administrables (migration 0025)
+// ------------------------------------------------------------
+interface LegalInput {
+  legalEntity: string
+  legalAddress: string
+  legalPublisher: string
+  legalEmail: string
+  legalRetention: string
+}
+
+export async function updateLegalSettings(input: LegalInput): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const ctx = await requireAdmin()
+    if ('error' in ctx) return { ok: false, error: ctx.error }
+    const entity = (input.legalEntity ?? '').trim()
+    if (!entity) return { ok: false, error: "Le nom de l'éditeur est obligatoire." }
+    const email = (input.legalEmail ?? '').trim()
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, error: 'Adresse email de contact invalide.' }
+
+    const supabase = await createClient()
+    const { error } = await supabase.from('platform_settings').update({
+      legal_entity: entity,
+      legal_address: (input.legalAddress ?? '').trim() || null,
+      legal_publisher: (input.legalPublisher ?? '').trim() || null,
+      legal_email: email || null,
+      legal_retention: (input.legalRetention ?? '').trim() || null,
+      updated_at: new Date().toISOString(),
+      updated_by: ctx.user.id,
+    }).eq('id', true)
+    if (error) {
+      console.error('[updateLegalSettings] échec:', { code: error.code, message: error.message })
+      const missing = /legal_|does not exist/i.test(error.message)
+      return { ok: false, error: missing ? 'Appliquez la migration 0025_legal_settings.sql dans le SQL Editor Supabase.' : `Échec de l'enregistrement : ${error.message}` }
+    }
+    revalidatePath('/', 'layout')
+    return { ok: true }
+  } catch (e) {
+    console.error('[updateLegalSettings] exception:', e)
+    return { ok: false, error: `Échec : ${e instanceof Error ? e.message : String(e)}` }
+  }
+}

@@ -2,12 +2,17 @@ export const dynamic = 'force-dynamic'
 import Link from "next/link"
 import { ChevronLeft } from "lucide-react"
 import { getPlatformSettings } from "@/lib/settings"
+import { getAiConfigPublic, AI_PROVIDERS } from "@/lib/ai-settings"
 
 // Page publique (accessible sans connexion).
-// ⚠️ Gabarit à valider par YCID (les champs [À compléter] notamment) —
-// ceci n'est pas un avis juridique.
+// ⚠️ Gabarit à valider par YCID — ceci n'est pas un avis juridique.
+// Le fournisseur IA est nommé dynamiquement : c'est un sous-traitant au
+// sens du RGPD, il doit figurer dans la liste (rapport de test, point 21).
 export default async function ConfidentialitePage() {
-  const s = await getPlatformSettings()
+  const [s, ai] = await Promise.all([getPlatformSettings(), getAiConfigPublic()])
+  const aiProvider = ai.hasKey
+    ? (AI_PROVIDERS[ai.provider]?.label ?? "fournisseur compatible API OpenAI")
+    : "aucun (fonctions IA désactivées)"
   const h2 = { fontFamily: "var(--font-sora)", color: "#17211D" }
   const p = { color: "#66716B" }
   return (
@@ -27,8 +32,8 @@ export default async function ConfidentialitePage() {
           <section className="space-y-2">
             <h2 className="font-semibold" style={h2}>Responsable de traitement</h2>
             <p className="text-sm" style={p}>
-              YCID — Yvelines Coopération Internationale et Développement, [adresse à
-              compléter]. Contact : [email de contact à compléter].
+              {s.legalEntity}{s.legalAddress ? `, ${s.legalAddress}` : ''}.
+              {s.legalEmail ? ` Contact : ${s.legalEmail}.` : ''}
             </p>
           </section>
 
@@ -52,6 +57,24 @@ export default async function ConfidentialitePage() {
           </section>
 
           <section className="space-y-2">
+            <h2 className="font-semibold" style={h2}>Intelligence artificielle</h2>
+            <p className="text-sm" style={p}>
+              Certaines fonctions (rapport d&apos;expertise, propositions de contenus de
+              communication) transmettent des <strong>données de projet</strong> — phases,
+              tâches, budgets, indicateurs, et le cas échéant des noms de personnes
+              associées à ces tâches — au fournisseur d&apos;intelligence artificielle
+              <strong> {aiProvider}</strong>, pour la seule durée du traitement de la
+              requête. Ces données ne servent pas à entraîner de modèle.
+            </p>
+            <p className="text-sm" style={p}>
+              Tout contenu ainsi produit est <strong>signalé comme généré par
+              intelligence artificielle</strong> et soumis à une validation humaine avant
+              publication. Aucune décision produisant des effets juridiques n&apos;est
+              prise sur le seul fondement d&apos;un traitement automatisé.
+            </p>
+          </section>
+
+          <section className="space-y-2">
             <h2 className="font-semibold" style={h2}>Cookies</h2>
             <p className="text-sm" style={p}>
               La plateforme utilise uniquement des cookies <strong>strictement
@@ -66,7 +89,7 @@ export default async function ConfidentialitePage() {
             <p className="text-sm" style={p}>
               Les comptes sont conservés pendant la durée de participation aux projets,
               puis désactivés ou supprimés. Les données projets sont conservées pendant
-              la durée légale de suivi des financements publics [durée à préciser].
+              {s.legalRetention || 'la durée légale de suivi des financements publics'}.
             </p>
           </section>
 
@@ -75,7 +98,7 @@ export default async function ConfidentialitePage() {
             <p className="text-sm" style={p}>
               Conformément au RGPD, vous disposez de droits d&apos;accès, de rectification,
               d&apos;effacement, de limitation et d&apos;opposition. Pour les exercer :
-              [email de contact à compléter]. Vous pouvez modifier vos informations de
+              {s.legalEmail || "contactez l'éditeur"}. Vous pouvez modifier vos informations de
               profil (nom, photo, mot de passe) directement dans vos Préférences.
               En cas de difficulté, vous pouvez saisir la CNIL (cnil.fr).
             </p>
@@ -85,8 +108,9 @@ export default async function ConfidentialitePage() {
             <h2 className="font-semibold" style={h2}>Sous-traitants</h2>
             <p className="text-sm" style={p}>
               Hébergement applicatif : Hostinger International Ltd. Base de données et
-              authentification : Supabase Inc. Ces prestataires agissent comme
-              sous-traitants au sens du RGPD.
+              authentification : Supabase Inc. Génération de contenus par intelligence
+              artificielle : {aiProvider}. Ces prestataires agissent comme sous-traitants
+              au sens du RGPD.
             </p>
           </section>
         </div>

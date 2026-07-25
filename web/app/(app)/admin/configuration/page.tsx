@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic'
 import Link from "next/link"
-import { Palette, Sparkles } from "lucide-react"
+import { Palette, Sparkles, Scale } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { isUserAdmin } from "@/lib/permissions"
@@ -8,10 +8,12 @@ import { getPlatformSettings } from "@/lib/settings"
 import { getAiConfigPublic, AI_PROVIDERS } from "@/lib/ai-settings"
 import BrandForm from "@/components/admin/BrandForm"
 import AiForm from "@/components/admin/AiForm"
+import LegalForm from "@/components/admin/LegalForm"
 
 const SECTIONS = [
   { key: "marque", label: "Marque", Icon: Palette },
   { key: "ia", label: "Intelligence artificielle", Icon: Sparkles },
+  { key: "legal", label: "Mentions légales", Icon: Scale },
 ]
 
 export default async function ConfigurationPage({ searchParams }: { searchParams: Promise<{ section?: string }> }) {
@@ -22,6 +24,7 @@ export default async function ConfigurationPage({ searchParams }: { searchParams
   if (!(await isUserAdmin(supabase, user.id))) redirect("/dashboard")
 
   const isAi = section === "ia"
+  const isLegal = section === "legal"
   const [settings, ai] = await Promise.all([
     getPlatformSettings(),
     isAi ? getAiConfigPublic() : Promise.resolve(null),
@@ -35,6 +38,8 @@ export default async function ConfigurationPage({ searchParams }: { searchParams
       <p className="text-sm mb-5" style={{ color: "#66716B" }}>
         {isAi
           ? "Choisissez le fournisseur d'intelligence artificielle utilisé par le rapport d'expert et la génération des contenus de communication."
+          : isLegal
+          ? "Informations affichées sur les pages publiques Mentions légales et Politique de confidentialité. Obligatoires pour une plateforme portée par un financeur public."
           : "Personnalisez le nom, l'accroche, le logo et les couleurs de la plateforme. Les changements s'appliquent immédiatement à toute l'application."}
       </p>
 
@@ -55,8 +60,8 @@ export default async function ConfigurationPage({ searchParams }: { searchParams
         })}
       </div>
 
-      {isAi && ai
-        ? <AiForm settings={ai} providers={AI_PROVIDERS} />
+      {isAi && ai ? <AiForm settings={ai} providers={AI_PROVIDERS} />
+        : isLegal ? <LegalForm settings={settings} />
         : <BrandForm settings={settings} />}
     </div>
   )
