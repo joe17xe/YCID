@@ -74,6 +74,7 @@ export async function runImport(input: { kind: ImportKind; filename: string; row
   const phaseRows: Record<string, unknown>[] = []
   const taskRows: Record<string, unknown>[] = []
   const budgetRows: Record<string, unknown>[] = []
+  const budgetTaskRows: Record<string, unknown>[] = []
 
   input.rows.forEach((row, i) => {
     const line = i + 2 // ligne CSV (après l'en-tête)
@@ -152,14 +153,26 @@ export async function runImport(input: { kind: ImportKind; filename: string; row
         // le projet. Les tâches créées dans le MÊME import ne sont pas
         // encore en base — importer les tâches avant le budget, comme pour
         // les phases.
-        let taskId: string | null = null
+        // Le CSV n'exprime QU'UNE tâche par ligne : une répartition sur
+        // plusieurs tâches se fait dans l'interface. « montant_tache »
+        // permet toutefois de n'affecter qu'une partie de la ligne.
+        const lineId = randomUUID()
         if (row.tache) {
           if (!phaseId) throw new Error(`« tache » exige « phase » (tâche « ${row.tache} »)`)
-          taskId = taskByKey.get(`${phaseId}::${norm(row.tache)}`) ?? null
+          const taskId = taskByKey.get(`${phaseId}::${norm(row.tache)}`)
           if (!taskId) throw new Error(`tâche inconnue dans cette phase : « ${row.tache} »`)
+          let allocated = amount
+          if (String(row.montant_tache ?? '').trim()) {
+            allocated = Number(String(row.montant_tache).replace(/\s/g, '').replace(',', '.'))
+            if (!Number.isFinite(allocated) || allocated < 0) throw new Error(`montant_tache invalide : « ${row.montant_tache} »`)
+            if (allocated > amount) throw new Error(`montant_tache (${allocated}) dépasse le montant de la ligne (${amount})`)
+          }
+          budgetTaskRows.push({ budget_line_id: lineId, task_id: taskId, amount: allocated })
+        } else if (String(row.montant_tache ?? '').trim()) {
+          throw new Error('« montant_tache » exige « tache »')
         }
         budgetRows.push({
-          project_id: projectId, phase_id: phaseId ?? null, task_id: taskId, poste,
+          id: lineId, project_id: projectId, phase_id: phaseId ?? null, poste,
           description: String(row.description ?? '').trim() || null, category,
           funder_org_id: funder ?? null, owner_org_id: owner ?? null,
           year: row.annee ? Number(row.annee) : null, planned_amount: amount,
@@ -183,6 +196,8 @@ export async function runImport(input: { kind: ImportKind; filename: string; row
       { table: 'phases', rows: phaseRows },
       { table: 'tasks', rows: taskRows },
       { table: 'budget_lines', rows: budgetRows },
+      // Après budget_lines : les affectations référencent les lignes.
+      { table: 'budget_line_tasks', rows: budgetTaskRows },
     ]
     for (const { table, rows } of inserts) {
       if (!rows.length) continue

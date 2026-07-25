@@ -39,7 +39,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
   const [{ data: project }, { data: phases }, { data: budgetLines }, { data: indicators }, { data: meetings }, { data: audit }, canEditCompleted] = await Promise.all([
     supabase.from("projects").select("*, project_organizations(org_id, role, organizations(id, name, type)), project_members(user_id, role, profiles(id, full_name, email)), validation_rules(id, role, doc_type)").eq("id", id).single(),
     supabase.from("phases").select("*, tasks(*, profiles:assignee_id(full_name), documents(*))").eq("project_id", id).order("position"),
-    supabase.from("budget_lines").select("*, funder:funder_org_id(name), owner:owner_org_id(name), phase:phase_id(name), task:task_id(title)").eq("project_id", id).order("year"),
+    supabase.from("budget_lines").select("*, funder:funder_org_id(name), owner:owner_org_id(name), phase:phase_id(name), allocations:budget_line_tasks(task_id, amount, task:task_id(title))").eq("project_id", id).order("year"),
     supabase.from("indicators").select("*, measures:indicator_measures(*)").eq("project_id", id),
     supabase.from("meetings").select("*, decisions(*, owner:owner_user_id(full_name))").eq("project_id", id).order("date", { ascending: false }),
     supabase.from("audit_log").select("*, profiles:user_id(full_name)").eq("project_id", id).order("at", { ascending: false }).limit(20),
@@ -86,10 +86,12 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
   const totalPlanned = (budgetLines ?? []).filter((l: any) => !l.is_valorisation).reduce((s: number, l: any) => s + (l.planned_amount ?? 0), 0)
   const totalValorisation = (budgetLines ?? []).filter((l: any) => l.is_valorisation).reduce((s: number, l: any) => s + (l.planned_amount ?? 0), 0)
 
-  // ---- Lien tâches ↔ budget (PR 40) --------------------------------
-  // Une tâche peut être financée par plusieurs lignes (co-financement),
-  // et une ligne peut n'en financer aucune (valorisation, frais de
-  // structure). D'où deux agrégats distincts, jamais un simple 1:1.
+  // ---- Lien tâches ↔ budget (PR 40 / 40b) --------------------------
+  // Relation N:M portant un montant : une tâche peut être financée par
+  // plusieurs lignes (co-financement), et une ligne se répartir sur
+  // plusieurs tâches (40 000 € = 10 000 € + 30 000 €). Le budget d'une
+  // tâche est donc TOUJOURS une somme d'affectations — 0 € quand il n'y
+  // en a aucune, jamais « inconnu ».
   const taskOptions = (phases ?? []).flatMap((ph: any) =>
     (ph.tasks ?? []).map((t: any) => ({ id: t.id, name: t.title, phase_id: ph.id })))
   const plannedByTask = new Map<string, number>()
@@ -97,11 +99,15 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
   const linesByPhase = new Map<string, any[]>()
   for (const l of budgetLines ?? []) {
     const amount = l.planned_amount ?? 0
-    if (l.task_id) plannedByTask.set(l.task_id, (plannedByTask.get(l.task_id) ?? 0) + amount)
+    for (const a of (l.allocations ?? []) as { task_id: string; amount: number }[]) {
+      plannedByTask.set(a.task_id, (plannedByTask.get(a.task_id) ?? 0) + (a.amount ?? 0))
+    }
     const key = l.phase_id ?? "__hors_phase__"
     plannedByPhase.set(key, (plannedByPhase.get(key) ?? 0) + amount)
     linesByPhase.set(key, [...(linesByPhase.get(key) ?? []), l])
   }
+  // Le budget d'une tâche existe toujours : à défaut d'affectation, 0 €.
+  const taskBudget = (taskId: string) => plannedByTask.get(taskId) ?? 0
   // Regroupement du tableau budgétaire : phases dans l'ordre du projet,
   // puis les lignes non rattachées. Les groupes vides sont omis.
   const budgetGroups = [
@@ -251,7 +257,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
             // la convention » ne compterait plus du tout. Tant que le
             // chiffrage est partiel, on garde la moyenne simple et on le
             // dit (mention « pondéré » sinon absente).
-            const weights = phaseTasks.map((t: any) => plannedByTask.get(t.id) ?? 0)
+            const weights = phaseTasks.map((t: any) => taskBudget(t.id))
             const weighted = phaseTasks.length > 0 && weights.every((w: number) => w > 0)
             const totalWeight = weights.reduce((s: number, w: number) => s + w, 0)
             const phProg = !phaseTasks.length ? 0
@@ -307,11 +313,16 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                               {t.profiles?.full_name && <span>👤 {t.profiles.full_name}</span>}
                               {t.end_date && <span>📅 {fmtDate(t.end_date)}</span>}
                               {(t.documents ?? []).length > 0 && <span>📎 {t.documents.length} doc</span>}
-                              {plannedByTask.get(t.id)
-                                ? <span title="Somme des lignes budgétaires qui financent cette tâche" style={{ color: "var(--brand-accent,#0E6B5C)" }}>
-                                    💶 {fmtEur(plannedByTask.get(t.id))}
-                                  </span>
-                                : <span style={{ color: "#9AA39D" }}>sans budget</span>}
+                              {/* Toute tâche porte un budget, 0 € compris :
+                                  « sans budget » ressemblait à une donnée
+                                  manquante alors que 0 € est une décision. */}
+                              <span
+                                title={taskBudget(t.id) > 0
+                                  ? "Somme affectée à cette tâche par les lignes budgétaires"
+                                  : "Aucune ligne budgétaire n'est affectée à cette tâche"}
+                                style={{ color: taskBudget(t.id) > 0 ? "var(--brand-accent,#0E6B5C)" : "#9AA39D" }}>
+                                💶 {fmtEur(taskBudget(t.id))}
+                              </span>
                             </div>
                           </div>
                           <div className="flex flex-col items-end gap-1">
@@ -408,8 +419,25 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                           {l.poste}
                           {l.is_valorisation && <span className="ml-1 text-xs px-1.5 py-0.5 rounded" style={{ background: "#F5EFE2", color: "#8A6A1F" }}>Valorisation</span>}
                         </td>
-                        <td className="px-4 py-3 text-xs" style={{ color: l.task?.title ? "#17211D" : "#9AA39D" }}>
-                          {l.task?.title ?? "—"}
+                        {/* Une ligne peut se répartir sur plusieurs tâches :
+                            on montre le détail, le montant par tâche étant
+                            justement ce qui distingue ce modèle d'un 1:1. */}
+                        <td className="px-4 py-3 text-xs" style={{ color: (l.allocations ?? []).length ? "#17211D" : "#9AA39D" }}>
+                          {(l.allocations ?? []).length ? (
+                            <ul className="space-y-0.5">
+                              {(l.allocations as any[]).map((a: any) => (
+                                <li key={a.task_id}>
+                                  {a.task?.title ?? "—"}
+                                  <span style={{ color: "#66716B" }}> · {fmtEur(a.amount)}</span>
+                                </li>
+                              ))}
+                              {(() => {
+                                const alloc = (l.allocations as any[]).reduce((s: number, a: any) => s + (a.amount ?? 0), 0)
+                                const rest = (l.planned_amount ?? 0) - alloc
+                                return rest > 0 ? <li style={{ color: "#9AA39D" }}>non affecté · {fmtEur(rest)}</li> : null
+                              })()}
+                            </ul>
+                          ) : "—"}
                         </td>
                         <td className="px-4 py-3"><Badge label={lc.label} fg={lc.fg} bg={lc.bg} /></td>
                         <td className="px-4 py-3 text-xs" style={{ color: "#66716B" }}>{l.funder?.name ?? "—"}</td>
@@ -423,7 +451,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                                 id: l.id, poste: l.poste, description: l.description ?? "",
                                 category: l.category, funder_org_id: l.funder_org_id ?? "",
                                 owner_org_id: l.owner_org_id ?? "", phase_id: l.phase_id ?? "",
-                                task_id: l.task_id ?? "",
+                                allocations: (l.allocations ?? []).map((a: any) => ({ task_id: a.task_id, amount: String(a.amount ?? 0) })),
                                 year: l.year != null ? String(l.year) : "", planned_amount: String(l.planned_amount ?? 0),
                                 is_valorisation: !!l.is_valorisation, status: l.status, comment: l.comment ?? "",
                               }} />

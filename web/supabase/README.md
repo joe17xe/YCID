@@ -32,6 +32,7 @@ SQL Editor Supabase (ou via `supabase db push` avec la CLI) :
 | `migrations/0025_legal_settings.sql` | Mentions légales administrables (éditeur, adresse, directeur, contact, conservation) (PR 34) |
 | `migrations/0026_role_model.sql` | Modèle de rôles : type d'organisation `expert`, rôle projet `referent_mairie`, durcissement de is_project_member (PR 36) |
 | `migrations/0027_task_budget_link.sql` | Lien lignes budgétaires ↔ tâches (`budget_lines.task_id`, N lignes → 1 tâche) + trigger de cohérence tâche/phase/projet (PR 40) |
+| `migrations/0028_budget_line_task_split.sql` | Répartition d'une ligne sur plusieurs tâches : table `budget_line_tasks` (N:M + montant), reprise des données 0027, `budget_lines.task_id` supprimée (PR 40b) |
 
 `seed.sql` contient les données de démonstration CEM Liban et s'exécute
 **après** les migrations, uniquement sur un environnement de démo.

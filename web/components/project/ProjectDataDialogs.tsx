@@ -1,6 +1,6 @@
 "use client"
 import { useId, useState, useTransition } from "react"
-import { Plus, Pencil } from "lucide-react"
+import { Plus, Pencil, X } from "lucide-react"
 import BaseModal, { ErrorMessage } from "@/components/ui/Modal"
 import { LINE_CATEGORIES, LINE_STATUS, IND_KINDS, MEETING_KINDS, DECISION_STATUS } from "@/lib/constants"
 import {
@@ -75,7 +75,7 @@ export function BudgetLineDialog({ projectId, orgs, phases, tasks = [], line }: 
   const [form, setForm] = useState({
     poste: line?.poste ?? "", description: line?.description ?? "", category: line?.category ?? "autre",
     funder_org_id: line?.funder_org_id ?? "", owner_org_id: line?.owner_org_id ?? "", phase_id: line?.phase_id ?? "",
-    task_id: line?.task_id ?? "",
+    allocations: line?.allocations ?? [],
     year: line?.year ?? "", planned_amount: line?.planned_amount ?? "", is_valorisation: line?.is_valorisation ?? false,
     status: line?.status ?? "prevue", comment: line?.comment ?? "",
   })
@@ -86,18 +86,37 @@ export function BudgetLineDialog({ projectId, orgs, phases, tasks = [], line }: 
   // choix dans un ordre précis.
   const visibleTasks = form.phase_id ? tasks.filter(t => t.phase_id === form.phase_id) : tasks
 
-  // Changer de phase invalide une tâche qui n'en fait plus partie —
+  // Répartition : le total affecté ne peut pas dépasser le montant de la
+  // ligne, qui reste la vérité de la convention. Le reste est affiché
+  // plutôt que déduit de tête.
+  const lineAmount = Number(String(form.planned_amount ?? "").replace(",", ".") || "0")
+  const allocated = form.allocations.reduce((s, a) => s + Number(String(a.amount ?? "").replace(",", ".") || "0"), 0)
+  const rest = (Number.isFinite(lineAmount) ? lineAmount : 0) - allocated
+  const overAllocated = rest < -0.005
+
+  // Changer de phase invalide les affectations sorties de la phase —
   // sinon le trigger de cohérence rejetterait l'enregistrement.
   function selectPhase(phase_id: string) {
     setForm(f => ({
       ...f,
       phase_id,
-      task_id: tasks.some(t => t.id === f.task_id && t.phase_id === phase_id) ? f.task_id : "",
+      allocations: f.allocations.filter(a => tasks.some(t => t.id === a.task_id && t.phase_id === phase_id)),
     }))
   }
-  function selectTask(task_id: string) {
-    const t = tasks.find(x => x.id === task_id)
-    setForm(f => ({ ...f, task_id, phase_id: t ? t.phase_id : f.phase_id }))
+  function addAllocation() {
+    setForm(f => ({ ...f, allocations: [...f.allocations, { task_id: "", amount: "" }] }))
+  }
+  function removeAllocation(i: number) {
+    setForm(f => ({ ...f, allocations: f.allocations.filter((_, j) => j !== i) }))
+  }
+  // Choisir une tâche alors qu'aucune phase n'est fixée renseigne la
+  // phase : la ligne se situe d'elle-même.
+  function setAllocation(i: number, patch: { task_id?: string; amount?: string }) {
+    setForm(f => {
+      const allocations = f.allocations.map((a, j) => (j === i ? { ...a, ...patch } : a))
+      const t = patch.task_id ? tasks.find(x => x.id === patch.task_id) : undefined
+      return { ...f, allocations, phase_id: !f.phase_id && t ? t.phase_id : f.phase_id }
+    })
   }
   return (
     <>
@@ -144,18 +163,6 @@ export function BudgetLineDialog({ projectId, orgs, phases, tasks = [], line }: 
                   {phases.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
               )}</Field>
-              <Field label="Tâche financée">{id => (
-                <>
-                  <select id={id} value={form.task_id} onChange={e => selectTask(e.target.value)} className={inputCls} style={border}>
-                    <option value="">— aucune</option>
-                    {visibleTasks.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                  </select>
-                  <p className="text-xs mt-1" style={{ color: "#66716B" }}>
-                    Plusieurs lignes peuvent financer la même tâche (co-financement).
-                    Laissez vide pour les valorisations et les frais de structure.
-                  </p>
-                </>
-              )}</Field>
               <Field label="Année">{id => (
                 <input id={id} type="number" min={2000} max={2100} value={form.year} onChange={e => setForm({ ...form, year: e.target.value })} className={inputCls} style={border} />
               )}</Field>
@@ -169,11 +176,64 @@ export function BudgetLineDialog({ projectId, orgs, phases, tasks = [], line }: 
                 Valorisation (apport non financier)
               </label>
             </div>
+            {/* Répartition sur les tâches : le montant de la ligne reste
+                celui de la convention, la répartition vient par-dessus. */}
+            <fieldset className="rounded-xl border p-3" style={border}>
+              <legend className="px-1 text-sm font-medium" style={{ color: "#17211D" }}>Tâches financées</legend>
+              {form.allocations.length === 0 && (
+                <p className="text-xs" style={{ color: "#66716B" }}>
+                  Aucune tâche affectée. Laissez ainsi pour les valorisations et les frais de structure.
+                </p>
+              )}
+              <div className="space-y-2">
+                {form.allocations.map((a, i) => (
+                  <div key={i} className="flex items-end gap-2">
+                    <div className="flex-1">
+                      <label className="block text-xs mb-1" style={{ color: "#66716B" }} htmlFor={`alloc-task-${i}`}>Tâche</label>
+                      <select id={`alloc-task-${i}`} value={a.task_id} required
+                        onChange={e => setAllocation(i, { task_id: e.target.value })} className={inputCls} style={border}>
+                        <option value="">— choisir</option>
+                        {visibleTasks.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="w-32">
+                      <label className="block text-xs mb-1" style={{ color: "#66716B" }} htmlFor={`alloc-amount-${i}`}>Montant (€)</label>
+                      <input id={`alloc-amount-${i}`} type="number" min={0} step="0.01" value={a.amount}
+                        onChange={e => setAllocation(i, { amount: e.target.value })} className={inputCls} style={border} />
+                    </div>
+                    <button type="button" onClick={() => removeAllocation(i)}
+                      className="p-2 rounded-lg hover:bg-gray-100" aria-label={`Retirer la tâche ${i + 1} de la répartition`}>
+                      <X size={15} style={{ color: "#66716B" }} aria-hidden="true" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center justify-between gap-3 mt-2">
+                <button type="button" onClick={addAllocation}
+                  className="flex items-center gap-1 text-sm font-medium" style={{ color: "var(--brand-accent,#0E6B5C)" }}>
+                  <Plus size={14} aria-hidden="true" /> Ajouter une tâche
+                </button>
+                {form.allocations.length > 0 && (
+                  <span className="text-xs" style={{ color: overAllocated ? "#A3342C" : "#66716B" }}>
+                    Réparti {allocated.toLocaleString("fr-FR")} € · reste {rest.toLocaleString("fr-FR")} €
+                  </span>
+                )}
+              </div>
+              <p className="text-xs mt-2" style={{ color: "#66716B" }}>
+                Une ligne peut se répartir sur plusieurs tâches (40 000 € = 10 000 € + 30 000 €),
+                et plusieurs lignes peuvent financer la même tâche (co-financement).
+              </p>
+              {overAllocated && (
+                <p className="text-xs mt-1" style={{ color: "#A3342C" }}>
+                  La répartition dépasse le montant de la ligne.
+                </p>
+              )}
+            </fieldset>
             <Field label="Commentaire">{id => (
               <input id={id} value={form.comment} onChange={e => setForm({ ...form, comment: e.target.value })} className={inputCls} style={border} />
             )}</Field>
             <ErrorMessage>{d.error}</ErrorMessage>
-            <Actions pending={d.pending} onClose={() => d.setOpen(false)} label={line ? "Enregistrer" : "Créer la ligne"} />
+            <Actions pending={d.pending || overAllocated} onClose={() => d.setOpen(false)} label={line ? "Enregistrer" : "Créer la ligne"} />
           </form>
         </Modal>
       )}
