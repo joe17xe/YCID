@@ -10,9 +10,17 @@ import { generateExpertReport } from "@/app/(app)/projets/[id]/report-actions"
 // Mini-rendu Markdown (titres, gras, listes, séparateurs) — suffisant pour
 // le rapport structuré, sans dépendance externe.
 function renderMarkdown(md: string): React.ReactNode[] {
-  const bold = (s: string, key: number) => {
-    const parts = s.split(/\*\*(.+?)\*\*/g)
-    return parts.map((p, i) => (i % 2 === 1 ? <strong key={`${key}-${i}`}>{p}</strong> : p))
+  // Gras **texte** puis italique *texte* — sinon les astérisques
+  // s'affichaient littéralement dans le livrable.
+  const bold = (s: string, key: number): React.ReactNode[] => {
+    const out: React.ReactNode[] = []
+    s.split(/\*\*(.+?)\*\*/g).forEach((part, i) => {
+      if (i % 2 === 1) { out.push(<strong key={`${key}-b${i}`}>{part}</strong>); return }
+      part.split(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g).forEach((sub, j) => {
+        out.push(j % 2 === 1 ? <em key={`${key}-i${i}-${j}`}>{sub}</em> : sub)
+      })
+    })
+    return out
   }
   const nodes: React.ReactNode[] = []
   let list: { ordered: boolean; items: string[] } | null = null
@@ -52,10 +60,13 @@ export default function ExpertReportDialog({ projectId, projectName }: { project
   const [report, setReport] = useState("")
   const [error, setError] = useState("")
   const [copied, setCopied] = useState(false)
+  // Consignes libres du chef de projet / de l'expert local, envoyées au
+  // modèle en plus des données du projet.
+  const [instructions, setInstructions] = useState("")
 
   async function generate() {
     setLoading(true); setError(""); setCopied(false)
-    const res = await generateExpertReport(projectId)
+    const res = await generateExpertReport(projectId, instructions)
     if (res.ok && res.report) setReport(res.report)
     else setError(res.error ?? "Une erreur est survenue.")
     setLoading(false)
@@ -116,10 +127,23 @@ export default function ExpertReportDialog({ projectId, projectName }: { project
                   <p className="text-sm mb-1" style={{ color: "#17211D" }}>
                     Générer un rapport d&apos;expertise complet du projet <strong>{projectName}</strong> ?
                   </p>
-                  <p className="text-xs mb-6" style={{ color: "#66716B" }}>
+                  <p className="text-xs mb-5" style={{ color: "#66716B" }}>
                     Analyse de l&apos;avancement, du budget, des indicateurs et des risques — à partir des
                     données réelles du projet uniquement. Environ 30 secondes.
                   </p>
+                  <div className="text-left mb-5">
+                    <label htmlFor="report-instructions" className="block text-xs font-semibold mb-1 tracking-wider" style={{ color: "#66716B" }}>
+                      CONSIGNES (FACULTATIF)
+                    </label>
+                    <textarea id="report-instructions" rows={3} value={instructions}
+                      onChange={e => setInstructions(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border text-sm"
+                      style={{ borderColor: "#E3E6E2" }}
+                      placeholder="Contexte terrain, angle attendu, points à approfondir. Ex. : « Insister sur le retard des aménagements et son impact sur le calendrier de la convention. »" />
+                    <p className="text-xs mt-1" style={{ color: "#66716B" }}>
+                      Vos consignes priment sur la trame par défaut. Les chiffres restent tirés des seules données du projet.
+                    </p>
+                  </div>
                   <button onClick={generate} className="px-5 py-2.5 rounded-xl text-white text-sm font-semibold" style={{ background: "var(--brand-accent,#0E6B5C)" }}>
                     Générer le rapport
                   </button>

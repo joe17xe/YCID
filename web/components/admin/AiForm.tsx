@@ -66,10 +66,18 @@ export default function AiForm({ settings, providers }: { settings: AiSettingsVi
     setLoadingModels(true); setError(""); setTestResult(null)
     const res = await listAiModels({ baseUrl: form.baseUrl, apiKey: form.apiKey })
     if (res.ok && res.models) {
-      setModels(res.models)
+      // Seuls les modèles de conversation : proposer imagen, veo, lyria,
+      // les embeddings ou la synthèse vocale casserait l'application.
+      const chat = res.models.filter(m => !/imagen|veo|lyria|embedding|aqa|tts|image|video|audio|vision-only/i.test(m))
+      setModels(chat.length ? chat : res.models)
       // Si le modèle saisi n'existe plus, on propose le premier compatible
-      if (!res.models.includes(form.model)) {
-        const suggestion = res.models.find(m => /flash|mini|haiku|turbo/i.test(m)) ?? res.models[0]
+      if (!chat.includes(form.model)) {
+        // Préférer un modèle « flash » non raisonnant : les modèles à
+        // raisonnement épuisent le budget de sortie avant d'écrire.
+        const suggestion = chat.find(m => /flash-latest/i.test(m))
+          ?? chat.find(m => /flash/i.test(m) && !/thinking|preview/i.test(m))
+          ?? chat.find(m => /flash|mini|turbo/i.test(m))
+          ?? chat[0]
         setForm(f => ({ ...f, model: suggestion }))
         setError(`Le modèle « ${form.model} » n'est pas proposé par le fournisseur — remplacé par « ${suggestion} ». Vérifiez puis enregistrez.`)
       }
