@@ -239,12 +239,20 @@ l'on veut avancer vers le prévu/engagé/réalisé.
   iPhone, donc de la majorité des photos de chantier.
 
 #### PR 38d — Onglet Documents centralisé
-La demande explicite : accéder à l'ensemble en un seul endroit. À livrer
-**après** 38b et 38c : une vue centralisée n'a d'intérêt qu'une fois
+La demande explicite : accéder à l'ensemble en un seul endroit. Livrée
+après 38b et 38c, une vue centralisée n'ayant d'intérêt qu'une fois
 plusieurs natures de pièces réellement présentes.
-- Nouvel onglet « Documents » listant *tout* le projet d'un coup,
-  filtrable par type, par phase, par tâche et par date.
-- Téléchargement groupé (ZIP).
+- Nouvel onglet « Documents » listant *tout* le projet d'un coup, avec
+  le rattachement de chaque pièce (tâche, ligne, phase ou projet).
+- Filtres nature, phase, période, et une **seule** zone de recherche
+  couvrant nom de fichier, tâche et poste : trois champs séparés
+  obligeraient à savoir où la pièce a été déposée, ce qui est justement
+  l'information qui manque.
+- Téléchargement groupé (ZIP) assemblé **dans le navigateur** : les
+  fichiers ne transitent pas par le serveur Next, qui n'a pas à recopier
+  des pièces déjà accessibles à l'utilisateur. L'archive reprend la
+  sélection filtrée, pas tout le projet, et dédoublonne les noms — deux
+  pièces homonymes s'écraseraient sinon en silence.
 
 #### PR 38e — Preuve de réalisation et pièces citées par l'IA
 - Le chef de projet joint un justificatif à une tâche pour attester

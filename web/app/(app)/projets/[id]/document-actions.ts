@@ -199,6 +199,42 @@ export async function deleteDocument(documentId: string): Promise<{ ok: boolean;
   return { ok: true }
 }
 
+// ------------------------------------------------------------
+// Téléchargement groupé (PR 38d)
+// ------------------------------------------------------------
+// Signe en une fois les pièces sélectionnées, pour que le navigateur
+// puisse les assembler en archive. Le filtrage a déjà eu lieu à
+// l'écran ; on revérifie tout de même l'appartenance au projet, un
+// identifiant pouvant être forgé.
+export async function getDocumentUrls(input: { projectId: string; documentIds: string[] }): Promise<{
+  ok: boolean; files?: { id: string; filename: string; url: string }[]; error?: string
+}> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Non authentifié.' }
+  if (!input.documentIds?.length) return { ok: false, error: 'Aucune pièce sélectionnée.' }
+  // Garde-fou : au-delà, l'assemblage en mémoire dans le navigateur
+  // devient hasardeux sur mobile.
+  if (input.documentIds.length > 200) return { ok: false, error: '200 pièces maximum par archive.' }
+
+  const { data: docs, error } = await supabase.from('documents')
+    .select('id, filename, storage_path')
+    .eq('project_id', input.projectId)
+    .in('id', input.documentIds)
+  if (error) return { ok: false, error: `Lecture impossible : ${error.message}` }
+
+  const paths = (docs ?? []).map(d => d.storage_path).filter(Boolean) as string[]
+  if (!paths.length) return { ok: false, error: 'Aucun fichier disponible.' }
+  const { data: signed, error: signErr } = await supabase.storage.from('documents').createSignedUrls(paths, GALLERY_URL_TTL)
+  if (signErr) return { ok: false, error: `Liens indisponibles : ${signErr.message}` }
+
+  const urlByPath = new Map((signed ?? []).map(s => [s.path ?? '', s.signedUrl]))
+  const files = (docs ?? [])
+    .filter(d => d.storage_path && urlByPath.get(d.storage_path))
+    .map(d => ({ id: d.id, filename: d.filename, url: urlByPath.get(d.storage_path as string) as string }))
+  return { ok: true, files }
+}
+
 // Bucket privé : l'accès se fait par URL signée à durée limitée, jamais
 // par une URL publique devinable.
 export async function getDocumentUrl(documentId: string): Promise<{ ok: boolean; url?: string; error?: string }> {
