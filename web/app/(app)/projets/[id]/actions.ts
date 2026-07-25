@@ -1,6 +1,6 @@
 'use server'
 
-import { randomBytes } from 'crypto'
+import { randomBytes, randomUUID } from 'crypto'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { adminClient } from '@/lib/supabase/admin'
@@ -570,6 +570,39 @@ export async function removeProjectMember(input: { projectId: string; userId: st
 // Suppression de projet (admin, double confirmation)
 // ============================================================
 
+
+// ------------------------------------------------------------
+// PR 28 — Page vitrine publique (opt-in, jeton non devinable)
+// ------------------------------------------------------------
+export async function setPublicPage(projectId: string, enabled: boolean): Promise<{ ok: boolean; error?: string; token?: string }> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: false, error: 'Non authentifié.' }
+    if (!(await canManagePhases(supabase, user.id, projectId))) {
+      return { ok: false, error: 'Page publique réservée au chef de projet et aux admins.' }
+    }
+    const admin = adminClient()
+    if (!admin) return { ok: false, error: 'Non configuré : ajoutez SUPABASE_SERVICE_ROLE_KEY au serveur.' }
+
+    const token = enabled ? randomUUID() : null
+    const { error } = await admin.from('projects').update({ public_token: token }).eq('id', projectId)
+    if (error) {
+      const missing = /public_token|column .* does not exist/i.test(`${error.message}`)
+      return { ok: false, error: missing ? 'Appliquez la migration 0021_public_page.sql dans le SQL Editor Supabase.' : `Échec : ${error.message}` }
+    }
+    await supabase.from('audit_log').insert({
+      project_id: projectId, entity: 'project', entity_id: projectId,
+      label: enabled ? 'Page publique activée' : 'Page publique désactivée',
+      action: 'modifie', user_id: user.id,
+    })
+    revalidatePath(`/projets/${projectId}`)
+    return { ok: true, token: token ?? undefined }
+  } catch (e) {
+    console.error('[setPublicPage] exception:', e)
+    return { ok: false, error: `Échec : ${e instanceof Error ? e.message : String(e)}` }
+  }
+}
 
 export async function deleteProject(input: { projectId: string; confirmation: string }): Promise<{ ok: boolean; error?: string }> {
   const supabase = await createClient()

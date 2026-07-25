@@ -25,6 +25,7 @@ SQL Editor Supabase (ou via `supabase db push` avec la CLI) :
 | `migrations/0018_platform_settings.sql` | Configuration de la marque (white-label) : nom, accroche, couleurs, logo + bucket `branding` |
 | `migrations/0019_comm_campaigns.sql` | Campagnes de communication (PR 26) : table comm_campaigns + RLS (membres / chef / responsable) |
 | `migrations/0020_project_programme.sql` | Programme de rattachement des projets (CEM…) — vision multi-niveaux (PR 27) |
+| `migrations/0021_public_page.sql` | Page vitrine publique par projet : colonne `public_token` (opt-in, lien non devinable) (PR 28) |
 
 `seed.sql` contient les données de démonstration CEM Liban et s'exécute
 **après** les migrations, uniquement sur un environnement de démo.

@@ -14,6 +14,7 @@ import HelpDialog from "@/components/help/HelpDialog"
 import DeleteProjectButton from "@/components/project/DeleteProjectButton"
 import ExpertReportDialog from "@/components/project/ExpertReportDialog"
 import CommPanel, { type Campaign } from "@/components/project/CommPanel"
+import PublicPageDialog from "@/components/project/PublicPageDialog"
 import { ChevronLeft } from "lucide-react"
 
 function Badge({ label, fg, bg }: { label: string; fg: string; bg: string }) {
@@ -101,7 +102,8 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
         <Link href="/projets" className="inline-flex items-center gap-1 text-sm" style={{ color: "#66716B" }}>
           <ChevronLeft size={16} /> Projets
         </Link>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {canPhases && <PublicPageDialog projectId={id} token={project.public_token ?? null} />}
           <ExpertReportDialog projectId={id} projectName={project.name} />
           {canEditCompleted && <DeleteProjectButton projectId={id} projectName={project.name} />}
         </div>
