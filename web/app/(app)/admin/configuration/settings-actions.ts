@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { adminClient } from '@/lib/supabase/admin'
-import { AI_PROVIDERS } from '@/lib/ai-settings'
+import { AI_PROVIDERS, getAiConfig } from '@/lib/ai-settings'
 import { chatComplete } from '@/lib/llm'
 import { isUserAdmin } from '@/lib/permissions'
 
@@ -120,4 +120,46 @@ export async function testAiConnection(): Promise<{ ok: boolean; error?: string;
   })
   if (!res.ok) return { ok: false, error: res.error }
   return { ok: true, reply: (res.content ?? '').trim().slice(0, 80) }
+}
+
+// Liste les modèles réellement disponibles chez le fournisseur.
+// Évite de deviner un identifiant : les fournisseurs retirent des
+// modèles sans préavis (ex. gemini-2.5-flash coupé le 09/07/2026).
+export async function listAiModels(input?: { baseUrl?: string; apiKey?: string }): Promise<{ ok: boolean; models?: string[]; error?: string }> {
+  const ctx = await requireAdmin()
+  if ('error' in ctx) return { ok: false, error: ctx.error }
+
+  const saved = await getAiConfig()
+  const baseUrl = (input?.baseUrl?.trim() || saved.baseUrl).replace(/\/+$/, '')
+  const apiKey = input?.apiKey?.trim() || saved.apiKey
+  if (!apiKey) return { ok: false, error: "Renseignez d'abord une clé API." }
+  if (!/^https:\/\/.+/i.test(baseUrl)) return { ok: false, error: "URL de l'API invalide." }
+
+  try {
+    const res = await fetch(`${baseUrl}/models`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      cache: 'no-store',
+    })
+    const raw = await res.text()
+    if (!res.ok) {
+      let detail = `HTTP ${res.status}`
+      try {
+        const b = JSON.parse(raw)
+        detail = b?.error?.message || b?.message || detail
+      } catch { /* non JSON */ }
+      return { ok: false, error: `Le fournisseur a répondu : ${detail}` }
+    }
+    const body = JSON.parse(raw)
+    const list: string[] = (body?.data ?? [])
+      .map((m: { id?: string }) => m?.id)
+      .filter((id: unknown): id is string => typeof id === 'string')
+      // Identifiants Gemini préfixés « models/ » : on normalise
+      .map((id: string) => id.replace(/^models\//, ''))
+      .sort()
+    if (!list.length) return { ok: false, error: 'Aucun modèle renvoyé par le fournisseur.' }
+    return { ok: true, models: list }
+  } catch (e) {
+    console.error('[listAiModels] échec:', e)
+    return { ok: false, error: `Contact impossible avec le fournisseur : ${e instanceof Error ? e.message : String(e)}` }
+  }
 }

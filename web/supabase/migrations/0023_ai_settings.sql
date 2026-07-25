@@ -15,7 +15,7 @@ create table if not exists ai_settings (
   provider text not null default 'gemini'
     check (provider in ('gemini', 'groq', 'openrouter', 'kimi', 'openai', 'autre')),
   base_url text not null default 'https://generativelanguage.googleapis.com/v1beta/openai',
-  model text not null default 'gemini-2.5-flash',
+  model text not null default 'gemini-3.5-flash',
   api_key text,
   updated_at timestamptz not null default now(),
   updated_by uuid references profiles(id) on delete set null

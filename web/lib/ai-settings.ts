@@ -12,7 +12,7 @@ export const AI_PROVIDERS: Record<string, { label: string; baseUrl: string; mode
   gemini: {
     label: 'Google Gemini',
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
-    model: 'gemini-2.5-flash',
+    model: 'gemini-3.5-flash',
     keyUrl: 'https://aistudio.google.com/apikey',
     free: 'Offre gratuite généreuse · très bon en français',
   },
