@@ -9,6 +9,7 @@ import EditCompletedTaskDialog from "@/components/tasks/EditCompletedTaskDialog"
 import PhaseDialog from "@/components/tasks/PhaseDialog"
 import TaskDialog from "@/components/tasks/TaskDialog"
 import { BudgetLineDialog, CreateTaskFromLineButton, IndicatorDialog, MeasureDialog, MeetingDialog, DecisionDialog } from "@/components/project/ProjectDataDialogs"
+import TaskDocuments from "@/components/project/TaskDocuments"
 import { MemberDialog, InviteUserDialog, RemoveMemberButton } from "@/components/project/MemberDialog"
 import HelpDialog from "@/components/help/HelpDialog"
 import DeleteProjectButton from "@/components/project/DeleteProjectButton"
@@ -312,7 +313,16 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                             <div className="flex items-center gap-3 mt-1 text-xs" style={{ color: "#66716B" }}>
                               {t.profiles?.full_name && <span>👤 {t.profiles.full_name}</span>}
                               {t.end_date && <span>📅 {fmtDate(t.end_date)}</span>}
-                              {(t.documents ?? []).length > 0 && <span>📎 {t.documents.length} doc</span>}
+                              {/* Le compteur « 📎 N doc » existait depuis
+                                  l'origine mais restait à 0 : rien ne
+                                  permettait de déposer une pièce (PR 38a). */}
+                              <TaskDocuments projectId={id} phaseId={ph.id} taskId={t.id}
+                                canUpload={canTasks}
+                                docs={[...(t.documents ?? [])]
+                                  .sort((a: any, b: any) => String(b.uploaded_at).localeCompare(String(a.uploaded_at)))
+                                  .map((d: any) => ({
+                                    id: d.id, filename: d.filename, type: d.type, uploaded_at: d.uploaded_at,
+                                  }))} />
                               {/* Toute tâche porte un budget, 0 € compris :
                                   « sans budget » ressemblait à une donnée
                                   manquante alors que 0 € est une décision. */}
