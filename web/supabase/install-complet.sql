@@ -1335,6 +1335,13 @@ create policy "Responsible update campaigns" on comm_campaigns
 alter table projects add column if not exists programme text;
 update projects set programme = 'CEM' where programme is null;
 
+-- ============================================================
+-- MIGRATION 0021 — Page vitrine publique par projet (PR 28)
+-- ============================================================
+alter table projects add column if not exists public_token uuid;
+create unique index if not exists projects_public_token_idx
+  on projects(public_token) where public_token is not null;
+
 -- ============================================================================
 -- CORRECTIF FINAL — promotion du premier admin depuis le SQL Editor
 -- ============================================================================
