@@ -18,6 +18,16 @@ export const DOC_TYPE_LABELS: Record<DocType, string> = {
 // que du besoin réel, et le dépôt échouerait plus loin sans message clair.
 export const MAX_DOC_SIZE = 10 * 1024 * 1024
 
+// Natures PORTEUSES D'ARGENT : elles n'ont de sens que sur une ligne
+// budgétaire, seul endroit où un montant se rattache à un prévisionnel
+// et où le circuit de validation s'affiche. Déposées sur une tâche,
+// elles produisaient un devis muet — validé dans le vide, jamais compté
+// dans « engagé » faute de ligne à créditer.
+export const BUDGET_DOC_TYPES: DocType[] = ['devis', 'facture', 'recu', 'justificatif']
+
+// Natures admises sur une tâche : la preuve de ce qui a été fait.
+export const TASK_DOC_TYPES: DocType[] = ['justificatif', 'photo', 'livrable', 'note', 'etude', 'rapport', 'convention']
+
 // Chemin de stockage : projets/<project_id>/<phase_id|_>/<uuid>-<nom>.
 // Les policies Storage lisent le project_id à cet emplacement EXACT
 // (migration 0029) — ne pas changer la forme sans les reprendre.

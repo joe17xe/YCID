@@ -123,10 +123,13 @@ export default function ExpertReportDialog({ projectId, projectName }: { project
     <>
       <button
         onClick={openDialog}
-        className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold"
+        title="Rapport d'expert IA"
+        aria-label="Rapport d'expert IA"
+        className="flex items-center justify-center gap-2 p-2 sm:px-4 sm:py-2 rounded-xl text-white text-sm font-semibold"
         style={{ background: "var(--brand-accent,#0E6B5C)" }}
       >
-        <Sparkles size={15} /> Rapport d&apos;expert IA
+        <Sparkles size={15} aria-hidden="true" />
+        <span className="hidden sm:inline">Rapport d&apos;expert IA</span>
       </button>
 
       <Modal

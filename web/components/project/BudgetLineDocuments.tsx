@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation"
 import { Paperclip, Upload, Trash2, Download, Check, X as XIcon } from "lucide-react"
 import Modal, { ErrorMessage } from "@/components/ui/Modal"
 import { createClient } from "@/lib/supabase/client"
-import { DOC_TYPE_LABELS, MAX_DOC_SIZE, buildStoragePath, type DocType } from "@/lib/documents"
+import { BUDGET_DOC_TYPES, DOC_TYPE_LABELS, MAX_DOC_SIZE, buildStoragePath, type DocType } from "@/lib/documents"
 import { saveDocument, deleteDocument, getDocumentUrl, decideValidation, setDocumentPaid } from "@/app/(app)/projets/[id]/document-actions"
 
 // ============================================================
@@ -14,10 +14,6 @@ import { saveDocument, deleteDocument, getDocumentUrl, decideValidation, setDocu
 // « engagé » = Σ des devis validés, « payé » = Σ des pièces marquées
 // payées. Ce sont les deux sources du réalisé que la PR 39 agrégera par
 // phase et par projet.
-
-// Seules ces natures portent un montant sur une ligne budgétaire : y
-// mettre une photo ou une note brouillerait les totaux.
-const LINE_DOC_TYPES: DocType[] = ["devis", "facture", "recu", "justificatif"]
 
 export interface LineValidation {
   id: string
@@ -232,7 +228,7 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
                     <label htmlFor={`bl-type-${lineId}`} className="block text-xs mb-1" style={{ color: "#66716B" }}>Nature</label>
                     <select id={`bl-type-${lineId}`} value={type} onChange={e => setType(e.target.value as DocType)}
                       className="w-full px-3 py-2 rounded-xl border text-sm" style={{ borderColor: "#E3E6E2" }}>
-                      {LINE_DOC_TYPES.map(t => <option key={t} value={t}>{DOC_TYPE_LABELS[t]}</option>)}
+                      {BUDGET_DOC_TYPES.map(t => <option key={t} value={t}>{DOC_TYPE_LABELS[t]}</option>)}
                     </select>
                   </div>
                   <div>

@@ -26,9 +26,12 @@ export default function DeleteProjectButton({ projectId, projectName }: { projec
   return (
     <>
       <button onClick={() => setStep(1)}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-sm font-medium hover:bg-red-50"
+        title="Supprimer le projet"
+        aria-label="Supprimer le projet"
+        className="flex items-center justify-center gap-1.5 p-2 sm:px-3 sm:py-1.5 rounded-xl border text-sm font-medium hover:bg-red-50"
         style={{ borderColor: "#E3E6E2", color: "#A3342C" }}>
-        <Trash2 size={14} /> Supprimer
+        <Trash2 size={14} aria-hidden="true" />
+        <span className="hidden sm:inline">Supprimer</span>
       </button>
 
       <Modal open={step > 0} onClose={close} busy={pending} maxWidth="max-w-lg" title="Supprimer le projet">

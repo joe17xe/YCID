@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation"
 import { Paperclip, Upload, Trash2, Download, Plus } from "lucide-react"
 import Modal, { ErrorMessage } from "@/components/ui/Modal"
 import { createClient } from "@/lib/supabase/client"
-import { DOC_TYPES, DOC_TYPE_LABELS, MAX_DOC_SIZE, buildStoragePath, type DocType } from "@/lib/documents"
+import { TASK_DOC_TYPES, DOC_TYPE_LABELS, MAX_DOC_SIZE, buildStoragePath, type DocType } from "@/lib/documents"
 import { saveDocument, deleteDocument, getDocumentUrl } from "@/app/(app)/projets/[id]/document-actions"
 
 export interface TaskDoc {
@@ -138,8 +138,16 @@ export default function TaskDocuments({ projectId, phaseId, taskId, docs, canUpl
               <label htmlFor="doc-type" className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Nature</label>
               <select id="doc-type" value={type} onChange={e => setType(e.target.value as DocType)}
                 className="w-full px-3 py-2 rounded-xl border text-sm" style={{ borderColor: "#E3E6E2" }}>
-                {DOC_TYPES.map(t => <option key={t} value={t}>{DOC_TYPE_LABELS[t]}</option>)}
+                {TASK_DOC_TYPES.map(t => <option key={t} value={t}>{DOC_TYPE_LABELS[t]}</option>)}
               </select>
+              {/* Devis, factures et reçus n'apparaissent volontairement
+                  pas ici : sans ligne budgétaire à créditer, leur montant
+                  ne compterait nulle part et leur validation resterait
+                  invisible. */}
+              <p className="text-xs mt-1" style={{ color: "#66716B" }}>
+                Un devis, une facture ou un reçu se déposent sur la <strong>ligne budgétaire</strong>
+                {" "}(onglet Budget) : c&apos;est là qu&apos;ils portent un montant et partent en validation.
+              </p>
             </div>
             <ErrorMessage>{error}</ErrorMessage>
             <div className="flex justify-end gap-2 pt-1">
