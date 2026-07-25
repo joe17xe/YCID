@@ -240,7 +240,10 @@ export interface BudgetLineInput {
   funder_org_id: string
   owner_org_id: string
   phase_id: string
-  task_id: string
+  // Répartition sur les tâches (PR 40b) : une ligne de 40 000 € peut se
+  // découper en 10 000 € + 30 000 €. Liste vide = ligne non répartie
+  // (valorisation, frais de structure).
+  allocations: { task_id: string; amount: string }[]
   year: string
   planned_amount: string
   is_valorisation: boolean
@@ -262,6 +265,23 @@ export async function saveBudgetLine(input: BudgetLineInput): Promise<{ ok: bool
   const amount = Number(String(input.planned_amount ?? '').replace(',', '.'))
   if (!Number.isFinite(amount) || amount < 0) return { ok: false, error: 'Montant prévisionnel invalide.' }
 
+  // Répartition : validée ici pour rendre un message lisible, et de
+  // nouveau par le trigger — l'import CSV n'emprunte pas ce chemin.
+  const allocations: { task_id: string; amount: number }[] = []
+  for (const a of input.allocations ?? []) {
+    if (!a.task_id) continue
+    const v = Number(String(a.amount ?? '').replace(',', '.') || '0')
+    if (!Number.isFinite(v) || v < 0) return { ok: false, error: 'Montant de répartition invalide.' }
+    if (allocations.some(x => x.task_id === a.task_id)) {
+      return { ok: false, error: 'Une même tâche ne peut apparaître deux fois dans la répartition.' }
+    }
+    allocations.push({ task_id: a.task_id, amount: v })
+  }
+  const allocated = allocations.reduce((s, a) => s + a.amount, 0)
+  if (allocated > amount) {
+    return { ok: false, error: `La répartition (${allocated} €) dépasse le montant de la ligne (${amount} €).` }
+  }
+
   const values = {
     poste,
     description: input.description?.trim() || null,
@@ -269,10 +289,6 @@ export async function saveBudgetLine(input: BudgetLineInput): Promise<{ ok: bool
     funder_org_id: input.funder_org_id || null,
     owner_org_id: input.owner_org_id || null,
     phase_id: input.phase_id || null,
-    // La cohérence tâche ↔ phase ↔ projet est garantie par le trigger
-    // check_budget_line_coherence (migration 0027) : c'est la base qui
-    // arbitre, pas l'interface, sinon l'import CSV pourrait la contourner.
-    task_id: input.task_id || null,
     year: input.year ? Number(input.year) : null,
     planned_amount: amount,
     is_valorisation: !!input.is_valorisation,
@@ -280,16 +296,30 @@ export async function saveBudgetLine(input: BudgetLineInput): Promise<{ ok: bool
     comment: input.comment?.trim() || null,
   }
 
+  let lineId: string
   if (input.lineId) {
     const { data: line } = await supabase.from('budget_lines').select('project_id').eq('id', input.lineId).maybeSingle()
     if (!line || line.project_id !== input.projectId) return { ok: false, error: 'Ligne introuvable.' }
+    // Purger la répartition AVANT d'écrire la ligne : baisser le montant
+    // ou changer de phase serait sinon rejeté par le trigger, qui voit
+    // encore l'ancienne répartition.
+    const { error: clearErr } = await supabase.from('budget_line_tasks').delete().eq('budget_line_id', input.lineId)
+    if (clearErr) return { ok: false, error: `Échec de la mise à jour de la répartition : ${clearErr.message}` }
     const { error } = await supabase.from('budget_lines').update(values).eq('id', input.lineId)
     if (error) return { ok: false, error: `Échec de la modification : ${error.message}` }
+    lineId = input.lineId
     await supabase.from('audit_log').insert({ project_id: input.projectId, entity: 'budget_line', entity_id: input.lineId, label: poste, action: 'modifie', user_id: user.id })
   } else {
     const { data: created, error } = await supabase.from('budget_lines').insert({ ...values, project_id: input.projectId }).select('id').single()
-    if (error) return { ok: false, error: `Échec de la création : ${error.message}` }
-    await supabase.from('audit_log').insert({ project_id: input.projectId, entity: 'budget_line', entity_id: created?.id, label: poste, action: 'cree', user_id: user.id })
+    if (error || !created) return { ok: false, error: `Échec de la création : ${error?.message ?? 'ligne non créée'}` }
+    lineId = created.id
+    await supabase.from('audit_log').insert({ project_id: input.projectId, entity: 'budget_line', entity_id: created.id, label: poste, action: 'cree', user_id: user.id })
+  }
+
+  if (allocations.length) {
+    const { error: allocErr } = await supabase.from('budget_line_tasks')
+      .insert(allocations.map(a => ({ budget_line_id: lineId, task_id: a.task_id, amount: a.amount })))
+    if (allocErr) return { ok: false, error: `Ligne enregistrée, mais la répartition a échoué : ${allocErr.message}` }
   }
   revalidatePath(`/projets/${input.projectId}`)
   return { ok: true }

@@ -289,9 +289,17 @@ deux tables, dans aucun sens. Leur seul ancêtre commun est la phase :
 c'est pourquoi l'onglet Budget et l'onglet Tâches racontent aujourd'hui
 deux histoires parallèles sur la même phase.
 
-**Modèle retenu : `budget_lines.task_id` (nullable), N lignes → 1 tâche.**
-Plutôt qu'une correspondance stricte un pour un. Raison : trois cas
+**Modèle retenu : table de liaison `budget_line_tasks`, N:M avec montant.**
+Plutôt qu'une correspondance stricte un pour un. Raison : quatre cas
 réels du programme CEM ne rentrent pas dans un 1:1.
+- **Répartition** (précision YCID du 25/07/2026). « Une ligne budgétaire
+  peut avoir plusieurs tâches : un budget de 40 000 € peut être divisé
+  en deux tâches, 10 000 € et 30 000 €. » La ligne garde son montant
+  intact — c'est la vérité de la convention de financement — et la
+  répartition vient par-dessus. La somme des affectations peut donc être
+  inférieure au montant de la ligne (reste non affecté), jamais
+  supérieure. C'est ce cas qui impose la table de liaison : une simple
+  colonne `task_id` n'a nulle part où écrire le montant affecté.
 - **Co-financement.** Un même livrable financé par le Département, la
   Mairie et l'association donne trois lignes budgétaires (financeurs
   distincts, `funder_org_id`). En 1:1 strict, le même travail
@@ -301,19 +309,27 @@ réels du programme CEM ne rentrent pas dans un 1:1.
 - **Frais de structure.** Les lignes de catégorie `fonctionnement` ne
   correspondent à aucun livrable daté.
 
-Le N:1 couvre le cas demandé — chaque ligne pointe vers la tâche qu'elle
-finance — sans casser ces trois-là. Et il autorise les deux extrémités
-voulues : tâche **sans** ligne (« signer la convention »), ligne **sans**
-tâche (frais de structure).
+Le N:M couvre les quatre cas et autorise les deux extrémités voulues :
+tâche **sans** ligne (« signer la convention », budget 0 €), ligne
+**sans** tâche (frais de structure).
+
+**Toute tâche porte un budget, 0 € compris** (règle YCID). « Sans
+budget » ressemblait à une donnée manquante alors que 0 € est une
+décision. Le budget d'une tâche n'est jamais saisi directement : c'est
+toujours la somme de ce que les lignes lui affectent — une seule source
+de vérité, contrairement à `phases.budget` que la PR 39 doit supprimer.
 
 Livrables :
-- Migration : `budget_lines.task_id uuid references tasks(id) on delete
-  set null` + index. Contrainte de cohérence : la tâche référencée doit
-  appartenir à la même phase que la ligne (trigger ou check applicatif) —
-  aujourd'hui rien ne vérifie même que `phase_id` appartient au projet
-  (`actions.ts:275`).
-- Sélecteur « Tâche financée » dans le dialogue de ligne budgétaire,
-  limité aux tâches de la phase choisie.
+- Migration : table `budget_line_tasks (budget_line_id, task_id, amount)`
+  + index + RLS alignée sur `budget_lines`. Triggers de cohérence : la
+  tâche affectée doit appartenir à la phase de la ligne, la somme des
+  affectations ne peut dépasser le montant de la ligne, et changer la
+  phase d'une ligne déjà répartie est refusé plutôt que de détacher les
+  affectations en silence. Ferme au passage le trou d'origine : rien ne
+  vérifiait que `phase_id` appartenait au projet (`actions.ts:275`).
+- Bloc « Tâches financées » dans le dialogue de ligne budgétaire : liste
+  répétable (tâche + montant), limitée aux tâches de la phase choisie,
+  avec total réparti et reste non affecté affichés.
 - Création croisée en un geste : depuis une ligne, « créer la tâche
   correspondante » ; depuis une tâche, « ajouter une ligne budgétaire ».
   C'est ce qui rend la saisie synchrone en pratique, pas la contrainte.
@@ -325,8 +341,15 @@ Livrables :
   aujourd'hui c'est une moyenne arithmétique des `progress`
   (`page.tsx:225`), où « signer un contrat » pèse autant qu'un chantier
   de 40 000 €. C'est probablement le gain le plus concret de cette PR.
-- Import CSV : colonne `tache` sur le gabarit des lignes budgétaires,
-  rattachement par titre au sein de la phase.
+- Import CSV : colonnes `tache` et `montant_tache` sur le gabarit des
+  lignes budgétaires, rattachement par titre au sein de la phase. Une
+  ligne CSV n'exprime qu'une seule tâche ; les répartitions sur
+  plusieurs tâches se saisissent dans l'interface.
+
+**Reste à faire (non livré) :** la création croisée en un geste —
+depuis une ligne « créer la tâche correspondante », depuis une tâche
+« ajouter une ligne budgétaire ». C'est ce qui rend la saisie synchrone
+en pratique ; le rattachement seul suppose que les deux existent déjà.
 
 Ordre de livraison : **PR 38** (documents, source du réalisé) → **PR 40**
 (le lien) → **PR 39** (prévu / engagé / réalisé, qui s'appuie sur les

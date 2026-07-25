@@ -58,10 +58,11 @@ export async function generateExpertReport(projectId: string, instructions?: str
       supabase.from('projects').select('name, description, country, zone, start_date, end_date, status, budget, currency').eq('id', projectId).maybeSingle(),
       supabase.from('project_organizations').select('role, organizations:org_id(name, type)').eq('project_id', projectId),
       supabase.from('phases').select('id, name, position, start_date, end_date, status, budget, tasks(id, title, status, progress, start_date, end_date, assignee_id)').eq('project_id', projectId).order('position'),
-      // phase_id et task_id sont indispensables : sans eux le modèle ne
-      // peut structurellement pas rapprocher une ligne de sa phase ni de
-      // la tâche qu'elle finance, donc pas commenter le moindre écart.
-      supabase.from('budget_lines').select('poste, category, year, planned_amount, is_valorisation, status, phase_id, task_id').eq('project_id', projectId),
+      // phase_id et la répartition sont indispensables : sans eux le
+      // modèle ne peut structurellement pas rapprocher une ligne de sa
+      // phase ni des tâches qu'elle finance, donc pas commenter le
+      // moindre écart.
+      supabase.from('budget_lines').select('poste, category, year, planned_amount, is_valorisation, status, phase_id, allocations:budget_line_tasks(task_id, amount)').eq('project_id', projectId),
       supabase.from('indicators').select('id, name, kind, unit, baseline, target').eq('project_id', projectId),
       supabase.from('indicator_measures').select('indicator_id, period, value').order('period'),
       supabase.from('meetings').select('title, kind, date, minutes').eq('project_id', projectId).order('date', { ascending: false }).limit(10),
@@ -87,7 +88,9 @@ export async function generateExpertReport(projectId: string, instructions?: str
     const plannedByPhase = new Map<string, number>()
     for (const l of budget ?? []) {
       const amount = l.planned_amount ?? 0
-      if (l.task_id) plannedByTask.set(l.task_id, (plannedByTask.get(l.task_id) ?? 0) + amount)
+      for (const a of (l.allocations ?? []) as { task_id: string; amount: number }[]) {
+        plannedByTask.set(a.task_id, (plannedByTask.get(a.task_id) ?? 0) + (a.amount ?? 0))
+      }
       if (l.phase_id) plannedByPhase.set(l.phase_id, (plannedByPhase.get(l.phase_id) ?? 0) + amount)
     }
 
@@ -105,7 +108,9 @@ export async function generateExpertReport(projectId: string, instructions?: str
         budget_somme_des_lignes: plannedByPhase.get(p.id) ?? 0,
         taches: (p.tasks ?? []).map((t: { id: string; title: string; status: string; progress: number; end_date: string | null }) => ({
           titre: t.title, statut: t.status, avancement: t.progress, echeance: t.end_date,
-          budget_prevu: plannedByTask.get(t.id) ?? null,
+          // Toujours un nombre : 0 signifie « aucun budget affecté », ce
+          // qui est une information, pas une donnée manquante.
+          budget_prevu: plannedByTask.get(t.id) ?? 0,
           en_retard: !!(t.end_date && t.end_date < today && t.status !== 'terminee'),
         })),
       })),
@@ -113,7 +118,12 @@ export async function generateExpertReport(projectId: string, instructions?: str
         poste: l.poste, categorie: l.category, annee: l.year,
         montant_prevu: l.planned_amount, valorisation: l.is_valorisation, statut: l.status,
         phase: l.phase_id ? phaseNameById.get(l.phase_id) ?? null : null,
-        tache_financee: l.task_id ? taskTitleById.get(l.task_id) ?? null : null,
+        // Répartition : une même ligne peut financer plusieurs tâches
+        // pour des montants distincts (40 000 € = 10 000 € + 30 000 €).
+        repartition_par_tache: ((l.allocations ?? []) as { task_id: string; amount: number }[]).map(a => ({
+          tache: taskTitleById.get(a.task_id) ?? null, montant: a.amount,
+        })),
+        montant_non_affecte: (l.planned_amount ?? 0) - ((l.allocations ?? []) as { amount: number }[]).reduce((s, a) => s + (a.amount ?? 0), 0),
       })),
       indicateurs: (indicators ?? []).map(i => ({
         nom: i.name, type: i.kind, unite: i.unit, reference: i.baseline, cible: i.target,
