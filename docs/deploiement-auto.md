@@ -120,9 +120,18 @@ LLM_BASE_URL=https://api.moonshot.ai/v1   # défaut : Kimi (Moonshot)
 LLM_MODEL=kimi-k2-0711-preview            # modèle à utiliser
 ```
 
-Kimi : créer la clé sur https://platform.moonshot.ai. Pour changer de
-fournisseur (OpenAI, Mistral, passerelle Claude…), changer les 3
-variables — aucun code à modifier. Après modification :
+Tout fournisseur exposant l'API OpenAI convient — changer les 3 variables
+suffit, aucun code à modifier. Options avec offre gratuite :
+
+| Fournisseur | `LLM_BASE_URL` | `LLM_MODEL` | Clé |
+|---|---|---|---|
+| Google Gemini | `https://generativelanguage.googleapis.com/v1beta/openai` | `gemini-2.5-flash` | aistudio.google.com/apikey |
+| Groq | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` | console.groq.com |
+| OpenRouter | `https://openrouter.ai/api/v1` | `deepseek/deepseek-chat-v3-0324:free` | openrouter.ai/keys |
+| Kimi (Moonshot) | `https://api.moonshot.ai/v1` | `kimi-k2-0711-preview` | platform.moonshot.ai |
+
+Un compte sans crédit renvoie un message explicite dans l'application
+(« Le fournisseur IA a répondu : … »), sans rien casser d'autre. Après modification :
 `sudo bash /opt/ycid-app/scripts/deploy.sh` (ou re-merger une PR).
 Sans `LLM_API_KEY`, les boutons IA affichent un message de configuration
 clair et le reste de l'application fonctionne normalement.
