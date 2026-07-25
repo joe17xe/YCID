@@ -226,11 +226,17 @@ l'on veut avancer vers le prévu/engagé/réalisé.
   devis déposé → validé → facture → payé.
 
 #### PR 38c — Photos avant / après par phase
-- Champ `moment` (`avant`, `apres`, `pendant`) sur les documents de type
+- Champ `moment` (`avant`, `pendant`, `apres`) sur les documents de type
   `photo`, galerie comparative au niveau de la phase dans l'onglet
-  Tâches.
+  Tâches. Présentation en colonnes par moment plutôt qu'en liste
+  chronologique : c'est la comparaison qui porte l'information.
 - Matière première des rapports terrain et des supports de
   communication — donc utile à la PR 26 (campagnes) autant qu'au COPIL.
+- **Durcissement du bucket**, dette contractée en 38a : la limite de
+  10 Mo n'était vérifiée que dans le navigateur. `file_size_limit` et
+  `allowed_mime_types` sont posés côté serveur, seul endroit où une
+  limite vaut quelque chose. HEIC / HEIF admis — format par défaut des
+  iPhone, donc de la majorité des photos de chantier.
 
 #### PR 38d — Onglet Documents centralisé
 La demande explicite : accéder à l'ensemble en un seul endroit. À livrer
