@@ -103,7 +103,6 @@ export interface PhaseInput {
   start_date: string
   end_date: string
   status: string
-  budget: string
 }
 
 export async function savePhase(input: PhaseInput): Promise<{ ok: boolean; error?: string }> {
@@ -116,8 +115,6 @@ export async function savePhase(input: PhaseInput): Promise<{ ok: boolean; error
   const name = (input.name ?? '').trim()
   if (!name) return { ok: false, error: 'Le nom de la phase est obligatoire.' }
   if (!PHASE_STATUSES.includes(input.status)) return { ok: false, error: 'Statut invalide.' }
-  const budget = input.budget ? Number(input.budget) : null
-  if (budget !== null && (!Number.isFinite(budget) || budget < 0)) return { ok: false, error: 'Budget invalide.' }
   if (input.start_date && input.end_date && input.end_date < input.start_date) {
     return { ok: false, error: 'La date de fin doit être postérieure au début.' }
   }
@@ -127,7 +124,6 @@ export async function savePhase(input: PhaseInput): Promise<{ ok: boolean; error
     start_date: input.start_date || null,
     end_date: input.end_date || null,
     status: input.status,
-    budget,
   }
 
   if (input.phaseId) {

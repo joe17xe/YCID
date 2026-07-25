@@ -14,6 +14,9 @@ import BudgetLineDocuments from "@/components/project/BudgetLineDocuments"
 import PhasePhotos, { type PhasePhoto } from "@/components/project/PhasePhotos"
 import DocumentsPanel, { type ProjectDoc } from "@/components/project/DocumentsPanel"
 import { GALLERY_URL_TTL, type DocMoment } from "@/lib/documents"
+import { financialsFor, sumFinancials, gap, fmtSignedEur, type Financials } from "@/lib/budget"
+
+const EMPTY_FIN: Financials = { planned: 0, engaged: 0, paid: 0, remainingToCommit: 0, remainingToPay: 0 }
 import { MemberDialog, InviteUserDialog, RemoveMemberButton } from "@/components/project/MemberDialog"
 import HelpDialog from "@/components/help/HelpDialog"
 import DeleteProjectButton from "@/components/project/DeleteProjectButton"
@@ -127,9 +130,6 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
   const projectProgress = allTasks.length ? Math.round(allTasks.reduce((s: number, t: any) => s + t.progress, 0) / allTasks.length) : 0
   const s = PROJECT_STATUS[project.status] ?? { label: project.status, fg: "#66716B", bg: "#EEF0EE" }
 
-  const totalPlanned = (budgetLines ?? []).filter((l: any) => !l.is_valorisation).reduce((s: number, l: any) => s + (l.planned_amount ?? 0), 0)
-  const totalValorisation = (budgetLines ?? []).filter((l: any) => l.is_valorisation).reduce((s: number, l: any) => s + (l.planned_amount ?? 0), 0)
-
   // ---- Lien tâches ↔ budget (PR 40 / 40b) --------------------------
   // Relation N:M portant un montant : une tâche peut être financée par
   // plusieurs lignes (co-financement), et une ligne se répartir sur
@@ -141,6 +141,13 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
   const plannedByTask = new Map<string, number>()
   const plannedByPhase = new Map<string, number>()
   const linesByPhase = new Map<string, any[]>()
+  // Prévu / engagé / payé (PR 39). Le calcul vit dans lib/budget.ts,
+  // partagé avec le rapport IA : deux implémentations des mêmes règles
+  // finiraient par diverger, et un chiffre affiché contredisant le même
+  // chiffre commenté par l'IA serait le pire défaut pour une pièce
+  // destinée à un financeur.
+  const finByLine = new Map<string, Financials>()
+  const finByPhase = new Map<string, Financials>()
   for (const l of budgetLines ?? []) {
     const amount = l.planned_amount ?? 0
     for (const a of (l.allocations ?? []) as { task_id: string; amount: number }[]) {
@@ -149,7 +156,22 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
     const key = l.phase_id ?? "__hors_phase__"
     plannedByPhase.set(key, (plannedByPhase.get(key) ?? 0) + amount)
     linesByPhase.set(key, [...(linesByPhase.get(key) ?? []), l])
+    const fin = financialsFor(amount, (l.documents ?? []) as any[])
+    finByLine.set(l.id, fin)
+    finByPhase.set(key, sumFinancials([finByPhase.get(key) ?? EMPTY_FIN, fin]))
   }
+
+  // Enveloppe : les valorisations (bénévolat, locaux) ne sont pas de
+  // l'argent voté — les mêler au prévisionnel gonflerait l'enveloppe
+  // d'un montant que personne ne paiera jamais.
+  const realLines = (budgetLines ?? []).filter((l: any) => !l.is_valorisation)
+  const projectFin = sumFinancials(realLines.map((l: any) => finByLine.get(l.id) ?? EMPTY_FIN))
+  const totalValorisation = (budgetLines ?? []).filter((l: any) => l.is_valorisation)
+    .reduce((s: number, l: any) => s + (l.planned_amount ?? 0), 0)
+  // Le montant VOTÉ est la référence : la répartition entre lignes peut
+  // bouger librement, l'enveloppe non (règle YCID du 25/07/2026).
+  const voted = project.budget ?? null
+  const envelopeGap = voted != null ? gap(projectFin.planned, voted) : null
   // Le budget d'une tâche existe toujours : à défaut d'affectation, 0 €.
   const taskBudget = (taskId: string) => plannedByTask.get(taskId) ?? 0
   // Regroupement du tableau budgétaire : phases dans l'ordre du projet,
@@ -313,7 +335,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
             // la somme des lignes qui lui sont rattachées. On montre
             // l'écart au lieu de laisser croire qu'ils sont synchronisés.
             const phaseLinesTotal = plannedByPhase.get(ph.id) ?? 0
-            const budgetGap = ph.budget != null && phaseLinesTotal > 0 && Math.round(ph.budget) !== Math.round(phaseLinesTotal)
+            const phaseFin = finByPhase.get(ph.id) ?? EMPTY_FIN
             return (
               <div key={ph.id} className="bg-white rounded-2xl border" style={{ borderColor: "#E3E6E2" }}>
                 <div className="p-4 border-b" style={{ borderColor: "#E3E6E2" }}>
@@ -323,7 +345,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                       {canPhases && (
                         <PhaseDialog projectId={id} phase={{
                           id: ph.id, name: ph.name, start_date: ph.start_date ?? null,
-                          end_date: ph.end_date ?? null, status: ph.status, budget: ph.budget ?? null,
+                          end_date: ph.end_date ?? null, status: ph.status,
                         }} />
                       )}
                     </div>
@@ -347,10 +369,12 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                       {canTasks && <TaskDialog phaseId={ph.id} members={memberOptions} />}
                     </div>
                   </div>
-                  {budgetGap && (
-                    <p className="mt-2 text-xs rounded-lg px-3 py-2" style={{ background: "#F7EDDD", color: "#8A6A1F" }}>
-                      Budget saisi sur la phase : {fmtEur(ph.budget)} — somme des lignes rattachées : {fmtEur(phaseLinesTotal)}.
-                      Les deux montants divergent ; les lignes budgétaires font foi.
+                  {/* Plus d'écart possible ici depuis la PR 39 : le budget
+                      d'une phase EST la somme de ses lignes. On montre
+                      donc son exécution plutôt qu'une divergence. */}
+                  {phaseFin.planned > 0 && (
+                    <p className="mt-2 text-xs" style={{ color: "#66716B" }}>
+                      Prévu {fmtEur(phaseFin.planned)} · engagé {fmtEur(phaseFin.engaged)} · payé {fmtEur(phaseFin.paid)}
                     </p>
                   )}
                   <div className="mt-2"><ProgressBar value={phProg} /></div>
@@ -449,24 +473,51 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
               <BudgetLineDialog projectId={id} orgs={orgOptions} phases={phaseOptions} tasks={taskOptions} />
             </div>
           )}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          {/* Enveloppe votée (PR 39). La répartition entre lignes bouge
+              librement ; c'est l'écart au montant VOTÉ qui alerte. */}
+          {voted != null && envelopeGap && Math.abs(envelopeGap.value) >= 1 && (
+            <div className="rounded-xl p-4 mb-4 text-sm" style={{ background: "#F7EDDD", color: "#8A6A1F" }}>
+              <strong>Enveloppe : {fmtEur(voted)} votés, {fmtEur(projectFin.planned)} répartis</strong> — écart {fmtSignedEur(envelopeGap.value)}
+              {envelopeGap.percent != null && <> ({envelopeGap.percent > 0 ? "+" : ""}{envelopeGap.percent.toFixed(1)} %)</>}.
+              Déplacer du budget d&apos;une ligne à l&apos;autre est normal ; le total, lui, correspond à un financement voté.
+            </div>
+          )}
+          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
             {[
-              { label: "Prévisionnel (hors valorisation)", value: fmtEur(totalPlanned), color: "var(--brand-accent,#0E6B5C)", bg: "var(--brand-accent-soft,#E4F0EC)" },
-              { label: "Valorisations", value: fmtEur(totalValorisation), color: "#8A6A1F", bg: "#F5EFE2" },
-              { label: "Lignes actives", value: (budgetLines ?? []).filter((l: any) => l.status === "active").length, color: "#3B5488", bg: "#E8ECF5" },
-              { label: "Lignes prévues", value: (budgetLines ?? []).filter((l: any) => l.status === "prevue").length, color: "#66716B", bg: "#EEF0EE" },
-            ].map(({ label, value, color, bg }) => (
+              { label: "Voté", value: fmtEur(voted), color: "#17211D" },
+              { label: "Prévu (hors valorisation)", value: fmtEur(projectFin.planned), color: "var(--brand-accent,#0E6B5C)" },
+              { label: "Engagé (devis validés)", value: fmtEur(projectFin.engaged), color: "#3B5488" },
+              { label: "Payé", value: fmtEur(projectFin.paid), color: "var(--brand-accent,#0E6B5C)" },
+              { label: "Reste à engager", value: fmtEur(projectFin.remainingToCommit), color: "#66716B" },
+              { label: "Valorisations", value: fmtEur(totalValorisation), color: "#8A6A1F" },
+            ].map(({ label, value, color }) => (
               <div key={label} className="bg-white rounded-2xl border p-4" style={{ borderColor: "#E3E6E2" }}>
-                <div className="text-xl font-bold" style={{ fontFamily: "var(--font-sora)", color }}>{value}</div>
+                <div className="text-lg font-bold" style={{ fontFamily: "var(--font-sora)", color }}>{value}</div>
                 <div className="text-xs mt-1" style={{ color: "#66716B" }}>{label}</div>
               </div>
             ))}
           </div>
+          {/* Consommation du projet : engagé et payé rapportés au prévu.
+              Deux barres superposées plutôt que deux pourcentages : on
+              voit d'un coup l'écart entre commander et régler. */}
+          {projectFin.planned > 0 && (
+            <div className="bg-white rounded-2xl border p-4 mb-6" style={{ borderColor: "#E3E6E2" }}>
+              <div className="flex justify-between text-xs mb-1" style={{ color: "#66716B" }}>
+                <span>Engagé — {Math.round((projectFin.engaged / projectFin.planned) * 100)} % du prévu</span>
+                <span>Reste à payer {fmtEur(projectFin.remainingToPay)}</span>
+              </div>
+              <ProgressBar value={Math.min(100, Math.round((projectFin.engaged / projectFin.planned) * 100))} />
+              <div className="text-xs mt-2 mb-1" style={{ color: "#66716B" }}>
+                Payé — {Math.round((projectFin.paid / projectFin.planned) * 100)} % du prévu
+              </div>
+              <ProgressBar value={Math.min(100, Math.round((projectFin.paid / projectFin.planned) * 100))} />
+            </div>
+          )}
           <div className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor: "#E3E6E2" }}>
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ background: "#F5F6F4", borderBottom: "1px solid #E3E6E2" }}>
-                  {["Poste", "Tâche financée", "Catégorie", "Financeur", "Année", "Prévisionnel", "Statut"].map(h => (
+                  {["Poste", "Tâche financée", "Catégorie", "Financeur", "Année", "Prévu", "Engagé", "Payé", "Statut"].map(h => (
                     <th key={h} className="text-left px-4 py-3 text-xs font-semibold" style={{ color: "#66716B" }}>{h}</th>
                   ))}
                 </tr>
@@ -480,9 +531,19 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                     <th scope="colgroup" colSpan={5} className="text-left px-4 py-2 text-xs font-semibold" style={{ color: "#17211D" }}>
                       {group.name}
                     </th>
-                    <td className="px-4 py-2 text-xs font-bold" style={{ color: "#17211D" }}>
-                      {fmtEur(group.lines.reduce((s: number, l: any) => s + (l.planned_amount ?? 0), 0))}
-                    </td>
+                    {(() => {
+                      // Sous-total de phase sur les trois montants : lire
+                      // « prévu » sans « engagé » ne dit pas où en est
+                      // l'exécution.
+                      const gf = sumFinancials(group.lines.map((l: any) => finByLine.get(l.id) ?? EMPTY_FIN))
+                      return (
+                        <>
+                          <td className="px-4 py-2 text-xs font-bold" style={{ color: "#17211D" }}>{fmtEur(gf.planned)}</td>
+                          <td className="px-4 py-2 text-xs font-bold" style={{ color: "#3B5488" }}>{fmtEur(gf.engaged)}</td>
+                          <td className="px-4 py-2 text-xs font-bold" style={{ color: "var(--brand-accent,#0E6B5C)" }}>{fmtEur(gf.paid)}</td>
+                        </>
+                      )
+                    })()}
                     <td />
                   </tr>
                   {group.lines.map((l: any, i: number) => {
@@ -542,6 +603,15 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                                 })),
                               }))} />
                           </div>
+                        </td>
+                        {/* Engagé et payé (PR 39), calculés depuis les
+                            pièces de la ligne. Grisés à zéro : rien
+                            n'est engagé tant qu'aucun devis n'est validé. */}
+                        <td className="px-4 py-3 text-xs" style={{ color: (finByLine.get(l.id)?.engaged ?? 0) > 0 ? "#3B5488" : "#9AA39D" }}>
+                          {fmtEur(finByLine.get(l.id)?.engaged ?? 0)}
+                        </td>
+                        <td className="px-4 py-3 text-xs" style={{ color: (finByLine.get(l.id)?.paid ?? 0) > 0 ? "var(--brand-accent,#0E6B5C)" : "#9AA39D" }}>
+                          {fmtEur(finByLine.get(l.id)?.paid ?? 0)}
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-1">

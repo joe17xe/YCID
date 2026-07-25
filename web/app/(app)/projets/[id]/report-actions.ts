@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getProjectRole, isUserAdmin } from '@/lib/permissions'
 import { chatComplete } from '@/lib/llm'
+import { financialsFor, sumFinancials, gap, type Financials } from '@/lib/budget'
 
 // ============================================================
 // PR 25 — Rapport d'expert IA
@@ -68,7 +69,7 @@ export async function generateExpertReport(projectId: string, instructions?: str
       // modèle ne peut structurellement pas rapprocher une ligne de sa
       // phase ni des tâches qu'elle finance, donc pas commenter le
       // moindre écart.
-      supabase.from('budget_lines').select('poste, category, year, planned_amount, is_valorisation, status, phase_id, allocations:budget_line_tasks(task_id, amount)').eq('project_id', projectId),
+      supabase.from('budget_lines').select('id, poste, category, year, planned_amount, is_valorisation, status, phase_id, allocations:budget_line_tasks(task_id, amount), documents(type, amount, paid, validations(decision))').eq('project_id', projectId),
       supabase.from('indicators').select('id, name, kind, unit, baseline, target').eq('project_id', projectId),
       supabase.from('indicator_measures').select('indicator_id, period, value').order('period'),
       supabase.from('meetings').select('title, kind, date, minutes').eq('project_id', projectId).order('date', { ascending: false }).limit(10),
@@ -105,26 +106,55 @@ export async function generateExpertReport(projectId: string, instructions?: str
 
     const plannedByTask = new Map<string, number>()
     const plannedByPhase = new Map<string, number>()
+    // Prévu / engagé / payé (PR 39) : mêmes formules que l'écran, via
+    // lib/budget.ts. Un chiffre commenté par l'IA qui contredirait le
+    // chiffre affiché serait le pire défaut pour une pièce destinée à
+    // un financeur.
+    const finByLine = new Map<string, Financials>()
+    const finByPhase = new Map<string, Financials>()
+    const EMPTY: Financials = { planned: 0, engaged: 0, paid: 0, remainingToCommit: 0, remainingToPay: 0 }
     for (const l of budget ?? []) {
       const amount = l.planned_amount ?? 0
       for (const a of (l.allocations ?? []) as { task_id: string; amount: number }[]) {
         plannedByTask.set(a.task_id, (plannedByTask.get(a.task_id) ?? 0) + (a.amount ?? 0))
       }
       if (l.phase_id) plannedByPhase.set(l.phase_id, (plannedByPhase.get(l.phase_id) ?? 0) + amount)
+      const fin = financialsFor(amount, (l.documents ?? []) as never[])
+      finByLine.set(l.id, fin)
+      if (l.phase_id) finByPhase.set(l.phase_id, sumFinancials([finByPhase.get(l.phase_id) ?? EMPTY, fin]))
     }
+    const realLines = (budget ?? []).filter(l => !l.is_valorisation)
+    const projectFin = sumFinancials(realLines.map(l => finByLine.get(l.id) ?? EMPTY))
+    const voted = project.budget ?? null
 
     // Digest compact : seules ces données peuvent être citées par l'IA
     const digest = {
       date_du_jour: today,
       projet: project,
+      // Enveloppe (PR 39). Le montant VOTÉ est la référence
+      // contractuelle : déplacer du budget d'une ligne à l'autre est
+      // normal, l'enveloppe totale non.
+      enveloppe: {
+        montant_vote: voted,
+        prevu_reparti_hors_valorisation: projectFin.planned,
+        ecart_au_vote: voted != null ? gap(projectFin.planned, voted).value : null,
+        engage_devis_valides: projectFin.engaged,
+        paye: projectFin.paid,
+        reste_a_engager: projectFin.remainingToCommit,
+        reste_a_payer: projectFin.remainingToPay,
+      },
       organisations: (orgs ?? []).map(o => ({ role: o.role, org: o.organizations })),
       nb_membres: (members ?? []).length,
       phases: (phases ?? []).map(p => ({
         nom: p.name, statut: p.status, debut: p.start_date, fin: p.end_date,
         // Deux montants distincts, à ne pas confondre : celui saisi sur la
         // phase, et la somme réelle des lignes qui lui sont rattachées.
-        budget_saisi_sur_la_phase: p.budget,
-        budget_somme_des_lignes: plannedByPhase.get(p.id) ?? 0,
+        // Depuis la PR 39, le budget d'une phase EST la somme de ses
+        // lignes : il n'existe plus de montant saisi séparément, donc
+        // plus d'écart possible à ce niveau.
+        budget_prevu: plannedByPhase.get(p.id) ?? 0,
+        budget_engage: finByPhase.get(p.id)?.engaged ?? 0,
+        budget_paye: finByPhase.get(p.id)?.paid ?? 0,
         // Photos de terrain : c'est la comparaison avant / après qui
         // documente une réalisation, pas leur nombre total.
         photos_avant: (docsByPhase.get(p.id) ?? []).filter(d => d.type === 'photo' && d.moment === 'avant').length,
@@ -150,6 +180,8 @@ export async function generateExpertReport(projectId: string, instructions?: str
       lignes_budgetaires: (budget ?? []).map(l => ({
         poste: l.poste, categorie: l.category, annee: l.year,
         montant_prevu: l.planned_amount, valorisation: l.is_valorisation, statut: l.status,
+        montant_engage: finByLine.get(l.id)?.engaged ?? 0,
+        montant_paye: finByLine.get(l.id)?.paid ?? 0,
         phase: l.phase_id ? phaseNameById.get(l.phase_id) ?? null : null,
         // Répartition : une même ligne peut financer plusieurs tâches
         // pour des montants distincts (40 000 € = 10 000 € + 30 000 €).
@@ -173,6 +205,8 @@ RÈGLES ABSOLUES :
 - Quand une donnée manque, écris « donnée non renseignée » ET signale explicitement que la conclusion n'est pas étayée.
 - Mets en évidence les écarts, retards et risques réels visibles dans les données.
 - Distingue ce qui est DÉCLARÉ de ce qui est PROUVÉ : une tâche à 100 % sans pièce justificative (« terminee_sans_justificatif ») est un avancement déclaratif, à signaler comme tel. Une phase sans photo « avant » ni « après » ne documente pas sa réalisation.
+- Distingue les TROIS montants et ne les confonds jamais : « prévu » est ce qui est budgété, « engagé » ce que des devis validés ont réservé, « payé » ce qui est effectivement réglé. Un projet SOUS-consommé est une alerte de pilotage au même titre qu'un dépassement : commente le sens de l'écart, pas seulement son ampleur.
+- L'enveloppe correspond à un financement voté : sa répartition entre lignes peut bouger, son total non. Signale tout « ecart_au_vote » non nul.
 - N'écris AUCUNE consigne, instruction ni commentaire de méthode dans le document.
 - Markdown sobre : titres de niveau 2, listes à puces, gras pour les alertes. Pas d'italique.
 Emploie EXACTEMENT ces titres de section, sans rien ajouter entre parenthèses :
