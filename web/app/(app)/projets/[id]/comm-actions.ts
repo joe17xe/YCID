@@ -17,6 +17,16 @@ type Result = { ok: boolean; error?: string; count?: number }
 
 const LANGS = ['fr', 'en', 'ar'] as const
 const STATUSES = ['proposee', 'brouillon', 'validee', 'publiee', 'annulee'] as const
+// Canaux disponibles et consignes de rédaction associées
+const CHANNEL_RULES: Record<string, { label: string; rule: string }> = {
+  linkedin: { label: 'LinkedIn', rule: 'ton institutionnel, 120-180 mots, 3-5 hashtags sobres' },
+  facebook: { label: 'Facebook', rule: 'ton chaleureux grand public, 80-140 mots, 1-2 émojis maximum' },
+  communique: { label: 'Communiqué de presse', rule: 'style presse neutre, 150-250 mots, titre en première ligne' },
+  newsletter: { label: 'Newsletter', rule: 'ton direct et informatif, 150-250 mots, objet d\'email en première ligne' },
+  affiche: { label: 'Affiche / visuel', rule: 'accroche courte (10 mots maximum) puis 3 lignes d\'information pratique' },
+  bulletin: { label: 'Bulletin municipal', rule: 'ton institutionnel local, 100-150 mots, mise en avant du lien avec le territoire' },
+}
+
 const MENTION_DEFAUT = "Projet soutenu dans le cadre du programme CEM avec l'appui d'YCID — Yvelines Coopération Internationale et Développement (Département des Yvelines)."
 
 async function commContext(projectId: string) {
@@ -97,7 +107,7 @@ export async function generateCampaignContents(campaignId: string): Promise<Resu
     if (!user) return { ok: false, error: 'Non authentifié.' }
 
     const { data: campaign } = await supabase.from('comm_campaigns')
-      .select('id, project_id, phase_id, trigger_kind, title, scheduled_date, responsible_id, status, languages')
+      .select('id, project_id, phase_id, trigger_kind, title, scheduled_date, responsible_id, status, languages, brief')
       .eq('id', campaignId).maybeSingle()
     if (!campaign) return { ok: false, error: 'Campagne introuvable.' }
     if (!(await canTouchCampaign(supabase, user.id, campaign))) {
@@ -116,19 +126,35 @@ export async function generateCampaignContents(campaignId: string): Promise<Resu
     const langs = ((campaign.languages ?? ['fr']) as string[]).filter(l => (LANGS as readonly string[]).includes(l))
     if (!langs.length) return { ok: false, error: 'Choisissez au moins une langue.' }
 
+    // Brief : canaux, audience, objectif, ton, message clé. Sans lui,
+    // l'IA ne peut produire qu'un texte générique (P2-13 du rapport de
+    // test du 25/07/2026).
+    const brief = (campaign.brief ?? {}) as {
+      channels?: string[]; audience?: string; objective?: string; tone?: string; keyMessage?: string
+    }
+    const channels = (brief.channels?.length ? brief.channels : ['linkedin', 'facebook', 'communique'])
+      .filter(c => CHANNEL_RULES[c])
+    if (!channels.length) return { ok: false, error: 'Choisissez au moins un canal dans le brief.' }
+
+    const briefLines = [
+      brief.audience ? `Audience visée : ${brief.audience}` : '',
+      brief.objective ? `Objectif de la campagne : ${brief.objective}` : '',
+      brief.tone ? `Ton attendu : ${brief.tone}` : '',
+      brief.keyMessage ? `Message clé / appel à l'action : ${brief.keyMessage}` : '',
+    ].filter(Boolean)
+
     const system = `Tu es le responsable communication d'une association de solidarité internationale.
 Tu rédiges des contenus de communication PRÊTS À PUBLIER, sobres, positifs et factuels.
 RÈGLES ABSOLUES :
 - Utilise UNIQUEMENT les faits fournis ; n'invente JAMAIS un chiffre, un lieu, un nom ou un résultat.
 - Communication éthique : dignité des bénéficiaires, pas de misérabilisme, pas de promesses.
 - Chaque contenu inclut la mention du financeur : « ${MENTION_DEFAUT} » (traduite naturellement dans la langue du contenu).
-- LinkedIn : ton institutionnel, 120-180 mots, 3-5 hashtags sobres.
-- Facebook : ton chaleureux grand public, 80-140 mots, 1-2 émojis maximum.
-- Communiqué : style presse neutre, 150-250 mots, avec un titre en première ligne.
+${channels.map(c => `- ${CHANNEL_RULES[c].label} : ${CHANNEL_RULES[c].rule}`).join('\n')}
 Réponds UNIQUEMENT avec un objet JSON strict, sans texte autour ni bloc de code :
-{${langs.map(l => `"${l}": {"linkedin": "...", "facebook": "...", "communique": "..."}`).join(', ')}}`
+{${langs.map(l => `"${l}": {${channels.map(c => `"${c}": "..."`).join(', ')}}`).join(', ')}}`
 
     const userMsg = `Occasion : ${campaign.trigger_kind} — ${campaign.title}${campaign.scheduled_date ? ` (date prévue : ${campaign.scheduled_date})` : ''}
+${briefLines.length ? `\nBrief de communication (à respecter impérativement) :\n${briefLines.join('\n')}\n` : ''}
 Projet (faits vérifiés, seuls utilisables) :
 ${JSON.stringify({ projet: project, phase_concernee: phase, etat_des_phases: phases }, null, 1)}
 Langues demandées : ${langs.join(', ')} (ar = arabe standard moderne, sens RTL).`
@@ -195,6 +221,9 @@ export interface CampaignPatch {
   languages?: string[]
   contents?: Record<string, Record<string, string>> | null
   checklist?: Record<string, boolean>
+  brief?: {
+    channels?: string[]; audience?: string; objective?: string; tone?: string; keyMessage?: string
+  } | null
 }
 
 export async function updateCampaign(campaignId: string, patch: CampaignPatch): Promise<Result> {
@@ -222,6 +251,7 @@ export async function updateCampaign(campaignId: string, patch: CampaignPatch): 
     }
     if (patch.contents !== undefined) values.contents = patch.contents
     if (patch.checklist !== undefined) values.checklist = patch.checklist
+    if (patch.brief !== undefined) values.brief = patch.brief
 
     const { error } = await supabase.from('comm_campaigns').update(values).eq('id', campaignId)
     if (error) return { ok: false, error: `Échec de l'enregistrement : ${error.message}` }

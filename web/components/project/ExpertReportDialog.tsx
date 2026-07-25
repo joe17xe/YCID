@@ -1,7 +1,7 @@
 "use client"
 import { useState } from "react"
-import { Sparkles, X, Copy, Download, Printer, Check } from "lucide-react"
-import { generateExpertReport } from "@/app/(app)/projets/[id]/report-actions"
+import { Sparkles, X, Copy, Download, Printer, Check, History, ChevronLeft } from "lucide-react"
+import { generateExpertReport, listReports, getReport, type ReportSummary } from "@/app/(app)/projets/[id]/report-actions"
 
 // ============================================================
 // PR 25 — Rapport d'expert IA (bouton + dialogue)
@@ -63,12 +63,32 @@ export default function ExpertReportDialog({ projectId, projectName }: { project
   // Consignes libres du chef de projet / de l'expert local, envoyées au
   // modèle en plus des données du projet.
   const [instructions, setInstructions] = useState("")
+  // Historique : un rapport est une pièce datée, comparable dans le temps
+  const [history, setHistory] = useState<ReportSummary[]>([])
+  const [showHistory, setShowHistory] = useState(false)
+
+  async function openDialog() {
+    setOpen(true)
+    const res = await listReports(projectId)
+    if (res.ok && res.reports) setHistory(res.reports)
+  }
+
+  async function loadPast(id: string) {
+    setLoading(true); setError(""); setShowHistory(false)
+    const res = await getReport(id)
+    if (res.ok && res.report) setReport(res.report)
+    else setError(res.error ?? "Rapport introuvable.")
+    setLoading(false)
+  }
 
   async function generate() {
     setLoading(true); setError(""); setCopied(false)
     const res = await generateExpertReport(projectId, instructions)
-    if (res.ok && res.report) setReport(res.report)
-    else setError(res.error ?? "Une erreur est survenue.")
+    if (res.ok && res.report) {
+      setReport(res.report)
+      const h = await listReports(projectId)
+      if (h.ok && h.reports) setHistory(h.reports)
+    } else setError(res.error ?? "Une erreur est survenue.")
     setLoading(false)
   }
 
@@ -101,7 +121,7 @@ export default function ExpertReportDialog({ projectId, projectName }: { project
   return (
     <>
       <button
-        onClick={() => setOpen(true)}
+        onClick={openDialog}
         className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold"
         style={{ background: "var(--brand-accent,#0E6B5C)" }}
       >
@@ -116,12 +136,40 @@ export default function ExpertReportDialog({ projectId, projectName }: { project
               <h2 className="font-bold flex items-center gap-2" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>
                 <Sparkles size={18} style={{ color: "var(--brand-accent,#0E6B5C)" }} /> Rapport d&apos;expert IA
               </h2>
-              <button onClick={() => setOpen(false)} disabled={loading} aria-label="Fermer" className="p-1.5 rounded-lg hover:bg-gray-50" style={{ color: "#66716B" }}>
-                <X size={20} />
-              </button>
+              <span className="flex items-center gap-1">
+                {history.length > 0 && (
+                  <button onClick={() => setShowHistory(v => !v)}
+                    className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border font-medium"
+                    style={{ borderColor: "#E3E6E2", color: showHistory ? "var(--brand-accent,#0E6B5C)" : "#17211D" }}>
+                    {showHistory ? <><ChevronLeft size={13} /> Retour</> : <><History size={13} /> Historique ({history.length})</>}
+                  </button>
+                )}
+                <button onClick={() => setOpen(false)} disabled={loading} aria-label="Fermer" className="p-1.5 rounded-lg hover:bg-gray-50" style={{ color: "#66716B" }}>
+                  <X size={20} />
+                </button>
+              </span>
             </div>
 
             <div className="flex-1 overflow-y-auto px-6 py-5">
+              {showHistory ? (
+                <div className="divide-y" style={{ borderColor: "#E3E6E2" }}>
+                  <p className="text-xs pb-3" style={{ color: "#66716B" }}>
+                    Rapports déjà générés pour ce projet — cliquez pour rouvrir sans régénérer.
+                  </p>
+                  {history.map(h => (
+                    <button key={h.id} onClick={() => loadPast(h.id)}
+                      className="w-full text-left py-3 hover:bg-gray-50 transition-colors">
+                      <span className="block text-sm font-medium" style={{ color: "#17211D" }}>
+                        {new Date(h.createdAt).toLocaleString("fr-FR", { dateStyle: "long", timeStyle: "short" })}
+                        {h.truncated && <span className="ml-2 text-xs px-2 py-0.5 rounded-full" style={{ background: "#F7EDDD", color: "#B4690E" }}>tronqué</span>}
+                      </span>
+                      <span className="block text-xs mt-0.5" style={{ color: "#66716B" }}>
+                        {h.authorName} · modèle {h.model ?? "?"}{h.instructions ? " · avec consignes" : ""}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : (<>
               {!report && !loading && !error && (
                 <div className="text-center py-8">
                   <p className="text-sm mb-1" style={{ color: "#17211D" }}>
@@ -161,6 +209,7 @@ export default function ExpertReportDialog({ projectId, projectName }: { project
                 </div>
               )}
               {report && <div>{renderMarkdown(report)}</div>}
+              </>)}
             </div>
 
             {report && (

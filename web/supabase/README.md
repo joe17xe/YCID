@@ -28,6 +28,7 @@ SQL Editor Supabase (ou via `supabase db push` avec la CLI) :
 | `migrations/0021_public_page.sql` | Page vitrine publique par projet : colonne `public_token` (opt-in, lien non devinable) (PR 28) |
 | `migrations/0022_fix_handle_new_user.sql` | Fix création de comptes (500 unexpected_failure) : `search_path` des triggers profils |
 | `migrations/0023_ai_settings.sql` | Configuration IA administrable (fournisseur, modèle, clé) — lecture/écriture admins uniquement (PR 31) |
+| `migrations/0024_reports_history_and_brief.sql` | Historique des rapports IA (ai_reports) + brief de campagne (comm_campaigns.brief) (PR 33) |
 
 `seed.sql` contient les données de démonstration CEM Liban et s'exécute
 **après** les migrations, uniquement sur un environnement de démo.
