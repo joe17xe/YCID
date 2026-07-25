@@ -51,34 +51,46 @@ function fmtD(d: string | null): string {
   return new Date(d + "T00:00:00").toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })
 }
 
-// Timeline horizontale : ● publiée · ◐ validée · ○ planifiée · rouge = en retard
+// Timeline horizontale : ● publiée · ○ planifiée · rouge = en retard.
+// Les libellés alternent sur deux niveaux et la largeur s'adapte au
+// nombre de campagnes, pour rester lisibles même quand les dates sont
+// proches (elles se chevauchaient auparavant).
 function Timeline({ campaigns }: { campaigns: Campaign[] }) {
   const today = new Date().toISOString().slice(0, 10)
-  const dated = campaigns.filter(c => c.scheduled_date && c.status !== "annulee")
+  const dated = campaigns
+    .filter(c => c.scheduled_date && c.status !== "annulee")
+    .sort((a, b) => a.scheduled_date!.localeCompare(b.scheduled_date!))
   if (dated.length === 0) return null
   const dates = [...dated.map(c => c.scheduled_date!), today].sort()
   const min = new Date(dates[0]).getTime(), max = new Date(dates[dates.length - 1]).getTime()
   const span = Math.max(max - min, 1)
   const pos = (d: string) => 4 + ((new Date(d).getTime() - min) / span) * 92 // 4-96 %
+  // ~150 px par campagne : garantit la place des libellés (défilement sinon)
+  const width = Math.max(600, dated.length * 150)
 
   return (
     <div className="bg-white rounded-2xl border p-5 mb-4 overflow-x-auto" style={{ borderColor: "#E3E6E2" }}>
-      <div className="relative h-16 min-w-[560px]">
+      <div className="relative h-28" style={{ minWidth: width }}>
         <div className="absolute left-0 right-0 top-5 h-0.5" style={{ background: "#E3E6E2" }} />
         {/* Marqueur aujourd'hui */}
-        <div className="absolute top-1.5 bottom-6 w-px" style={{ left: `${pos(today)}%`, background: "#17211D" }}>
+        <div className="absolute top-1.5 bottom-2 w-px" style={{ left: `${pos(today)}%`, background: "#17211D" }}>
           <span className="absolute -top-1 left-1 text-[10px] whitespace-nowrap" style={{ color: "#17211D" }}>auj.</span>
         </div>
-        {dated.map(c => {
-          const late = c.scheduled_date! < today && !["publiee"].includes(c.status)
+        {dated.map((c, i) => {
+          const late = c.scheduled_date! < today && c.status !== "publiee"
           const filled = c.status === "publiee"
           const color = late ? "#A3342C" : "var(--brand-accent,#0E6B5C)"
+          // Alternance haut/bas des libellés : évite tout chevauchement
+          const offset = i % 2 === 0 ? 30 : 68
           return (
             <div key={c.id} className="absolute" style={{ left: `${pos(c.scheduled_date!)}%`, top: 0 }} title={`${c.title} — ${fmtD(c.scheduled_date)}`}>
               <div className="w-3.5 h-3.5 rounded-full border-2 -translate-x-1/2 mt-[13px]"
                 style={{ borderColor: color, background: filled ? color : "#fff" }} />
-              <div className="text-[10px] mt-1 -translate-x-1/2 max-w-24 truncate text-center" style={{ color: late ? "#A3342C" : "#66716B" }}>
-                {c.title}
+              {/* Trait de rappel jusqu'au libellé décalé */}
+              <div className="absolute w-px -translate-x-1/2 left-0" style={{ top: 27, height: offset - 27, background: "#E3E6E2" }} />
+              <div className="absolute -translate-x-1/2 w-32 text-center leading-tight" style={{ top: offset }}>
+                <div className="text-[10px] truncate" style={{ color: late ? "#A3342C" : "#17211D" }}>{c.title}</div>
+                <div className="text-[10px]" style={{ color: "#66716B" }}>{fmtD(c.scheduled_date)}</div>
               </div>
             </div>
           )
