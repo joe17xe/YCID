@@ -325,6 +325,70 @@ export async function saveBudgetLine(input: BudgetLineInput): Promise<{ ok: bool
   return { ok: true }
 }
 
+// ------------------------------------------------------------
+// Création croisée (PR 40) : depuis une ligne, créer la tâche
+// ------------------------------------------------------------
+// Le rattachement seul suppose que la tâche ET la ligne existent déjà —
+// il fallait donc saisir deux fois avant de pouvoir relier. Ce raccourci
+// crée la tâche à partir du poste de la ligne et lui affecte le montant
+// non encore réparti. Le sens inverse (depuis une tâche, ajouter une
+// ligne) ne demande pas d'action dédiée : le dialogue de ligne est
+// simplement pré-rempli.
+export async function createTaskFromBudgetLine(input: { projectId: string; lineId: string }): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Non authentifié.' }
+
+  const { data: line } = await supabase.from('budget_lines')
+    .select('id, project_id, poste, phase_id, planned_amount')
+    .eq('id', input.lineId).maybeSingle()
+  if (!line || line.project_id !== input.projectId) return { ok: false, error: 'Ligne introuvable.' }
+
+  // Les deux droits sont requis : l'opération crée une tâche ET modifie
+  // la répartition budgétaire.
+  const [okTasks, okBudget] = await Promise.all([
+    canManageTasks(supabase, user.id, line.project_id),
+    canManageBudget(supabase, user.id, line.project_id),
+  ])
+  if (!okTasks || !okBudget) {
+    return { ok: false, error: 'Création réservée aux profils autorisés à la fois sur les tâches et sur le budget.' }
+  }
+  if (!line.phase_id) {
+    return { ok: false, error: "Rattachez d'abord cette ligne à une phase : une tâche appartient toujours à une phase." }
+  }
+
+  const title = (line.poste ?? '').trim()
+  if (!title) return { ok: false, error: 'Le poste de la ligne est vide : impossible d\'en tirer un titre de tâche.' }
+
+  // Montant restant à répartir : créer une tâche ne doit pas faire
+  // dépasser le total de la ligne (le trigger le refuserait de toute façon).
+  const { data: existing } = await supabase.from('budget_line_tasks')
+    .select('amount').eq('budget_line_id', line.id)
+  const allocated = (existing ?? []).reduce((s, a) => s + (a.amount ?? 0), 0)
+  const rest = Math.max(0, (line.planned_amount ?? 0) - allocated)
+
+  const { data: task, error: taskErr } = await supabase.from('tasks')
+    .insert({ phase_id: line.phase_id, title, status: 'a_faire', progress: 0, created_by: user.id })
+    .select('id').single()
+  if (taskErr || !task) return { ok: false, error: `Échec de la création de la tâche : ${taskErr?.message ?? 'tâche non créée'}` }
+
+  const { error: allocErr } = await supabase.from('budget_line_tasks')
+    .insert({ budget_line_id: line.id, task_id: task.id, amount: rest })
+  if (allocErr) {
+    // La tâche existe désormais sans financement : on le dit plutôt que
+    // de laisser croire que le lien est fait.
+    return { ok: false, error: `Tâche « ${title} » créée, mais son rattachement au budget a échoué : ${allocErr.message}` }
+  }
+
+  await supabase.from('audit_log').insert({
+    project_id: line.project_id, entity: 'task', entity_id: task.id,
+    label: title, action: 'cree', user_id: user.id,
+    comment: `Tâche créée depuis la ligne budgétaire « ${title} » — ${rest} € affectés`,
+  })
+  revalidatePath(`/projets/${input.projectId}`)
+  return { ok: true }
+}
+
 export interface IndicatorInput {
   projectId: string
   name: string

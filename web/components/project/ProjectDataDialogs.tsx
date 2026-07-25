@@ -4,7 +4,7 @@ import { Plus, Pencil, X } from "lucide-react"
 import BaseModal, { ErrorMessage } from "@/components/ui/Modal"
 import { LINE_CATEGORIES, LINE_STATUS, IND_KINDS, MEETING_KINDS, DECISION_STATUS } from "@/lib/constants"
 import {
-  saveBudgetLine, createIndicator, addMeasure, createMeeting, saveDecision,
+  saveBudgetLine, createTaskFromBudgetLine, createIndicator, addMeasure, createMeeting, saveDecision,
   type BudgetLineInput, type IndicatorInput, type MeasureInput, type MeetingInput, type DecisionInput,
 } from "@/app/(app)/projets/[id]/actions"
 
@@ -68,14 +68,20 @@ function Actions({ pending, onClose, label }: { pending: boolean; onClose: () =>
 }
 
 /* ============ Ligne budgétaire ============ */
-export function BudgetLineDialog({ projectId, orgs, phases, tasks = [], line }: {
+export function BudgetLineDialog({ projectId, orgs, phases, tasks = [], line, preset, triggerLabel }: {
   projectId: string; orgs: Option[]; phases: Option[]; tasks?: TaskOption[]
   line?: Omit<BudgetLineInput, "projectId" | "lineId"> & { id: string }
+  // Création croisée : depuis une tâche, on ouvre ce dialogue déjà
+  // rattaché à elle — plutôt qu'une action dédiée, puisque tout le reste
+  // de la ligne (poste, financeur, montant) reste à saisir.
+  preset?: { phase_id: string; task_id: string }
+  triggerLabel?: string
 }) {
   const [form, setForm] = useState({
     poste: line?.poste ?? "", description: line?.description ?? "", category: line?.category ?? "autre",
-    funder_org_id: line?.funder_org_id ?? "", owner_org_id: line?.owner_org_id ?? "", phase_id: line?.phase_id ?? "",
-    allocations: line?.allocations ?? [],
+    funder_org_id: line?.funder_org_id ?? "", owner_org_id: line?.owner_org_id ?? "",
+    phase_id: line?.phase_id ?? preset?.phase_id ?? "",
+    allocations: line?.allocations ?? (preset ? [{ task_id: preset.task_id, amount: "" }] : []),
     year: line?.year ?? "", planned_amount: line?.planned_amount ?? "", is_valorisation: line?.is_valorisation ?? false,
     status: line?.status ?? "prevue", comment: line?.comment ?? "",
   })
@@ -124,6 +130,11 @@ export function BudgetLineDialog({ projectId, orgs, phases, tasks = [], line }: 
         <button onClick={() => d.setOpen(true)} className="p-1 rounded-full hover:bg-gray-100"
           aria-label={`Modifier la ligne budgétaire ${line.poste}`} title="Modifier la ligne">
           <Pencil size={13} style={{ color: "#66716B" }} aria-hidden="true" />
+        </button>
+      ) : triggerLabel ? (
+        <button onClick={() => d.setOpen(true)} className="flex items-center gap-1 text-xs font-medium"
+          style={{ color: "var(--brand-accent,#0E6B5C)" }}>
+          <Plus size={12} aria-hidden="true" /> {triggerLabel}
         </button>
       ) : (
         <button onClick={() => d.setOpen(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold" style={{ background: "var(--brand-accent,#0E6B5C)" }}>
@@ -237,6 +248,34 @@ export function BudgetLineDialog({ projectId, orgs, phases, tasks = [], line }: 
           </form>
         </Modal>
       )}
+    </>
+  )
+}
+
+/* ============ Créer la tâche depuis une ligne budgétaire ============ */
+// Sens inverse de la création croisée. Pas de dialogue : tout ce qu'il
+// faut est déjà sur la ligne (poste → titre, phase, montant restant).
+export function CreateTaskFromLineButton({ projectId, lineId, poste }: {
+  projectId: string; lineId: string; poste: string
+}) {
+  const [error, setError] = useState("")
+  const [pending, startTransition] = useTransition()
+  function run() {
+    setError("")
+    startTransition(async () => {
+      const res = await createTaskFromBudgetLine({ projectId, lineId })
+      if (!res.ok) setError(res.error ?? "Une erreur est survenue.")
+    })
+  }
+  return (
+    <>
+      <button type="button" onClick={run} disabled={pending}
+        className="flex items-center gap-1 text-xs font-medium whitespace-nowrap"
+        style={{ color: "var(--brand-accent,#0E6B5C)", opacity: pending ? 0.6 : 1 }}
+        title={`Créer la tâche « ${poste} » dans la phase de cette ligne`}>
+        <Plus size={12} aria-hidden="true" /> {pending ? "…" : "Créer la tâche"}
+      </button>
+      {error && <p className="text-xs mt-1" style={{ color: "#A3342C" }}>{error}</p>}
     </>
   )
 }

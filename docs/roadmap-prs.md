@@ -346,10 +346,13 @@ Livrables :
   ligne CSV n'exprime qu'une seule tâche ; les répartitions sur
   plusieurs tâches se saisissent dans l'interface.
 
-**Reste à faire (non livré) :** la création croisée en un geste —
-depuis une ligne « créer la tâche correspondante », depuis une tâche
-« ajouter une ligne budgétaire ». C'est ce qui rend la saisie synchrone
-en pratique ; le rattachement seul suppose que les deux existent déjà.
+- Création croisée en un geste, dans les deux sens. Depuis une ligne,
+  « Créer la tâche » reprend le poste comme titre, la phase de la ligne,
+  et affecte le montant non encore réparti — aucun dialogue, tout est
+  déjà sur la ligne. Depuis une tâche, « ligne budgétaire » ouvre le
+  dialogue déjà rattaché à elle, le reste (poste, financeur, montant)
+  restant à saisir. Le rattachement seul supposait que les deux existent
+  déjà : il fallait saisir deux fois avant de pouvoir relier.
 
 Ordre de livraison : **PR 38** (documents, source du réalisé) → **PR 40**
 (le lien) → **PR 39** (prévu / engagé / réalisé, qui s'appuie sur les

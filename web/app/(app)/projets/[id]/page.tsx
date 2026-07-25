@@ -8,7 +8,7 @@ import { TAB_HELP } from "@/lib/help-content"
 import EditCompletedTaskDialog from "@/components/tasks/EditCompletedTaskDialog"
 import PhaseDialog from "@/components/tasks/PhaseDialog"
 import TaskDialog from "@/components/tasks/TaskDialog"
-import { BudgetLineDialog, IndicatorDialog, MeasureDialog, MeetingDialog, DecisionDialog } from "@/components/project/ProjectDataDialogs"
+import { BudgetLineDialog, CreateTaskFromLineButton, IndicatorDialog, MeasureDialog, MeetingDialog, DecisionDialog } from "@/components/project/ProjectDataDialogs"
 import { MemberDialog, InviteUserDialog, RemoveMemberButton } from "@/components/project/MemberDialog"
 import HelpDialog from "@/components/help/HelpDialog"
 import DeleteProjectButton from "@/components/project/DeleteProjectButton"
@@ -323,6 +323,13 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                                 style={{ color: taskBudget(t.id) > 0 ? "var(--brand-accent,#0E6B5C)" : "#9AA39D" }}>
                                 💶 {fmtEur(taskBudget(t.id))}
                               </span>
+                              {/* Sens inverse de la création croisée : la
+                                  tâche existe, son financement reste à
+                                  saisir. Le dialogue s'ouvre déjà rattaché. */}
+                              {canBudget && (
+                                <BudgetLineDialog projectId={id} orgs={orgOptions} phases={phaseOptions} tasks={taskOptions}
+                                  preset={{ phase_id: ph.id, task_id: t.id }} triggerLabel="ligne budgétaire" />
+                              )}
                             </div>
                           </div>
                           <div className="flex flex-col items-end gap-1">
@@ -438,6 +445,14 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                               })()}
                             </ul>
                           ) : "—"}
+                          {/* Création croisée : la ligne existe, la tâche
+                              qu'elle finance reste à créer. Sans phase, une
+                              tâche n'a nulle part où aller. */}
+                          {canBudget && canTasks && l.phase_id && !l.is_valorisation && (
+                            <div className="mt-1">
+                              <CreateTaskFromLineButton projectId={id} lineId={l.id} poste={l.poste} />
+                            </div>
+                          )}
                         </td>
                         <td className="px-4 py-3"><Badge label={lc.label} fg={lc.fg} bg={lc.bg} /></td>
                         <td className="px-4 py-3 text-xs" style={{ color: "#66716B" }}>{l.funder?.name ?? "—"}</td>
