@@ -136,7 +136,11 @@ export default async function PublicProjectPage({ params }: { params: Promise<{ 
         {/* Actualités = campagnes publiées */}
         {(campaigns ?? []).length > 0 && (
           <div className="bg-white rounded-2xl border p-8" style={{ borderColor: "#E3E6E2" }}>
-            <h2 className="font-semibold mb-4" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>Actualités</h2>
+            <h2 className="font-semibold mb-1" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>Actualités</h2>
+            {/* Transparence AI Act : tout contenu produit par IA est signalé */}
+            <p className="text-xs mb-4" style={{ color: "#66716B" }}>
+              Textes rédigés avec l&apos;aide d&apos;une intelligence artificielle, relus et validés par l&apos;équipe projet.
+            </p>
             <div className="space-y-6">
               {(campaigns ?? []).map(c => {
                 const contents = (c.contents ?? {}) as Record<string, Record<string, string>>
@@ -162,6 +166,11 @@ export default async function PublicProjectPage({ params }: { params: Promise<{ 
         <footer className="text-center text-xs space-y-1 pb-6" style={{ color: "#66716B" }}>
           <div>Projet soutenu dans le cadre du programme {project.programme || "CEM"} avec l&apos;appui d&apos;YCID — Yvelines Coopération Internationale et Développement.</div>
           <div>Suivi assuré avec {s.brandName}.</div>
+          <div>
+            <a href="/mentions-legales" className="underline">Mentions légales</a>
+            {" · "}
+            <a href="/confidentialite" className="underline">Confidentialité</a>
+          </div>
         </footer>
       </div>
     </div>

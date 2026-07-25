@@ -22,10 +22,14 @@ export default async function MentionsLegalesPage() {
             <h2 className="font-semibold" style={h2}>Éditeur</h2>
             <p className="text-sm" style={{ color: "#66716B" }}>
               {s.brandName} est une plateforme de pilotage de projets de solidarité
-              internationale éditée par <strong>YCID — Yvelines Coopération Internationale
-              et Développement</strong> (GIP), [adresse à compléter], Yvelines, France.
-              <br />Directeur de la publication : [À compléter].
-              <br />Contact : [adresse email de contact à compléter].
+              internationale éditée par <strong>{s.legalEntity}</strong>
+              {s.legalAddress ? <>, {s.legalAddress}</> : null}.
+              {s.legalPublisher && <><br />Directeur de la publication : {s.legalPublisher}.</>}
+              {s.legalEmail && <><br />Contact : {s.legalEmail}.</>}
+              {(!s.legalAddress || !s.legalPublisher || !s.legalEmail) && (
+                <><br /><em>Informations à compléter par l&apos;administrateur dans
+                Administration ▸ Configuration ▸ Mentions légales.</em></>
+              )}
             </p>
           </section>
 
