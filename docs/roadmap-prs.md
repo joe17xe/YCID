@@ -220,29 +220,58 @@ Livrables :
 directement sur la ligne concernée » et que les tâches portent des
 « documents ». C'est faux tant que cette PR n'est pas livrée.
 
-### PR 39 — Réconciliation budgétaire par phase
-Constat, à confirmer en revue : il existe **trois** montants qui ne se
-parlent pas — `projects.budget`, `phases.budget` et la somme des
-`budget_lines.planned_amount` rattachées à cette phase via `phase_id`.
-`phases.budget` est saisi à la main dans le dialogue de phase, affiché
-tel quel dans l'onglet Tâches, et **jamais confronté** aux lignes
-budgétaires. Rien n'empêche une phase à 50 000 € dont les lignes
-totalisent 12 000 €. L'onglet Budget, lui, est un tableau plat où la
-phase n'est qu'une colonne : aucun regroupement, aucun sous-total.
+### PR 39 — Prévu / engagé / réalisé : piloter l'écart
+**Cadrage produit fixé par YCID le 25/07/2026.** Les lignes budgétaires
+sont **le budget établi au départ** : la référence, celle de la
+convention de financement. À l'exécution, les montants réels s'en
+écartent — au-dessus ou en dessous. Ce que la plateforme doit rendre
+lisible, c'est précisément cet écart : *ce qui était prévu* face à
+*ce qui a été réalisé*.
+
+Cette formulation **tranche la question laissée ouverte** : le
+prévisionnel ne se saisit qu'à un seul endroit, la ligne budgétaire.
+`phases.budget`, saisi à la main dans le dialogue de phase et jamais
+confronté aux lignes, devient donc **calculé** (Σ des lignes de la
+phase) et le champ de saisie disparaît. Garder un second montant
+modifiable pour la même chose ne fait que produire des divergences
+silencieuses — rien n'empêche aujourd'hui une phase déclarée à 50 000 €
+dont les lignes totalisent 12 000 €. Même raisonnement à instruire pour
+`projects.budget`.
+
+Le modèle est **déjà spécifié** dans `docs/spec-phase1-mvp.md` §10.3 et
+§10.4, jamais implémenté. Les colonnes nécessaires existent aussi déjà :
+`documents.amount`, `documents.paid`, et la table `validations`
+(inutilisée). Formules de la spec, à reprendre telles quelles :
+`engaged = Σ devis validés`, `paid = Σ reçus + factures payées`,
+`remaining_to_commit = planned − engaged`, `remaining_to_pay =
+engaged − paid`.
+
+Dépend donc de la **PR 38** : sans dépôt de devis et de factures, le
+réalisé n'a aucune source. Les deux PR se livrent dans cet ordre.
 
 Livrables :
-- Onglet Budget **regroupé par phase**, avec sous-total par phase et
-  ligne « hors phase » pour les lignes non rattachées.
-- Affichage de l'écart : `budget déclaré de la phase` vs
-  `Σ lignes rattachées`, signalé visuellement quand il diverge.
-- Décision produit à trancher : soit `phases.budget` devient un
-  **plafond déclaré** (et l'écart est une information de pilotage), soit
-  il devient **calculé** et le champ de saisie disparaît. Ne pas garder
-  deux chiffres modifiables qui prétendent dire la même chose.
+- Trois montants par ligne, par phase et par projet : **prévu**
+  (référence), **engagé** (devis validés), **payé** (factures et reçus),
+  plus les deux restes. Barre de consommation sur chaque niveau.
+- **Écart prévu / réalisé** affiché explicitement, en valeur et en
+  pourcentage, avec le signe : un projet sous-consommé est une
+  information de pilotage au même titre qu'un dépassement.
+- **Gel du prévisionnel.** Une fois la convention signée, modifier
+  `planned_amount` doit être tracé (`audit_log`, motif obligatoire) et
+  réservé aux mêmes profils que les tâches terminées. Sans cela l'écart
+  s'efface tout seul : on ne compare pas à un plan qui bouge.
+  À défaut d'un gel dur, conserver le prévisionnel initial dans une
+  colonne dédiée (`planned_amount_initial`) et comparer à celle-ci.
+- Onglet Budget **regroupé par phase**, sous-total par phase et section
+  « hors phase » pour les lignes non rattachées.
+- KPI projet complétés (§10.4) : prévu hors valorisation, engagé, payé,
+  restes, valorisations, et répartition par financeur en prévu/engagé —
+  c'est la vue qu'attend un financeur.
 - Nombre de tâches par phase affiché à côté de l'avancement (aujourd'hui
   seul le total projet est visible, dans le libellé de l'onglet).
 - Avancement de phase : décider s'il reste une moyenne simple des tâches
   ou s'il est pondéré (par budget, ou par durée).
-- `report-actions.ts` : inclure `phase_id` dans le select des lignes
-  budgétaires — aujourd'hui il ne l'inclut pas, donc le modèle ne *peut
-  pas* rapprocher une ligne de sa phase, même s'il le voulait.
+- `report-actions.ts` : inclure `phase_id` **et les montants réalisés**
+  dans le select des lignes budgétaires — aujourd'hui `phase_id` en est
+  absent, donc le modèle ne *peut pas* rapprocher une ligne de sa phase,
+  ni commenter un écart qu'il ne voit pas.
