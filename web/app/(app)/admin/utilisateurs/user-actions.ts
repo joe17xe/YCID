@@ -1,11 +1,12 @@
 'use server'
 
-import { createHash } from 'crypto'
+import { createHash, randomBytes } from 'crypto'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { adminCreateUser } from '@/lib/supabase/auth-admin'
+import { parseRecipients } from '@/lib/recipients'
+import { adminClient } from '@/lib/supabase/admin'
 import { isUserAdmin } from '@/lib/permissions'
 
 const PLATFORM_ROLES = ['admin', 'ycid', 'user']
@@ -18,14 +19,6 @@ async function currentContext(supabase: Awaited<ReturnType<typeof createClient>>
   const { data: me } = await supabase.from('profiles').select('platform_role, is_platform_admin').eq('id', user.id).maybeSingle()
   const myRole = me?.platform_role ?? (me?.is_platform_admin ? 'admin' : 'user')
   return { user, myRole }
-}
-
-function adminClient() {
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!serviceKey) return null
-  return createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  })
 }
 
 type Result = { ok: boolean; error?: string }
@@ -252,4 +245,68 @@ export async function updateUserAndRedirect(userId: string, input: UserFormInput
   const res = await updateUser(userId, input)
   if (res.ok) redirect('/admin/utilisateurs')
   return res
+}
+
+// ============================================================
+// PR 35 — Import en masse d'utilisateurs
+// ============================================================
+// Créer les comptes un par un depuis une liste d'adresses (en-tête de
+// courriel, tableau, liste de diffusion) est fastidieux et source
+// d'erreurs. On accepte un collage brut et on en extrait les adresses.
+
+export interface BulkLine {
+  email: string
+  fullName: string
+  status: 'cree' | 'existe' | 'echec'
+  password?: string
+  error?: string
+}
+
+export async function createUsersBulk(raw: string, role: string): Promise<{ ok: boolean; error?: string; lines?: BulkLine[] }> {
+  try {
+    const supabase = await createClient()
+    const ctx = await currentContext(supabase)
+    if ('error' in ctx) return { ok: false, error: ctx.error }
+    if (!PLATFORM_ROLES.includes(role)) return { ok: false, error: 'Rôle invalide.' }
+    if (ctx.myRole === 'ycid' && role === 'admin') {
+      return { ok: false, error: "Le rôle YCID ne peut pas créer d'Administrateur." }
+    }
+
+    const recipients = parseRecipients(raw ?? '')
+    if (!recipients.length) return { ok: false, error: 'Aucune adresse email détectée dans le texte collé.' }
+    if (recipients.length > 50) return { ok: false, error: `${recipients.length} adresses détectées : limitez-vous à 50 par import.` }
+
+    const admin = adminClient()
+    if (!admin) return { ok: false, error: "Import non configuré : ajoutez SUPABASE_SERVICE_ROLE_KEY au serveur." }
+
+    // Comptes déjà présents : on les signale sans les écraser
+    const { data: existing } = await admin.from('profiles').select('email')
+    const known = new Set((existing ?? []).map((p: { email: string | null }) => (p.email ?? '').toLowerCase()))
+
+    const lines: BulkLine[] = []
+    for (const r of recipients) {
+      if (known.has(r.email)) {
+        lines.push({ ...r, status: 'existe' })
+        continue
+      }
+      const password = randomBytes(12).toString('base64url')
+      const created = await adminCreateUser({ email: r.email, password, fullName: r.fullName })
+      if (!created.ok || !created.userId) {
+        lines.push({ ...r, status: created.status === 422 ? 'existe' : 'echec', error: created.error })
+        continue
+      }
+      const { error: pErr } = await admin.from('profiles').update({
+        full_name: r.fullName, platform_role: role,
+        is_platform_admin: role !== 'user', active: true,
+      }).eq('id', created.userId)
+      if (pErr) console.error('[createUsersBulk] profil non complété:', { email: r.email, message: pErr.message })
+      lines.push({ ...r, status: 'cree', password })
+    }
+
+    revalidatePath('/admin/utilisateurs')
+    return { ok: true, lines }
+  } catch (e) {
+    console.error('[createUsersBulk] exception:', e)
+    return { ok: false, error: `Échec de l'import : ${e instanceof Error ? e.message : String(e)}` }
+  }
 }

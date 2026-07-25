@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic'
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import Link from "next/link"
-import { Plus } from "lucide-react"
+import { Plus, Upload } from "lucide-react"
 import { isUserAdmin } from "@/lib/permissions"
 import UsersTable, { type AdminUserRow } from "@/components/admin/UsersTable"
 
@@ -18,7 +18,11 @@ export default async function AdminUtilisateursPage() {
   ])
   const myRole = me?.platform_role ?? "admin"
 
-  const users: AdminUserRow[] = (profiles ?? []).map((p: any) => {
+  type RawProfile = {
+    id: string; full_name: string | null; email: string | null
+    platform_role: string | null; is_platform_admin: boolean | null; active: boolean | null
+  }
+  const users: AdminUserRow[] = (profiles ?? []).map((p: RawProfile) => {
     const role = p.platform_role ?? (p.is_platform_admin ? "admin" : "user")
     // Un YCID ne peut pas supprimer un Administrateur
     const canDelete = !(myRole === "ycid" && role === "admin")
@@ -42,9 +46,14 @@ export default async function AdminUtilisateursPage() {
             {users.length} compte{users.length !== 1 ? "s" : ""} · gestion réservée aux administrateurs
           </p>
         </div>
-        <Link href="/admin/utilisateurs/creer" className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-semibold" style={{ background: "var(--brand-accent,#0E6B5C)" }}>
-          <Plus size={16} /> Nouvel utilisateur
-        </Link>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Link href="/admin/utilisateurs/import" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium" style={{ borderColor: "#E3E6E2", color: "#17211D" }}>
+            <Upload size={16} /> Import en masse
+          </Link>
+          <Link href="/admin/utilisateurs/creer" className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-semibold" style={{ background: "var(--brand-accent,#0E6B5C)" }}>
+            <Plus size={16} /> Nouvel utilisateur
+          </Link>
+        </div>
       </div>
 
       {error && (
