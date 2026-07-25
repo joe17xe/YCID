@@ -28,6 +28,17 @@ export interface ProjectDoc {
   lineposte: string | null
 }
 
+// Date locale au format AAAA-MM-JJ. Indispensable pour que l'AFFICHAGE
+// et le FILTRE reposent sur la même base : le filtre découpait
+// auparavant la chaîne ISO (donc en UTC) tandis que l'affichage
+// convertissait en heure locale. Passé 22 h à Paris, les deux
+// divergeaient d'un jour — une pièce affichée au 26/07 restait
+// introuvable avec « depuis le 26/07 ».
+function localDay(d: string): string {
+  const dt = new Date(d)
+  const p = (n: number) => String(n).padStart(2, "0")
+  return `${dt.getFullYear()}-${p(dt.getMonth() + 1)}-${p(dt.getDate())}`
+}
 const fmtDate = (d: string) => new Date(d).toLocaleDateString("fr-FR")
 const fmtEur = (n: number) => `${Math.round(n).toLocaleString("fr-FR")} €`
 
@@ -55,8 +66,8 @@ export default function DocumentsPanel({ projectId, projectName, docs, canManage
   const filtered = useMemo(() => docs.filter(d => {
     if (type && d.type !== type) return false
     if (phase && d.phaseName !== phase) return false
-    if (from && d.uploadedAt.slice(0, 10) < from) return false
-    if (to && d.uploadedAt.slice(0, 10) > to) return false
+    if (from && localDay(d.uploadedAt) < from) return false
+    if (to && localDay(d.uploadedAt) > to) return false
     if (query) {
       // Une seule zone de recherche sur nom, tâche et poste : trois
       // champs séparés obligeraient à savoir OÙ la pièce a été déposée,

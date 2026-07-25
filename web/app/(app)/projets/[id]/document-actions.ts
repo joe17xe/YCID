@@ -74,11 +74,12 @@ export async function saveDocument(input: SaveDocumentInput): Promise<{ ok: bool
     if (subErr) console.error('[saveDocument] mise en validation impossible:', subErr)
   }
 
-  await supabase.from('audit_log').insert({
+  const { error: auditErr } = await supabase.from('audit_log').insert({
     project_id: input.projectId, entity: 'document', entity_id: null,
     label: filename, action: 'cree', user_id: user.id,
     comment: `Pièce déposée (${DOC_TYPE_LABELS[input.type]})`,
   })
+  if (auditErr) console.error('[audit] trace NON enregistrée:', auditErr.message)
   revalidatePath(`/projets/${input.projectId}`)
   return { ok: true }
 }
@@ -131,11 +132,12 @@ export async function decideValidation(input: {
   if (error) return { ok: false, error: `Décision refusée : ${error.message}` }
 
   const doc = Array.isArray(v.documents) ? v.documents[0] : v.documents
-  await supabase.from('audit_log').insert({
+  const { error: auditErr } = await supabase.from('audit_log').insert({
     project_id: input.projectId, entity: 'validation', entity_id: input.validationId,
     label: doc?.filename ?? null, action: 'modifie', user_id: user.id,
     comment: `Devis ${input.decision === 'valide' ? 'validé' : 'refusé'}${input.comment ? ` — ${input.comment.trim()}` : ''}`,
   })
+  if (auditErr) console.error('[audit] trace NON enregistrée:', auditErr.message)
   revalidatePath(`/projets/${input.projectId}`)
   return { ok: true }
 }
@@ -160,11 +162,12 @@ export async function setDocumentPaid(input: {
   }).eq('id', input.documentId)
   if (error) return { ok: false, error: `Échec : ${error.message}` }
 
-  await supabase.from('audit_log').insert({
+  const { error: auditErr } = await supabase.from('audit_log').insert({
     project_id: input.projectId, entity: 'document', entity_id: input.documentId,
     label: doc.filename, action: 'modifie', user_id: user.id,
     comment: input.paid ? `Marquée payée${doc.amount ? ` — ${doc.amount} €` : ''}` : 'Paiement annulé',
   })
+  if (auditErr) console.error('[audit] trace NON enregistrée:', auditErr.message)
   revalidatePath(`/projets/${input.projectId}`)
   return { ok: true }
 }
@@ -191,10 +194,11 @@ export async function deleteDocument(documentId: string): Promise<{ ok: boolean;
     if (storageErr) console.error('[deleteDocument] fichier non supprimé:', doc.storage_path, storageErr.message)
   }
 
-  await supabase.from('audit_log').insert({
+  const { error: auditErr } = await supabase.from('audit_log').insert({
     project_id: doc.project_id, entity: 'document', entity_id: null,
     label: doc.filename, action: 'supprime', user_id: user.id,
   })
+  if (auditErr) console.error('[audit] trace NON enregistrée:', auditErr.message)
   revalidatePath(`/projets/${doc.project_id}`)
   return { ok: true }
 }
