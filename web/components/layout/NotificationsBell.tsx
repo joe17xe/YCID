@@ -58,6 +58,14 @@ export default function NotificationsBell() {
     }
   }, [refresh])
 
+  // Échap referme le panneau (RGAA : utilisable entièrement au clavier)
+  useEffect(() => {
+    if (!open) return
+    function onKeyDown(e: KeyboardEvent) { if (e.key === "Escape") setOpen(false) }
+    document.addEventListener("keydown", onKeyDown)
+    return () => document.removeEventListener("keydown", onKeyDown)
+  }, [open])
+
   async function markAllRead() {
     await supabase.from("notifications").update({ read_at: new Date().toISOString() }).is("read_at", null)
     refresh()
@@ -82,7 +90,7 @@ export default function NotificationsBell() {
         className="relative p-2 rounded-full hover:bg-gray-50 transition-colors"
         style={{ color: "#66716B" }}
       >
-        <Bell size={19} />
+        <Bell size={19} aria-hidden="true" />
         {unread > 0 && (
           <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold text-white flex items-center justify-center"
             style={{ background: "#A3342C" }}>
@@ -93,7 +101,7 @@ export default function NotificationsBell() {
 
       {open && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} aria-hidden="true" />
           <div className="absolute right-0 mt-2 w-80 max-w-[90vw] bg-white rounded-2xl border shadow-lg z-50 overflow-hidden" style={{ borderColor: "#E3E6E2" }} role="menu">
             <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "#E3E6E2" }}>
               <span className="text-sm font-semibold" style={{ color: "#17211D", fontFamily: "var(--font-sora)" }}>Notifications</span>

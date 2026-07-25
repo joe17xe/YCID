@@ -1,6 +1,7 @@
 "use client"
-import { useState, useTransition } from "react"
-import { Plus, Pencil, X } from "lucide-react"
+import { useId, useState, useTransition } from "react"
+import { Plus, Pencil } from "lucide-react"
+import Modal, { ErrorMessage } from "@/components/ui/Modal"
 import { TASK_STATUS } from "@/lib/constants"
 import type { TaskStatus } from "@/lib/types"
 import { saveTask } from "@/app/(app)/projets/[id]/actions"
@@ -23,6 +24,7 @@ export default function TaskDialog({ phaseId, members, task }: {
   members: { id: string; name: string }[]
   task?: TaskData
 }) {
+  const uid = useId()
   const [open, setOpen] = useState(false)
   const [error, setError] = useState("")
   const [pending, startTransition] = useTransition()
@@ -49,8 +51,9 @@ export default function TaskDialog({ phaseId, members, task }: {
   return (
     <>
       {task ? (
-        <button onClick={() => setOpen(true)} className="p-1.5 rounded-full hover:bg-gray-100" title="Modifier la tâche">
-          <Pencil size={13} style={{ color: "#66716B" }} />
+        <button onClick={() => setOpen(true)} className="p-1.5 rounded-full hover:bg-gray-100"
+          aria-label={`Modifier la tâche ${task.title}`} title="Modifier la tâche">
+          <Pencil size={13} style={{ color: "#66716B" }} aria-hidden="true" />
         </button>
       ) : (
         <button onClick={() => setOpen(true)}
@@ -60,72 +63,63 @@ export default function TaskDialog({ phaseId, members, task }: {
         </button>
       )}
 
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(23,33,29,0.45)" }} onClick={() => setOpen(false)}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-5 border-b" style={{ borderColor: "#E3E6E2" }}>
-              <h3 className="font-semibold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>
-                {task ? "Modifier la tâche" : "Nouvelle tâche"}
-              </h3>
-              <button onClick={() => setOpen(false)} style={{ color: "#66716B" }}><X size={18} /></button>
-            </div>
-            <form onSubmit={submit} className="p-5 space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Titre *</label>
-                <input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} required
-                  className={inputCls} style={{ borderColor: "#E3E6E2" }} />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Description</label>
-                <textarea value={form.description ?? ""} onChange={e => setForm({ ...form, description: e.target.value })} rows={2}
-                  className={inputCls} style={{ borderColor: "#E3E6E2" }} />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Responsable</label>
-                  <select value={form.assignee_id ?? ""} onChange={e => setForm({ ...form, assignee_id: e.target.value })}
-                    className={inputCls} style={{ borderColor: "#E3E6E2" }}>
-                    <option value="">Non assignée</option>
-                    {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Statut</label>
-                  <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value as TaskStatus })}
-                    className={inputCls} style={{ borderColor: "#E3E6E2" }}>
-                    {Object.entries(TASK_STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Début</label>
-                  <input type="date" value={form.start_date ?? ""} onChange={e => setForm({ ...form, start_date: e.target.value })}
-                    className={inputCls} style={{ borderColor: "#E3E6E2" }} />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Fin</label>
-                  <input type="date" value={form.end_date ?? ""} onChange={e => setForm({ ...form, end_date: e.target.value })}
-                    className={inputCls} style={{ borderColor: "#E3E6E2" }} />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Avancement (%)</label>
-                <input type="number" min={0} max={100} value={form.progress}
-                  onChange={e => setForm({ ...form, progress: Number(e.target.value) })}
-                  className={inputCls} style={{ borderColor: "#E3E6E2" }} />
-              </div>
-              {error && <p className="text-sm rounded-lg px-3 py-2" style={{ background: "#F6E7E5", color: "#A3342C" }}>{error}</p>}
-              <div className="flex justify-end gap-2">
-                <button type="button" onClick={() => setOpen(false)}
-                  className="px-4 py-2 rounded-xl border text-sm font-medium" style={{ borderColor: "#E3E6E2", color: "#66716B" }}>Annuler</button>
-                <button type="submit" disabled={pending}
-                  className="px-4 py-2 rounded-xl text-sm font-semibold text-white" style={{ background: "var(--brand-accent,#0E6B5C)", opacity: pending ? 0.7 : 1 }}>
-                  {pending ? "…" : task ? "Enregistrer" : "Créer la tâche"}
-                </button>
-              </div>
-            </form>
+      <Modal open={open} onClose={() => setOpen(false)} busy={pending} maxWidth="max-w-lg"
+        title={task ? "Modifier la tâche" : "Nouvelle tâche"}>
+        <form onSubmit={submit} className="space-y-4">
+          <div>
+            <label htmlFor={`${uid}-title`} className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Titre *</label>
+            <input id={`${uid}-title`} value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} required
+              className={inputCls} style={{ borderColor: "#E3E6E2" }} />
           </div>
-        </div>
-      )}
+          <div>
+            <label htmlFor={`${uid}-desc`} className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Description</label>
+            <textarea id={`${uid}-desc`} value={form.description ?? ""} onChange={e => setForm({ ...form, description: e.target.value })} rows={2}
+              className={inputCls} style={{ borderColor: "#E3E6E2" }} />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label htmlFor={`${uid}-assignee`} className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Responsable</label>
+              <select id={`${uid}-assignee`} value={form.assignee_id ?? ""} onChange={e => setForm({ ...form, assignee_id: e.target.value })}
+                className={inputCls} style={{ borderColor: "#E3E6E2" }}>
+                <option value="">Non assignée</option>
+                {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label htmlFor={`${uid}-status`} className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Statut</label>
+              <select id={`${uid}-status`} value={form.status} onChange={e => setForm({ ...form, status: e.target.value as TaskStatus })}
+                className={inputCls} style={{ borderColor: "#E3E6E2" }}>
+                {Object.entries(TASK_STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label htmlFor={`${uid}-start`} className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Début</label>
+              <input id={`${uid}-start`} type="date" value={form.start_date ?? ""} onChange={e => setForm({ ...form, start_date: e.target.value })}
+                className={inputCls} style={{ borderColor: "#E3E6E2" }} />
+            </div>
+            <div>
+              <label htmlFor={`${uid}-end`} className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Fin</label>
+              <input id={`${uid}-end`} type="date" value={form.end_date ?? ""} onChange={e => setForm({ ...form, end_date: e.target.value })}
+                className={inputCls} style={{ borderColor: "#E3E6E2" }} />
+            </div>
+          </div>
+          <div>
+            <label htmlFor={`${uid}-progress`} className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Avancement (%)</label>
+            <input id={`${uid}-progress`} type="number" min={0} max={100} value={form.progress}
+              onChange={e => setForm({ ...form, progress: Number(e.target.value) })}
+              className={inputCls} style={{ borderColor: "#E3E6E2" }} />
+          </div>
+          <ErrorMessage>{error}</ErrorMessage>
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={() => setOpen(false)}
+              className="px-4 py-2 rounded-xl border text-sm font-medium" style={{ borderColor: "#E3E6E2", color: "#66716B" }}>Annuler</button>
+            <button type="submit" disabled={pending}
+              className="px-4 py-2 rounded-xl text-sm font-semibold text-white" style={{ background: "var(--brand-accent,#0E6B5C)", opacity: pending ? 0.7 : 1 }}>
+              {pending ? "…" : task ? "Enregistrer" : "Créer la tâche"}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </>
   )
 }

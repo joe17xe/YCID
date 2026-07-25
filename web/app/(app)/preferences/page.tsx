@@ -5,6 +5,7 @@ import { ACCESS_ROLES } from "@/lib/constants"
 import AvatarUploader from "@/components/preferences/AvatarUploader"
 import PasswordForm from "@/components/preferences/PasswordForm"
 import AppearanceSettings from "@/components/preferences/AppearanceSettings"
+import InstallAppButton from "@/components/layout/InstallAppButton"
 
 function Block({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
   return (
@@ -42,6 +43,14 @@ export default async function PreferencesPage() {
       </div>
 
       <div className="space-y-6">
+        <Block title="Application mobile" subtitle="Ajoutez Solid'Pilot à votre écran d'accueil : ouverture en plein écran, sans passer par le navigateur.">
+          <InstallAppButton variant="button" />
+          <p className="text-xs mt-3" style={{ color: "#66716B" }}>
+            Si aucun bouton n&apos;apparaît, l&apos;application est déjà installée sur cet appareil,
+            ou votre navigateur ne propose pas l&apos;installation.
+          </p>
+        </Block>
+
         <Block title="Photo de profil" subtitle="Affichée dans le menu compte et à côté de vos contributions.">
           <AvatarUploader userId={user.id} avatarUrl={profile?.avatar_url ?? null} name={profile?.full_name ?? ""} />
         </Block>

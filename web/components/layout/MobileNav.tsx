@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client"
 import { useTranslations, useLocale } from "next-intl"
 import { NAV, ADMIN_NAV } from "@/components/layout/Sidebar"
 import NotificationsBell from "@/components/layout/NotificationsBell"
+import InstallAppButton from "@/components/layout/InstallAppButton"
 
 interface MobileNavProps {
   showAdmin: boolean
@@ -31,10 +32,19 @@ export default function MobileNav({ showAdmin, brandName, logoUrl, name, email, 
   const ta = useTranslations("account")
   const locale = useLocale()
 
-  // Bloque le défilement de la page quand le tiroir est ouvert
+  // Bloque le défilement de la page quand le tiroir est ouvert, et permet
+  // de le fermer au clavier (RGAA : toute fonctionnalité accessible sans souris)
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : ""
-    return () => { document.body.style.overflow = "" }
+    if (!open) return
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false)
+    }
+    document.addEventListener("keydown", onKeyDown)
+    return () => {
+      document.removeEventListener("keydown", onKeyDown)
+      document.body.style.overflow = ""
+    }
   }, [open])
 
   async function signOut() {
@@ -76,7 +86,8 @@ export default function MobileNav({ showAdmin, brandName, logoUrl, name, email, 
       {open && (
         <div className="fixed inset-0 z-50">
           <div className="absolute inset-0 bg-black/30" onClick={() => setOpen(false)} aria-hidden />
-          <div className="absolute inset-y-0 left-0 w-72 max-w-[85vw] bg-white flex flex-col overflow-y-auto shadow-xl">
+          <div role="dialog" aria-modal="true" aria-label="Menu de navigation"
+            className="absolute inset-y-0 left-0 w-72 max-w-[85vw] bg-white flex flex-col overflow-y-auto shadow-xl">
             {/* En-tête : identité */}
             <div className="flex items-center gap-3 px-4 py-4 border-b" style={{ borderColor: "#E3E6E2" }}>
               {avatarUrl ? (
@@ -140,14 +151,17 @@ export default function MobileNav({ showAdmin, brandName, logoUrl, name, email, 
               )}
             </nav>
 
-            {/* Pied : préférences, langue, déconnexion */}
+            {/* Pied : installation, préférences, langue, déconnexion */}
             <div className="border-t p-2 space-y-1" style={{ borderColor: "#E3E6E2" }}>
+              <InstallAppButton />
               <Link href="/preferences" onClick={() => setOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm" style={{ color: "#17211D" }}>
                 <Settings size={18} style={{ color: "#66716B" }} /> {ta("preferences")}
               </Link>
-              <div className="flex items-center gap-2 px-3 py-1.5">
+              <div className="flex items-center gap-2 px-3 py-1.5" role="group" aria-label="Langue de l'interface">
                 {(["fr", "en"] as const).map(l => (
                   <button key={l} onClick={() => setLocale(l)}
+                    aria-pressed={locale === l}
+                    aria-label={l === "fr" ? "Français" : "English"}
                     className="px-3 py-1 rounded-xl border text-xs font-semibold uppercase"
                     style={{
                       background: locale === l ? "var(--brand-accent-soft,#E4F0EC)" : "#fff",
