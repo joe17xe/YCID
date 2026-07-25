@@ -12,7 +12,7 @@ const PHASE_STATUS_OPTIONS = [
   { value: "terminee", label: "Terminée" },
 ]
 
-interface PhaseData { id: string; name: string; start_date: string | null; end_date: string | null; status: string; budget: number | null }
+interface PhaseData { id: string; name: string; start_date: string | null; end_date: string | null; status: string }
 
 export default function PhaseDialog({ projectId, phase }: { projectId: string; phase?: PhaseData }) {
   const uid = useId()
@@ -24,7 +24,6 @@ export default function PhaseDialog({ projectId, phase }: { projectId: string; p
     start_date: phase?.start_date ?? "",
     end_date: phase?.end_date ?? "",
     status: phase?.status ?? "a_venir",
-    budget: phase?.budget != null ? String(phase.budget) : "",
   })
 
   function submit(e: React.FormEvent) {
@@ -68,12 +67,10 @@ export default function PhaseDialog({ projectId, phase }: { projectId: string; p
                 {PHASE_STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </div>
-            <div>
-              <label htmlFor={`${uid}-budget`} className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Budget (€)</label>
-              <input id={`${uid}-budget`} type="number" min={0} step="0.01" value={form.budget}
-                onChange={e => setForm({ ...form, budget: e.target.value })}
-                className={inputCls} style={{ borderColor: "#E3E6E2" }} />
-            </div>
+            {/* Le budget de phase n'est plus saisi (PR 39) : il est la
+                somme des lignes qui lui sont rattachées. Deux montants
+                modifiables pour la même chose ne fabriquaient que des
+                divergences. */}
             <div>
               <label htmlFor={`${uid}-start`} className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Début</label>
               <input id={`${uid}-start`} type="date" value={form.start_date ?? ""} onChange={e => setForm({ ...form, start_date: e.target.value })}

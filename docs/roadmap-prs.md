@@ -279,15 +279,28 @@ convention de financement. À l'exécution, les montants réels s'en
 lisible, c'est précisément cet écart : *ce qui était prévu* face à
 *ce qui a été réalisé*.
 
-Cette formulation **tranche la question laissée ouverte** : le
-prévisionnel ne se saisit qu'à un seul endroit, la ligne budgétaire.
-`phases.budget`, saisi à la main dans le dialogue de phase et jamais
-confronté aux lignes, devient donc **calculé** (Σ des lignes de la
-phase) et le champ de saisie disparaît. Garder un second montant
-modifiable pour la même chose ne fait que produire des divergences
-silencieuses — rien n'empêche aujourd'hui une phase déclarée à 50 000 €
-dont les lignes totalisent 12 000 €. Même raisonnement à instruire pour
-`projects.budget`.
+**Précision YCID du 25/07/2026, qui tranche le gel du prévisionnel :**
+« on peut bouger un budget d'une activité vers une autre ; le montant
+total ne devrait pas changer, c'est un financement déjà voté. À
+l'intérieur des tâches il peut y avoir de petites modifications, mais le
+total ne bouge pas. »
+
+L'invariant est donc **l'enveloppe, pas la ligne**. Cela écarte le gel
+par ligne initialement envisagé (motif obligatoire, ou
+`planned_amount_initial`) : il aurait combattu la pratique réelle et
+produit des contournements. Les deux colonnes qui se ressemblaient
+reçoivent des sorts opposés :
+
+- **`phases.budget` supprimé.** Saisi à la main, jamais confronté aux
+  lignes, il produisait des divergences silencieuses — constatées en
+  production sur CEM Liban : 31 100 € déclarés contre 26 600 € de
+  lignes, puis 4 550 € contre 9 050 €. Le budget d'une phase est
+  désormais la somme de ses lignes.
+- **`projects.budget` conservé, et change de sens** : ce n'est pas un
+  doublon de la somme des lignes mais le **montant voté**, la référence
+  contractuelle contre laquelle on compare la répartition. Le seul
+  chiffre qui ne doit pas bouger, et le seul niveau où une alerte d'écart
+  a du sens.
 
 Le modèle est **déjà spécifié** dans `docs/spec-phase1-mvp.md` §10.3 et
 §10.4, jamais implémenté. Les colonnes nécessaires existent aussi déjà :
@@ -308,12 +321,9 @@ Livrables :
 - **Écart prévu / réalisé** affiché explicitement, en valeur et en
   pourcentage, avec le signe : un projet sous-consommé est une
   information de pilotage au même titre qu'un dépassement.
-- **Gel du prévisionnel.** Une fois la convention signée, modifier
-  `planned_amount` doit être tracé (`audit_log`, motif obligatoire) et
-  réservé aux mêmes profils que les tâches terminées. Sans cela l'écart
-  s'efface tout seul : on ne compare pas à un plan qui bouge.
-  À défaut d'un gel dur, conserver le prévisionnel initial dans une
-  colonne dédiée (`planned_amount_initial`) et comparer à celle-ci.
+- **Pas de gel par ligne** (arbitrage YCID ci-dessus). Les mouvements
+  entre lignes restent libres et simplement tracés au Journal ; l'alerte
+  se déclenche quand la **somme des lignes s'écarte du montant voté**.
 - Onglet Budget **regroupé par phase**, sous-total par phase et section
   « hors phase » pour les lignes non rattachées.
 - KPI projet complétés (§10.4) : prévu hors valorisation, engagé, payé,

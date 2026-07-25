@@ -53,7 +53,7 @@ export const TAB_HELP: Record<string, { title: string; anchor: string; excerpt: 
   budget: {
     title: "Budget",
     anchor: "premiers-pas",
-    excerpt: "Chaque ligne budgétaire porte son poste, sa catégorie, son financeur et son statut. Les lignes « valorisation » (apports non financiers) sont comptées à part du prévisionnel.",
+    excerpt: "Trois montants par ligne, par phase et par projet : prévu (budgété), engagé (devis validés) et payé (factures et reçus réglés). Le budget d'une phase est la somme de ses lignes, jamais une saisie séparée. Le montant voté du projet est la référence : déplacer du budget d'une ligne à l'autre est normal, l'enveloppe totale ne doit pas bouger. Les lignes « valorisation » (apports non financiers) sont comptées à part.",
   },
   documents: {
     title: "Documents",
