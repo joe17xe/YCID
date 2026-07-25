@@ -4,6 +4,7 @@ import { randomBytes, randomUUID } from 'crypto'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { adminClient } from '@/lib/supabase/admin'
+import { adminCreateUser } from '@/lib/supabase/auth-admin'
 import { canEditCompletedTasks, canManagePhases, canManageTasks, canManageBudget, canManageMeetings, isUserAdmin } from '@/lib/permissions'
 import { notifyUser } from '@/lib/notify'
 import type { TaskStatus } from '@/lib/types'
@@ -500,18 +501,15 @@ export async function createProjectUser(input: {
     // Mot de passe temporaire (16 caractères) montré une seule fois au chef
     const tempPassword = randomBytes(12).toString('base64url')
 
-    const { data: created, error } = await admin.auth.admin.createUser({
-      email, password: tempPassword, email_confirm: true,
-      user_metadata: { full_name: fullName },
-    })
-    if (error) {
-      console.error('[createProjectUser] échec createUser:', { email, status: (error as { status?: number }).status, message: error.message })
-      if ((error as { status?: number }).status === 422 || /already|exist|registered|duplicate/i.test(error.message)) {
+    // Appel direct à l'API Auth admin (cf. lib/supabase/auth-admin.ts)
+    const created = await adminCreateUser({ email, password: tempPassword, fullName })
+    if (!created.ok || !created.userId) {
+      if (created.status === 422) {
         return { ok: false, error: 'Un compte existe déjà avec cet email — ajoutez-le comme membre via « Ajouter un membre ».' }
       }
-      return { ok: false, error: `Échec de la création du compte : ${error.message}` }
+      return { ok: false, error: created.error ?? 'Échec de la création du compte.' }
     }
-    const newUserId = created.user!.id
+    const newUserId = created.userId
 
     // Toujours simple Utilisateur — la délégation ne crée jamais d'admin
     const { error: pErr } = await admin.from('profiles').update({

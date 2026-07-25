@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
+import { adminCreateUser } from '@/lib/supabase/auth-admin'
 import { isUserAdmin } from '@/lib/permissions'
 
 const PLATFORM_ROLES = ['admin', 'ycid', 'user']
@@ -119,24 +120,13 @@ export async function createUser(input: UserFormInput): Promise<Result> {
     const admin = adminClient()
     if (!admin) return { ok: false, error: "Création non configurée : ajoutez SUPABASE_SERVICE_ROLE_KEY au serveur." }
 
+    // Appel direct à l'API Auth admin (voir lib/supabase/auth-admin.ts) :
+    // requête identique à celle vérifiée en curl, et remontée du message
+    // brut de Supabase en cas de refus.
     const email = input.email.trim().toLowerCase()
-    const { data: created, error } = await admin.auth.admin.createUser({
-      email, password: input.password, email_confirm: true,
-      user_metadata: { full_name: input.fullName.trim() },
-    })
-    if (error) {
-      const status = (error as { status?: number }).status
-      console.error('[createUser] échec auth.admin.createUser:', { email, status, code: (error as { code?: string }).code, name: error.name, message: error.message, error: JSON.stringify(error, Object.getOwnPropertyNames(error)) })
-      if (status === 422 || /already|exist|registered|duplicate/i.test(error.message)) {
-        return { ok: false, error: 'Un utilisateur avec cet email existe déjà.' }
-      }
-      // 5xx = erreur INTERNE de Supabase Auth (souvent « Database error
-      // saving new user » : trigger en échec, ou projet en surcharge/pause).
-      // La cause exacte est dans le Dashboard Supabase, pas ici.
-      if (status && status >= 500) {
-        return { ok: false, error: `Le service d'authentification Supabase a renvoyé une erreur interne (HTTP ${status}). Consultez Dashboard Supabase → Logs → Auth (au moment de l'essai) pour la cause exacte, et vérifiez l'état du projet (page d'accueil du Dashboard : pause, quotas, incidents).` }
-      }
-      return { ok: false, error: `Échec de la création : ${withKeyHint(describeError(error))}` }
+    const created = await adminCreateUser({ email, password: input.password, fullName: input.fullName.trim() })
+    if (!created.ok || !created.userId) {
+      return { ok: false, error: created.error ?? 'Échec de la création.' }
     }
 
     // Le trigger crée la ligne profiles ; on complète rôle + statut.
@@ -147,9 +137,9 @@ export async function createUser(input: UserFormInput): Promise<Result> {
       platform_role: input.role,
       is_platform_admin: input.role !== 'user',
       active: !!input.active,
-    }).eq('id', created.user!.id)
+    }).eq('id', created.userId)
     if (pErr) {
-      console.error('[createUser] compte créé mais mise à jour du profil échouée:', { userId: created.user!.id, code: pErr.code, message: pErr.message, details: pErr.details, hint: pErr.hint, pErr })
+      console.error('[createUser] compte créé mais mise à jour du profil échouée:', { userId: created.userId, code: pErr.code, message: pErr.message, details: pErr.details, hint: pErr.hint, pErr })
       const missingColumn = /column .* does not exist|platform_role|active/i.test(`${pErr.message} ${pErr.details ?? ''}`)
       const suffix = missingColumn ? ' Appliquez la migration 0017 dans le SQL Editor Supabase.' : ''
       return { ok: false, error: `Compte créé mais profil non enregistré : ${describeError(pErr)}.${suffix}` }
