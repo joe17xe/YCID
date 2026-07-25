@@ -189,36 +189,68 @@ livrable, rapport`. **Mais rien n'est branché** : aucun bucket Storage
 requête `from('documents')` dans l'application. Le seul usage est le
 compteur « 📎 N doc » sur chaque tâche, structurellement toujours à 0.
 
-Livrables :
-- Bucket Supabase Storage privé `documents`, chemins
+**Découpée en cinq PR** (25/07/2026). Telle que spécifiée à l'origine,
+elle mélangeait une migration de schéma, un bucket Storage, un circuit
+de validation, une galerie et un nouvel onglet : trop pour une revue
+utile et pour un retour arrière propre. Le découpage suit les
+dépendances réelles — la 38a conditionne les quatre autres, qui sont
+ensuite indépendantes entre elles.
+
+#### PR 38a — Socle documentaire
+Sans elle, rien d'autre n'est possible : c'est la seule des cinq qui
+n'apporte pas de fonction métier visible mais débloque tout le reste.
+- Bucket Supabase Storage **privé** `documents`, chemins
   `projets/<project_id>/<phase_id|_>/<uuid>-<nom>`, policies alignées sur
   `is_project_member()` (lecture) et sur le rôle projet (dépôt).
 - **Rattachement élargi** : `documents` ne peut aujourd'hui se rattacher
   qu'à une tâche (`task_id`) ou une ligne budgétaire (`budget_line_id`).
   Ajouter `project_id` et `phase_id` pour permettre le dépôt au niveau
-  d'une phase et au niveau du projet, sans passer par une tâche.
-- **Photos avant / après par phase** : champ `moment` (`avant`, `apres`,
-  `pendant`) sur les documents de type `photo`, galerie comparative dans
-  l'onglet Tâches au niveau de la phase. C'est la matière première des
-  rapports terrain et des supports de communication.
-- **Preuve de réalisation** : le chef de projet joint un justificatif à
-  une tâche pour attester qu'elle est faite. Une tâche passée à
-  « terminée » sans pièce jointe est signalée (pas bloquée).
-- **Devis et factures** : dépôt sur la ligne budgétaire, avec montant et
-  statut payé. Réactive la table `validations` (existante, inutilisée) :
-  circuit devis déposé → validé → facture → payé.
-- **Zone documentaire centralisée par projet** : nouvel onglet
-  « Documents » listant *tout* le projet d'un coup, filtrable par type,
-  par phase, par tâche et par date, avec téléchargement groupé (ZIP).
-  C'est la demande explicite : accéder à l'ensemble en un seul endroit.
-- **Rapports IA** : `report-actions.ts` devra citer les pièces
-  disponibles par phase — un rapport qui s'appuie sur des preuves
-  datées vaut mieux qu'un rapport qui s'appuie sur des pourcentages.
+  d'une phase et du projet, sans passer par une tâche.
+- Server actions (dépôt, suppression, téléchargement par URL signée) et
+  composant d'upload réutilisable par les quatre PR suivantes.
+- Liste des pièces sur une tâche : le compteur « 📎 N doc », aujourd'hui
+  structurellement à 0, affiche enfin une valeur réelle.
+- ⚠️ **Dette d'honnêteté**, à corriger ici : l'aide contextuelle
+  (`lib/help-content.ts`) affirme déjà que « les justificatifs se
+  déposent directement sur la ligne concernée » et que les tâches
+  portent des « documents ». C'est faux tant que la 38a n'est pas
+  livrée — soit on livre, soit on retire la phrase.
 
-⚠️ Dette d'honnêteté à corriger dans la même PR : l'aide contextuelle
-(`lib/help-content.ts`) affirme déjà que « les justificatifs se déposent
-directement sur la ligne concernée » et que les tâches portent des
-« documents ». C'est faux tant que cette PR n'est pas livrée.
+#### PR 38b — Devis, factures et circuit de validation
+**C'est elle qui débloque la PR 39** : sans dépôt de devis et de
+factures, le réalisé n'a aucune source. À livrer juste après la 38a si
+l'on veut avancer vers le prévu/engagé/réalisé.
+- Dépôt sur la ligne budgétaire, avec montant et statut payé
+  (`documents.amount`, `documents.paid`, colonnes existantes).
+- Réactive la table `validations` (existante, inutilisée) : circuit
+  devis déposé → validé → facture → payé.
+
+#### PR 38c — Photos avant / après par phase
+- Champ `moment` (`avant`, `apres`, `pendant`) sur les documents de type
+  `photo`, galerie comparative au niveau de la phase dans l'onglet
+  Tâches.
+- Matière première des rapports terrain et des supports de
+  communication — donc utile à la PR 26 (campagnes) autant qu'au COPIL.
+
+#### PR 38d — Onglet Documents centralisé
+La demande explicite : accéder à l'ensemble en un seul endroit. À livrer
+**après** 38b et 38c : une vue centralisée n'a d'intérêt qu'une fois
+plusieurs natures de pièces réellement présentes.
+- Nouvel onglet « Documents » listant *tout* le projet d'un coup,
+  filtrable par type, par phase, par tâche et par date.
+- Téléchargement groupé (ZIP).
+
+#### PR 38e — Preuve de réalisation et pièces citées par l'IA
+- Le chef de projet joint un justificatif à une tâche pour attester
+  qu'elle est faite. Une tâche passée à « terminée » sans pièce jointe
+  est **signalée, pas bloquée** — un blocage dur ferait renoncer à
+  marquer les tâches terminées.
+- `report-actions.ts` cite les pièces disponibles par phase : un rapport
+  adossé à des preuves datées vaut mieux qu'un rapport adossé à des
+  pourcentages déclaratifs.
+
+**Ordre recommandé** : 38a → 38b → 38c → 38d → 38e. La PR 39 peut
+démarrer dès la 38b livrée, sans attendre les trois dernières.
 
 ### PR 39 — Prévu / engagé / réalisé : piloter l'écart
 **Cadrage produit fixé par YCID le 25/07/2026.** Les lignes budgétaires
@@ -246,8 +278,9 @@ Le modèle est **déjà spécifié** dans `docs/spec-phase1-mvp.md` §10.3 et
 `remaining_to_commit = planned − engaged`, `remaining_to_pay =
 engaged − paid`.
 
-Dépend donc de la **PR 38** : sans dépôt de devis et de factures, le
-réalisé n'a aucune source. Les deux PR se livrent dans cet ordre.
+Dépend donc de la **PR 38b** précisément (devis et factures) : sans
+elle, le réalisé n'a aucune source. Les PR 38c, 38d et 38e ne la
+conditionnent pas — la PR 39 peut démarrer dès 38a + 38b livrées.
 
 Livrables :
 - Trois montants par ligne, par phase et par projet : **prévu**
