@@ -1,7 +1,8 @@
 "use client"
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { Trash2, AlertTriangle, X } from "lucide-react"
+import { Trash2, AlertTriangle } from "lucide-react"
+import Modal, { ErrorMessage } from "@/components/ui/Modal"
 import { deleteProject } from "@/app/(app)/projets/[id]/actions"
 
 export default function DeleteProjectButton({ projectId, projectName }: { projectId: string; projectName: string }) {
@@ -30,18 +31,12 @@ export default function DeleteProjectButton({ projectId, projectName }: { projec
         <Trash2 size={14} /> Supprimer
       </button>
 
-      {step > 0 && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(23,33,29,0.45)" }} onClick={close}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-5 border-b" style={{ borderColor: "#E3E6E2" }}>
-              <h3 className="font-semibold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>Supprimer le projet</h3>
-              <button onClick={close} style={{ color: "#66716B" }}><X size={18} /></button>
-            </div>
-
+      <Modal open={step > 0} onClose={close} busy={pending} maxWidth="max-w-lg" title="Supprimer le projet">
+        <>
             {step === 1 && (
-              <div className="p-5">
+              <div>
                 <div className="flex gap-3 rounded-xl p-4 mb-4" style={{ background: "#F6E7E5" }}>
-                  <AlertTriangle size={20} className="flex-shrink-0 mt-0.5" style={{ color: "#A3342C" }} />
+                  <AlertTriangle size={20} className="flex-shrink-0 mt-0.5" style={{ color: "#A3342C" }} aria-hidden="true" />
                   <div className="text-sm" style={{ color: "#17211D" }}>
                     <p className="font-medium mb-1">Suppression définitive et irréversible.</p>
                     <p style={{ color: "#66716B" }}>
@@ -58,18 +53,19 @@ export default function DeleteProjectButton({ projectId, projectName }: { projec
             )}
 
             {step === 2 && (
-              <div className="p-5 space-y-4">
-                <p className="text-sm" style={{ color: "#66716B" }}>
+              <div className="space-y-4">
+                <label htmlFor="delete-project-confirm" className="block text-sm" style={{ color: "#66716B" }}>
                   Pour confirmer, saisissez le nom exact du projet : <span className="font-semibold" style={{ color: "#17211D" }}>{projectName}</span>
-                </p>
+                </label>
                 <input
+                  id="delete-project-confirm"
                   value={confirmation}
                   onChange={e => setConfirmation(e.target.value)}
                   placeholder="Nom du projet"
                   className="w-full px-3 py-2 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
                   style={{ borderColor: "#E3E6E2" }}
                 />
-                {error && <p className="text-sm rounded-lg px-3 py-2" style={{ background: "#F6E7E5", color: "#A3342C" }}>{error}</p>}
+                <ErrorMessage>{error}</ErrorMessage>
                 <div className="flex justify-end gap-2">
                   <button onClick={close} className="px-4 py-2 rounded-xl border text-sm font-medium" style={{ borderColor: "#E3E6E2", color: "#66716B" }}>Annuler</button>
                   <button
@@ -82,9 +78,8 @@ export default function DeleteProjectButton({ projectId, projectName }: { projec
                 </div>
               </div>
             )}
-          </div>
-        </div>
-      )}
+        </>
+      </Modal>
     </>
   )
 }

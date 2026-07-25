@@ -169,3 +169,109 @@ les tests via LLM_BASE_URL/LLM_API_KEY/LLM_MODEL).
 ### PR 28 — Page vitrine publique par projet
 - Page publique en lecture seule (avancement, indicateurs) partageable
 - Canal de publication n°1 des campagnes de communication
+
+---
+
+## 🟤 Phase 5 — Preuves, justificatifs et vérité budgétaire (demandé le 25/07/2026)
+
+Demandes formulées par YCID après parcours du site côté projet. Deux
+sujets distincts mais liés : **prouver** ce qui a été fait, et **fiabiliser**
+les chiffres qui en découlent.
+
+### PR 38 — Documents réels : preuves, photos avant/après, devis et factures
+Reprend et élargit l'ancienne PR 14, jamais réalisée. État actuel à
+connaître avant de commencer : la table `documents` existe depuis la
+migration 0001 (colonnes `storage_path`, `type doc_type`, `amount`,
+`paid`, `uploaded_by`) et l'enum `doc_type` couvre déjà
+`devis, facture, recu, justificatif, convention, note, etude, photo,
+livrable, rapport`. **Mais rien n'est branché** : aucun bucket Storage
+`documents`, aucune server action, aucun composant d'upload, aucune
+requête `from('documents')` dans l'application. Le seul usage est le
+compteur « 📎 N doc » sur chaque tâche, structurellement toujours à 0.
+
+Livrables :
+- Bucket Supabase Storage privé `documents`, chemins
+  `projets/<project_id>/<phase_id|_>/<uuid>-<nom>`, policies alignées sur
+  `is_project_member()` (lecture) et sur le rôle projet (dépôt).
+- **Rattachement élargi** : `documents` ne peut aujourd'hui se rattacher
+  qu'à une tâche (`task_id`) ou une ligne budgétaire (`budget_line_id`).
+  Ajouter `project_id` et `phase_id` pour permettre le dépôt au niveau
+  d'une phase et au niveau du projet, sans passer par une tâche.
+- **Photos avant / après par phase** : champ `moment` (`avant`, `apres`,
+  `pendant`) sur les documents de type `photo`, galerie comparative dans
+  l'onglet Tâches au niveau de la phase. C'est la matière première des
+  rapports terrain et des supports de communication.
+- **Preuve de réalisation** : le chef de projet joint un justificatif à
+  une tâche pour attester qu'elle est faite. Une tâche passée à
+  « terminée » sans pièce jointe est signalée (pas bloquée).
+- **Devis et factures** : dépôt sur la ligne budgétaire, avec montant et
+  statut payé. Réactive la table `validations` (existante, inutilisée) :
+  circuit devis déposé → validé → facture → payé.
+- **Zone documentaire centralisée par projet** : nouvel onglet
+  « Documents » listant *tout* le projet d'un coup, filtrable par type,
+  par phase, par tâche et par date, avec téléchargement groupé (ZIP).
+  C'est la demande explicite : accéder à l'ensemble en un seul endroit.
+- **Rapports IA** : `report-actions.ts` devra citer les pièces
+  disponibles par phase — un rapport qui s'appuie sur des preuves
+  datées vaut mieux qu'un rapport qui s'appuie sur des pourcentages.
+
+⚠️ Dette d'honnêteté à corriger dans la même PR : l'aide contextuelle
+(`lib/help-content.ts`) affirme déjà que « les justificatifs se déposent
+directement sur la ligne concernée » et que les tâches portent des
+« documents ». C'est faux tant que cette PR n'est pas livrée.
+
+### PR 39 — Prévu / engagé / réalisé : piloter l'écart
+**Cadrage produit fixé par YCID le 25/07/2026.** Les lignes budgétaires
+sont **le budget établi au départ** : la référence, celle de la
+convention de financement. À l'exécution, les montants réels s'en
+écartent — au-dessus ou en dessous. Ce que la plateforme doit rendre
+lisible, c'est précisément cet écart : *ce qui était prévu* face à
+*ce qui a été réalisé*.
+
+Cette formulation **tranche la question laissée ouverte** : le
+prévisionnel ne se saisit qu'à un seul endroit, la ligne budgétaire.
+`phases.budget`, saisi à la main dans le dialogue de phase et jamais
+confronté aux lignes, devient donc **calculé** (Σ des lignes de la
+phase) et le champ de saisie disparaît. Garder un second montant
+modifiable pour la même chose ne fait que produire des divergences
+silencieuses — rien n'empêche aujourd'hui une phase déclarée à 50 000 €
+dont les lignes totalisent 12 000 €. Même raisonnement à instruire pour
+`projects.budget`.
+
+Le modèle est **déjà spécifié** dans `docs/spec-phase1-mvp.md` §10.3 et
+§10.4, jamais implémenté. Les colonnes nécessaires existent aussi déjà :
+`documents.amount`, `documents.paid`, et la table `validations`
+(inutilisée). Formules de la spec, à reprendre telles quelles :
+`engaged = Σ devis validés`, `paid = Σ reçus + factures payées`,
+`remaining_to_commit = planned − engaged`, `remaining_to_pay =
+engaged − paid`.
+
+Dépend donc de la **PR 38** : sans dépôt de devis et de factures, le
+réalisé n'a aucune source. Les deux PR se livrent dans cet ordre.
+
+Livrables :
+- Trois montants par ligne, par phase et par projet : **prévu**
+  (référence), **engagé** (devis validés), **payé** (factures et reçus),
+  plus les deux restes. Barre de consommation sur chaque niveau.
+- **Écart prévu / réalisé** affiché explicitement, en valeur et en
+  pourcentage, avec le signe : un projet sous-consommé est une
+  information de pilotage au même titre qu'un dépassement.
+- **Gel du prévisionnel.** Une fois la convention signée, modifier
+  `planned_amount` doit être tracé (`audit_log`, motif obligatoire) et
+  réservé aux mêmes profils que les tâches terminées. Sans cela l'écart
+  s'efface tout seul : on ne compare pas à un plan qui bouge.
+  À défaut d'un gel dur, conserver le prévisionnel initial dans une
+  colonne dédiée (`planned_amount_initial`) et comparer à celle-ci.
+- Onglet Budget **regroupé par phase**, sous-total par phase et section
+  « hors phase » pour les lignes non rattachées.
+- KPI projet complétés (§10.4) : prévu hors valorisation, engagé, payé,
+  restes, valorisations, et répartition par financeur en prévu/engagé —
+  c'est la vue qu'attend un financeur.
+- Nombre de tâches par phase affiché à côté de l'avancement (aujourd'hui
+  seul le total projet est visible, dans le libellé de l'onglet).
+- Avancement de phase : décider s'il reste une moyenne simple des tâches
+  ou s'il est pondéré (par budget, ou par durée).
+- `report-actions.ts` : inclure `phase_id` **et les montants réalisés**
+  dans le select des lignes budgétaires — aujourd'hui `phase_id` en est
+  absent, donc le modèle ne *peut pas* rapprocher une ligne de sa phase,
+  ni commenter un écart qu'il ne voit pas.

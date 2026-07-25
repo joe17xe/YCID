@@ -48,12 +48,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex h-full min-h-screen">
+      {/* Lien d'évitement (RGAA 12.7) : première tabulation de la page */}
+      <a href="#contenu-principal" className="skip-link">Aller au contenu principal</a>
       <Sidebar showAdmin={showAdmin} brandName={settings.brandName} logoUrl={settings.logoUrl} />
       <div className="flex-1 flex flex-col overflow-auto min-w-0" style={{ background: "#F5F6F4" }}>
         <MobileNav showAdmin={showAdmin} brandName={settings.brandName} logoUrl={settings.logoUrl}
           name={name} email={email} avatarUrl={avatarUrl} />
         <Header name={name} email={email} avatarUrl={avatarUrl} roles={roles} isAdmin={showAdmin} />
-        <main className="flex-1">{children}</main>
+        <main id="contenu-principal" tabIndex={-1} className="flex-1">{children}</main>
         <Footer brandName={settings.brandName} />
       </div>
     </div>

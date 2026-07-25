@@ -1,10 +1,11 @@
 "use client"
-import { useState, useTransition } from "react"
+import { useEffect, useState, useTransition } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Settings, LogOut, ChevronDown } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import NotificationsBell from "@/components/layout/NotificationsBell"
+import InstallAppButton from "@/components/layout/InstallAppButton"
 import { useTranslations, useLocale } from "next-intl"
 
 export interface HeaderRole { label: string; project: string }
@@ -36,6 +37,14 @@ export default function Header({ name, email, avatarUrl, roles, isAdmin }: Heade
   const t = useTranslations("account")
   const locale = useLocale()
 
+  // Échap referme le menu de compte (RGAA : tout au clavier)
+  useEffect(() => {
+    if (!open) return
+    function onKeyDown(e: KeyboardEvent) { if (e.key === "Escape") setOpen(false) }
+    document.addEventListener("keydown", onKeyDown)
+    return () => document.removeEventListener("keydown", onKeyDown)
+  }, [open])
+
   async function signOut() {
     await supabase.auth.signOut()
     router.push("/")
@@ -65,7 +74,7 @@ export default function Header({ name, email, avatarUrl, roles, isAdmin }: Heade
 
         {open && (
           <>
-            <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+            <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} aria-hidden="true" />
             <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl border shadow-lg z-50 overflow-hidden" style={{ borderColor: "#E3E6E2" }} role="menu">
               {/* Identité (lecture seule) */}
               <div className="px-4 py-3 border-b" style={{ borderColor: "#E3E6E2" }}>
@@ -92,12 +101,14 @@ export default function Header({ name, email, avatarUrl, roles, isAdmin }: Heade
               </div>
               {/* Langue */}
               <div className="px-4 py-3 border-b" style={{ borderColor: "#E3E6E2" }}>
-                <div className="text-xs font-semibold mb-1.5 tracking-wider" style={{ color: "#66716B" }}>{t("language")}</div>
-                <div className="flex gap-2">
+                <div id="header-language-label" className="text-xs font-semibold mb-1.5 tracking-wider" style={{ color: "#66716B" }}>{t("language")}</div>
+                <div className="flex gap-2" role="group" aria-labelledby="header-language-label">
                   {(["fr", "en"] as const).map(l => (
                     <button
                       key={l}
                       onClick={() => setLocale(l)}
+                      aria-pressed={locale === l}
+                      aria-label={l === "fr" ? "Français" : "English"}
                       className="px-3 py-1 rounded-xl border text-xs font-semibold uppercase transition-colors"
                       style={{
                         background: locale === l ? "var(--brand-accent-soft,#E4F0EC)" : "#fff",
@@ -109,6 +120,10 @@ export default function Header({ name, email, avatarUrl, roles, isAdmin }: Heade
                     </button>
                   ))}
                 </div>
+              </div>
+              {/* Installation (masqué si déjà installée ou non proposable) */}
+              <div className="px-2 pt-2 empty:hidden">
+                <InstallAppButton />
               </div>
               {/* Préférences */}
               <Link

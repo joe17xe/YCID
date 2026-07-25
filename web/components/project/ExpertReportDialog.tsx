@@ -1,6 +1,7 @@
 "use client"
 import { useState } from "react"
-import { Sparkles, X, Copy, Download, Printer, Check, History, ChevronLeft } from "lucide-react"
+import { Sparkles, Copy, Download, Printer, Check, History, ChevronLeft } from "lucide-react"
+import Modal, { ErrorMessage } from "@/components/ui/Modal"
 import { generateExpertReport, listReports, getReport, type ReportSummary } from "@/app/(app)/projets/[id]/report-actions"
 
 // ============================================================
@@ -128,29 +129,35 @@ export default function ExpertReportDialog({ projectId, projectName }: { project
         <Sparkles size={15} /> Rapport d&apos;expert IA
       </button>
 
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40" onClick={() => !loading && setOpen(false)} />
-          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: "#E3E6E2" }}>
-              <h2 className="font-bold flex items-center gap-2" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>
-                <Sparkles size={18} style={{ color: "var(--brand-accent,#0E6B5C)" }} /> Rapport d&apos;expert IA
-              </h2>
-              <span className="flex items-center gap-1">
-                {history.length > 0 && (
-                  <button onClick={() => setShowHistory(v => !v)}
-                    className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border font-medium"
-                    style={{ borderColor: "#E3E6E2", color: showHistory ? "var(--brand-accent,#0E6B5C)" : "#17211D" }}>
-                    {showHistory ? <><ChevronLeft size={13} /> Retour</> : <><History size={13} /> Historique ({history.length})</>}
-                  </button>
-                )}
-                <button onClick={() => setOpen(false)} disabled={loading} aria-label="Fermer" className="p-1.5 rounded-lg hover:bg-gray-50" style={{ color: "#66716B" }}>
-                  <X size={20} />
-                </button>
-              </span>
-            </div>
-
-            <div className="flex-1 overflow-y-auto px-6 py-5">
+      <Modal
+        open={open}
+        onClose={() => setOpen(false)}
+        busy={loading}
+        title="Rapport d'expert IA"
+        icon={<Sparkles size={18} style={{ color: "var(--brand-accent,#0E6B5C)" }} />}
+        headerExtra={history.length > 0 ? (
+          <button onClick={() => setShowHistory(v => !v)} aria-pressed={showHistory}
+            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border font-medium"
+            style={{ borderColor: "#E3E6E2", color: showHistory ? "var(--brand-accent,#0E6B5C)" : "#17211D" }}>
+            {showHistory ? <><ChevronLeft size={13} /> Retour</> : <><History size={13} /> Historique ({history.length})</>}
+          </button>
+        ) : undefined}
+        footer={report ? (
+          <>
+            <button onClick={copy} className="flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-medium" style={{ borderColor: "#E3E6E2", color: "#17211D" }}>
+              {copied ? <Check size={14} style={{ color: "var(--brand-accent,#0E6B5C)" }} /> : <Copy size={14} />} {copied ? "Copié" : "Copier"}
+            </button>
+            <button onClick={download} className="flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-medium" style={{ borderColor: "#E3E6E2", color: "#17211D" }}>
+              <Download size={14} /> Télécharger
+            </button>
+            <button onClick={print} className="flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-medium" style={{ borderColor: "#E3E6E2", color: "#17211D" }}>
+              <Printer size={14} /> Imprimer / PDF
+            </button>
+            <button onClick={generate} className="ml-auto text-xs underline" style={{ color: "#66716B" }}>Régénérer</button>
+          </>
+        ) : undefined}
+      >
+        <>
               {showHistory ? (
                 <div className="divide-y" style={{ borderColor: "#E3E6E2" }}>
                   <p className="text-xs pb-3" style={{ color: "#66716B" }}>
@@ -198,39 +205,16 @@ export default function ExpertReportDialog({ projectId, projectName }: { project
                 </div>
               )}
               {loading && (
-                <div className="text-center py-12">
-                  <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin mx-auto mb-4" style={{ borderColor: "var(--brand-accent,#0E6B5C)", borderTopColor: "transparent" }} />
+                <div className="text-center py-12" role="status" aria-live="polite">
+                  <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin mx-auto mb-4" style={{ borderColor: "var(--brand-accent,#0E6B5C)", borderTopColor: "transparent" }} aria-hidden="true" />
                   <p className="text-sm" style={{ color: "#66716B" }}>Analyse des données du projet en cours…</p>
                 </div>
               )}
-              {error && (
-                <div className="text-sm rounded-lg px-4 py-3 my-4" style={{ background: "#F6E7E5", color: "#A3342C" }}>
-                  {error}
-                </div>
-              )}
+              {error && <div className="my-4"><ErrorMessage>{error}</ErrorMessage></div>}
               {report && <div>{renderMarkdown(report)}</div>}
               </>)}
-            </div>
-
-            {report && (
-              <div className="flex items-center gap-2 px-6 py-4 border-t flex-wrap" style={{ borderColor: "#E3E6E2" }}>
-                <button onClick={copy} className="flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-medium" style={{ borderColor: "#E3E6E2", color: "#17211D" }}>
-                  {copied ? <Check size={14} style={{ color: "var(--brand-accent,#0E6B5C)" }} /> : <Copy size={14} />} {copied ? "Copié" : "Copier"}
-                </button>
-                <button onClick={download} className="flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-medium" style={{ borderColor: "#E3E6E2", color: "#17211D" }}>
-                  <Download size={14} /> Télécharger
-                </button>
-                <button onClick={print} className="flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-medium" style={{ borderColor: "#E3E6E2", color: "#17211D" }}>
-                  <Printer size={14} /> Imprimer / PDF
-                </button>
-                <button onClick={generate} className="ml-auto text-xs underline" style={{ color: "#66716B" }}>
-                  Régénérer
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+        </>
+      </Modal>
     </>
   )
 }

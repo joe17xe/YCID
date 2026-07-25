@@ -1,7 +1,8 @@
 "use client"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Globe, X, Copy, Check, ExternalLink } from "lucide-react"
+import { Globe, Copy, Check, ExternalLink } from "lucide-react"
+import Modal, { ErrorMessage } from "@/components/ui/Modal"
 import { setPublicPage } from "@/app/(app)/projets/[id]/actions"
 
 // ============================================================
@@ -39,17 +40,15 @@ export default function PublicPageDialog({ projectId, token }: { projectId: stri
         <Globe size={15} /> Page publique{token ? " · active" : ""}
       </button>
 
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
-          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold flex items-center gap-2" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>
-                <Globe size={18} style={{ color: "var(--brand-accent,#0E6B5C)" }} /> Page vitrine publique
-              </h3>
-              <button onClick={() => setOpen(false)} aria-label="Fermer" style={{ color: "#66716B" }}><X size={20} /></button>
-            </div>
-
+      <Modal
+        open={open}
+        onClose={() => setOpen(false)}
+        busy={busy}
+        maxWidth="max-w-lg"
+        title="Page vitrine publique"
+        icon={<Globe size={18} style={{ color: "var(--brand-accent,#0E6B5C)" }} />}
+      >
+        <>
             <p className="text-sm mb-4" style={{ color: "#66716B" }}>
               Une page en <strong>lecture seule</strong>, accessible sans compte via un lien
               non devinable : avancement, étapes, indicateurs et actualités publiées.
@@ -60,7 +59,8 @@ export default function PublicPageDialog({ projectId, token }: { projectId: stri
             {token ? (
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <input readOnly value={url ?? ""} className="flex-1 px-3 py-2 rounded-xl border text-xs font-mono" style={{ borderColor: "#E3E6E2", color: "#17211D" }} />
+                  <label htmlFor="public-page-url" className="sr-only">Adresse de la page publique</label>
+                  <input id="public-page-url" readOnly value={url ?? ""} className="flex-1 px-3 py-2 rounded-xl border text-xs font-mono" style={{ borderColor: "#E3E6E2", color: "#17211D" }} />
                   <button onClick={copyUrl} className="flex items-center gap-1.5 px-3 py-2 rounded-xl border text-sm font-medium flex-shrink-0" style={{ borderColor: "#E3E6E2", color: "#17211D" }}>
                     {copied ? <Check size={14} style={{ color: "var(--brand-accent,#0E6B5C)" }} /> : <Copy size={14} />} {copied ? "Copié" : "Copier"}
                   </button>
@@ -84,10 +84,9 @@ export default function PublicPageDialog({ projectId, token }: { projectId: stri
               </button>
             )}
 
-            {error && <p className="text-sm rounded-lg px-3 py-2 mt-3" style={{ background: "#F6E7E5", color: "#A3342C" }}>{error}</p>}
-          </div>
-        </div>
-      )}
+            {error && <div className="mt-3"><ErrorMessage>{error}</ErrorMessage></div>}
+        </>
+      </Modal>
     </>
   )
 }

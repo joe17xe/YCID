@@ -1,7 +1,8 @@
 "use client"
-import { useMemo, useState } from "react"
+import { useId, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Megaphone, Sparkles, Plus, Copy, Check, X, Trash2 } from "lucide-react"
+import { Megaphone, Sparkles, Plus, Copy, Check, Trash2 } from "lucide-react"
+import Modal, { ErrorMessage } from "@/components/ui/Modal"
 import {
   generateCommPlan, generateCampaignContents, updateCampaign,
   setCampaignStatus, createCampaign, deleteCampaign,
@@ -279,25 +280,21 @@ export default function CommPanel({ projectId, campaigns, members, canManage, us
       )}
 
       {/* Dialogue création manuelle */}
-      {creating && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setCreating(false)} />
-          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-            <h3 className="font-bold mb-4" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>Nouvelle campagne</h3>
-            <label className="block text-xs font-semibold mb-1 tracking-wider" style={{ color: "#66716B" }}>TITRE</label>
-            <input value={newTitle} onChange={e => setNewTitle(e.target.value)} className="w-full px-3 py-2.5 rounded-xl border text-sm mb-3" style={{ borderColor: "#E3E6E2" }} />
-            <label className="block text-xs font-semibold mb-1 tracking-wider" style={{ color: "#66716B" }}>DATE PRÉVUE</label>
-            <input type="date" value={newDate} onChange={e => setNewDate(e.target.value)} className="w-full px-3 py-2.5 rounded-xl border text-sm mb-4" style={{ borderColor: "#E3E6E2" }} />
-            <div className="flex gap-2">
-              <button onClick={() => run("create", async () => { const r = await createCampaign(projectId, { title: newTitle, scheduled_date: newDate }); if (r.ok) { setCreating(false); setNewTitle(""); setNewDate("") } return r })}
-                disabled={!!busy} className="px-4 py-2 rounded-xl text-white text-sm font-semibold" style={{ background: "var(--brand-accent,#0E6B5C)" }}>
-                Créer
-              </button>
-              <button onClick={() => setCreating(false)} className="text-sm underline" style={{ color: "#66716B" }}>Annuler</button>
-            </div>
+      <Modal open={creating} onClose={() => setCreating(false)} busy={!!busy} maxWidth="max-w-md" title="Nouvelle campagne">
+        <>
+          <label htmlFor="new-campaign-title" className="block text-xs font-semibold mb-1 tracking-wider" style={{ color: "#66716B" }}>TITRE</label>
+          <input id="new-campaign-title" value={newTitle} onChange={e => setNewTitle(e.target.value)} className="w-full px-3 py-2.5 rounded-xl border text-sm mb-3" style={{ borderColor: "#E3E6E2" }} />
+          <label htmlFor="new-campaign-date" className="block text-xs font-semibold mb-1 tracking-wider" style={{ color: "#66716B" }}>DATE PRÉVUE</label>
+          <input id="new-campaign-date" type="date" value={newDate} onChange={e => setNewDate(e.target.value)} className="w-full px-3 py-2.5 rounded-xl border text-sm mb-4" style={{ borderColor: "#E3E6E2" }} />
+          <div className="flex gap-2">
+            <button onClick={() => run("create", async () => { const r = await createCampaign(projectId, { title: newTitle, scheduled_date: newDate }); if (r.ok) { setCreating(false); setNewTitle(""); setNewDate("") } return r })}
+              disabled={!!busy} className="px-4 py-2 rounded-xl text-white text-sm font-semibold" style={{ background: "var(--brand-accent,#0E6B5C)" }}>
+              Créer
+            </button>
+            <button onClick={() => setCreating(false)} className="text-sm underline" style={{ color: "#66716B" }}>Annuler</button>
           </div>
-        </div>
-      )}
+        </>
+      </Modal>
 
       {/* Éditeur de campagne */}
       {open && (
@@ -318,6 +315,7 @@ function CampaignEditor({ campaign, members, canManage, userId, busy, error, run
   run: (key: string, fn: () => Promise<{ ok: boolean; error?: string }>) => Promise<void>
   onClose: () => void
 }) {
+  const uid = useId()
   const canEdit = canManage || campaign.responsible_id === userId
   const [title, setTitle] = useState(campaign.title)
   const [date, setDate] = useState(campaign.scheduled_date ?? "")
@@ -348,167 +346,14 @@ function CampaignEditor({ campaign, members, canManage, userId, busy, error, run
   }))
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[92vh] flex flex-col">
-        <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: "#E3E6E2" }}>
-          <div className="flex items-center gap-2 min-w-0">
-            <Megaphone size={18} style={{ color: "var(--brand-accent,#0E6B5C)" }} />
-            <span className="font-bold truncate" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>{campaign.title}</span>
-            <span className="text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0" style={{ color: st.fg, background: st.bg }}>{st.label}</span>
-          </div>
-          <button onClick={onClose} aria-label="Fermer" className="p-1.5 rounded-lg hover:bg-gray-50" style={{ color: "#66716B" }}><X size={20} /></button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
-          {/* Métadonnées */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="sm:col-span-3">
-              <label className="block text-xs font-semibold mb-1 tracking-wider" style={{ color: "#66716B" }}>TITRE</label>
-              <input value={title} onChange={e => setTitle(e.target.value)} disabled={!canEdit} className="w-full px-3 py-2 rounded-xl border text-sm" style={{ borderColor: "#E3E6E2" }} />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold mb-1 tracking-wider" style={{ color: "#66716B" }}>DATE PRÉVUE</label>
-              <input type="date" value={date} onChange={e => setDate(e.target.value)} disabled={!canEdit} className="w-full px-3 py-2 rounded-xl border text-sm" style={{ borderColor: "#E3E6E2" }} />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold mb-1 tracking-wider" style={{ color: "#66716B" }}>RESPONSABLE</label>
-              <select value={responsible} onChange={e => setResponsible(e.target.value)} disabled={!canManage} className="w-full px-3 py-2 rounded-xl border text-sm" style={{ borderColor: "#E3E6E2" }}>
-                <option value="">—</option>
-                {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold mb-1 tracking-wider" style={{ color: "#66716B" }}>LANGUES</label>
-              <div className="flex gap-1.5 pt-1.5">
-                {Object.entries(LANG_LABEL).map(([code]) => (
-                  <button key={code} type="button" disabled={!canEdit}
-                    onClick={() => setLangs(l => l.includes(code) ? l.filter(x => x !== code) : [...l, code])}
-                    className="px-2.5 py-1 rounded-lg border text-xs font-semibold uppercase"
-                    style={{
-                      background: langs.includes(code) ? "var(--brand-accent-soft,#E4F0EC)" : "#fff",
-                      borderColor: langs.includes(code) ? "var(--brand-accent,#0E6B5C)" : "#E3E6E2",
-                      color: langs.includes(code) ? "var(--brand-accent,#0E6B5C)" : "#66716B",
-                    }}>{code}</button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Brief : sans lui, l'IA ne peut produire qu'un texte générique */}
-          <div className="rounded-xl border p-4 space-y-3" style={{ borderColor: "#E3E6E2" }}>
-            <div className="text-xs font-semibold tracking-wider" style={{ color: "#66716B" }}>BRIEF DE COMMUNICATION</div>
-            <div>
-              <span className="block text-xs mb-1.5" style={{ color: "#66716B" }}>Canaux à produire</span>
-              <div className="flex flex-wrap gap-1.5">
-                {CHANNELS.map(ch => {
-                  const on = brief.channels.includes(ch.key)
-                  return (
-                    <button key={ch.key} type="button" disabled={!canEdit} aria-pressed={on}
-                      onClick={() => setBrief(b => ({ ...b, channels: on ? b.channels.filter(c => c !== ch.key) : [...b.channels, ch.key] }))}
-                      className="px-2.5 py-1 rounded-lg border text-xs font-medium"
-                      style={{
-                        background: on ? "var(--brand-accent,#0E6B5C)" : "#fff",
-                        borderColor: on ? "var(--brand-accent,#0E6B5C)" : "#E3E6E2",
-                        color: on ? "#fff" : "#66716B",
-                      }}>{ch.label}</button>
-                  )
-                })}
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label className="block text-xs mb-1" style={{ color: "#66716B" }}>Audience</label>
-                <input list="comm-audiences" value={brief.audience} disabled={!canEdit}
-                  onChange={e => setBrief(b => ({ ...b, audience: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-xl border text-sm" style={{ borderColor: "#E3E6E2" }} />
-                <datalist id="comm-audiences">{AUDIENCES.map(a => <option key={a} value={a} />)}</datalist>
-              </div>
-              <div>
-                <label className="block text-xs mb-1" style={{ color: "#66716B" }}>Objectif</label>
-                <input list="comm-objectives" value={brief.objective} disabled={!canEdit}
-                  onChange={e => setBrief(b => ({ ...b, objective: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-xl border text-sm" style={{ borderColor: "#E3E6E2" }} />
-                <datalist id="comm-objectives">{OBJECTIVES.map(o => <option key={o} value={o} />)}</datalist>
-              </div>
-              <div>
-                <label className="block text-xs mb-1" style={{ color: "#66716B" }}>Ton</label>
-                <select value={brief.tone} disabled={!canEdit}
-                  onChange={e => setBrief(b => ({ ...b, tone: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-xl border text-sm" style={{ borderColor: "#E3E6E2" }}>
-                  {TONES.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs mb-1" style={{ color: "#66716B" }}>Message clé / appel à l&apos;action</label>
-              <textarea rows={2} value={brief.keyMessage} disabled={!canEdit}
-                onChange={e => setBrief(b => ({ ...b, keyMessage: e.target.value }))}
-                className="w-full px-3 py-2 rounded-xl border text-sm" style={{ borderColor: "#E3E6E2" }}
-                placeholder="Ex. : remercier la municipalité de Jeïta et inviter à la visite du 12 septembre." />
-            </div>
-            <p className="text-xs" style={{ color: "#66716B" }}>
-              Enregistrez le brief avant de générer : il oriente le style, la longueur et l&apos;angle de chaque contenu.
-            </p>
-          </div>
-
-          {/* Génération + contenus */}
-          {canEdit && (
-            <button onClick={() => run("gen", () => generateCampaignContents(campaign.id))} disabled={!!busy}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold"
-              style={{ background: "var(--brand-accent,#0E6B5C)", opacity: busy === "gen" ? 0.7 : 1 }}>
-              <Sparkles size={15} /> {busy === "gen" ? "Génération en cours…" : contents ? "Régénérer les contenus IA" : "Générer les contenus IA"}
-            </button>
-          )}
-
-          {contents && (
-            <div>
-              <div className="flex gap-1 mb-2">
-                {langs.filter(l => contents[l]).map(l => (
-                  <button key={l} onClick={() => setActiveLang(l)} className="px-3 py-1.5 rounded-lg text-xs font-semibold"
-                    style={{
-                      background: activeLang === l ? "var(--brand-accent-soft,#E4F0EC)" : "#EEF0EE",
-                      color: activeLang === l ? "var(--brand-accent,#0E6B5C)" : "#66716B",
-                    }}>{LANG_LABEL[l] ?? l}</button>
-                ))}
-              </div>
-              <div className="space-y-3">
-                {CHANNELS.filter(ch => contents[activeLang]?.[ch.key] !== undefined || brief.channels.includes(ch.key)).map(ch => (
-                  <div key={ch.key}>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="text-xs font-semibold tracking-wider" style={{ color: "#66716B" }}>{ch.label.toUpperCase()}</label>
-                      <button onClick={() => copy(`${activeLang}-${ch.key}`, contents[activeLang]?.[ch.key] ?? "")}
-                        className="flex items-center gap-1 text-xs underline" style={{ color: "var(--brand-accent,#0E6B5C)" }}>
-                        {copied === `${activeLang}-${ch.key}` ? <><Check size={12} /> Copié</> : <><Copy size={12} /> Copier</>}
-                      </button>
-                    </div>
-                    <textarea rows={4} dir={activeLang === "ar" ? "rtl" : "ltr"} disabled={!canEdit}
-                      value={contents[activeLang]?.[ch.key] ?? ""}
-                      onChange={e => setContents(c => ({ ...(c ?? {}), [activeLang]: { ...(c?.[activeLang] ?? {}), [ch.key]: e.target.value } }))}
-                      className="w-full px-3 py-2 rounded-xl border text-sm" style={{ borderColor: "#E3E6E2" }} />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Check-list éthique */}
-          <div className="rounded-xl border p-4" style={{ borderColor: "#E3E6E2", background: "#FAFBFA" }}>
-            <div className="text-xs font-semibold tracking-wider mb-2" style={{ color: "#66716B" }}>CHECK-LIST AVANT VALIDATION</div>
-            {CHECKLIST_ITEMS.map(item => (
-              <label key={item.key} className="flex items-start gap-2 py-1 cursor-pointer">
-                <input type="checkbox" checked={!!checklist[item.key]} disabled={!canEdit}
-                  onChange={e => setChecklist(c => ({ ...c, [item.key]: e.target.checked }))} className="mt-0.5" />
-                <span className="text-sm" style={{ color: "#17211D" }}>{item.label}</span>
-              </label>
-            ))}
-          </div>
-
-          {error && <p className="text-sm rounded-lg px-3 py-2" style={{ background: "#F6E7E5", color: "#A3342C" }}>{error}</p>}
-        </div>
-
-        {/* Actions */}
-        <div className="flex items-center gap-2 px-6 py-4 border-t flex-wrap" style={{ borderColor: "#E3E6E2" }}>
+    <Modal
+      open
+      onClose={onClose}
+      busy={!!busy}
+      title={campaign.title}
+      icon={<Megaphone size={18} style={{ color: "var(--brand-accent,#0E6B5C)" }} />}
+      headerExtra={<span className="text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0" style={{ color: st.fg, background: st.bg }}>{st.label}</span>}
+      footer={<>
           {canEdit && (
             <button onClick={save} disabled={!!busy} className="px-4 py-2 rounded-xl text-white text-sm font-semibold" style={{ background: "var(--brand-accent,#0E6B5C)" }}>
               {busy === "save" ? "…" : "Enregistrer"}
@@ -536,11 +381,160 @@ function CampaignEditor({ campaign, members, canManage, userId, busy, error, run
           {canManage && (
             <button onClick={() => run("del", async () => { const r = await deleteCampaign(campaign.id); if (r.ok) onClose(); return r })}
               disabled={!!busy} className="flex items-center gap-1 text-xs underline" style={{ color: "#A3342C" }}>
-              <Trash2 size={12} /> Supprimer
+              <Trash2 size={12} aria-hidden="true" /> Supprimer
             </button>
           )}
+      </>}
+    >
+        <div className="space-y-4">
+          {/* Métadonnées */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="sm:col-span-3">
+              <label htmlFor={`${uid}-title`} className="block text-xs font-semibold mb-1 tracking-wider" style={{ color: "#66716B" }}>TITRE</label>
+              <input id={`${uid}-title`} value={title} onChange={e => setTitle(e.target.value)} disabled={!canEdit} className="w-full px-3 py-2 rounded-xl border text-sm" style={{ borderColor: "#E3E6E2" }} />
+            </div>
+            <div>
+              <label htmlFor={`${uid}-date`} className="block text-xs font-semibold mb-1 tracking-wider" style={{ color: "#66716B" }}>DATE PRÉVUE</label>
+              <input id={`${uid}-date`} type="date" value={date} onChange={e => setDate(e.target.value)} disabled={!canEdit} className="w-full px-3 py-2 rounded-xl border text-sm" style={{ borderColor: "#E3E6E2" }} />
+            </div>
+            <div>
+              <label htmlFor={`${uid}-resp`} className="block text-xs font-semibold mb-1 tracking-wider" style={{ color: "#66716B" }}>RESPONSABLE</label>
+              <select id={`${uid}-resp`} value={responsible} onChange={e => setResponsible(e.target.value)} disabled={!canManage} className="w-full px-3 py-2 rounded-xl border text-sm" style={{ borderColor: "#E3E6E2" }}>
+                <option value="">—</option>
+                {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+              </select>
+            </div>
+            <div role="group" aria-labelledby={`${uid}-langs`}>
+              <span id={`${uid}-langs`} className="block text-xs font-semibold mb-1 tracking-wider" style={{ color: "#66716B" }}>LANGUES</span>
+              <div className="flex gap-1.5 pt-1.5">
+                {Object.entries(LANG_LABEL).map(([code, label]) => (
+                  <button key={code} type="button" disabled={!canEdit}
+                    aria-pressed={langs.includes(code)} aria-label={label}
+                    onClick={() => setLangs(l => l.includes(code) ? l.filter(x => x !== code) : [...l, code])}
+                    className="px-2.5 py-1 rounded-lg border text-xs font-semibold uppercase"
+                    style={{
+                      background: langs.includes(code) ? "var(--brand-accent-soft,#E4F0EC)" : "#fff",
+                      borderColor: langs.includes(code) ? "var(--brand-accent,#0E6B5C)" : "#E3E6E2",
+                      color: langs.includes(code) ? "var(--brand-accent,#0E6B5C)" : "#66716B",
+                    }}>{code}</button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Brief : sans lui, l'IA ne peut produire qu'un texte générique */}
+          <div className="rounded-xl border p-4 space-y-3" style={{ borderColor: "#E3E6E2" }}>
+            <div className="text-xs font-semibold tracking-wider" style={{ color: "#66716B" }}>BRIEF DE COMMUNICATION</div>
+            <div role="group" aria-labelledby={`${uid}-channels`}>
+              <span id={`${uid}-channels`} className="block text-xs mb-1.5" style={{ color: "#66716B" }}>Canaux à produire</span>
+              <div className="flex flex-wrap gap-1.5">
+                {CHANNELS.map(ch => {
+                  const on = brief.channels.includes(ch.key)
+                  return (
+                    <button key={ch.key} type="button" disabled={!canEdit} aria-pressed={on}
+                      onClick={() => setBrief(b => ({ ...b, channels: on ? b.channels.filter(c => c !== ch.key) : [...b.channels, ch.key] }))}
+                      className="px-2.5 py-1 rounded-lg border text-xs font-medium"
+                      style={{
+                        background: on ? "var(--brand-accent,#0E6B5C)" : "#fff",
+                        borderColor: on ? "var(--brand-accent,#0E6B5C)" : "#E3E6E2",
+                        color: on ? "#fff" : "#66716B",
+                      }}>{ch.label}</button>
+                  )
+                })}
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label htmlFor={`${uid}-audience`} className="block text-xs mb-1" style={{ color: "#66716B" }}>Audience</label>
+                <input id={`${uid}-audience`} list="comm-audiences" value={brief.audience} disabled={!canEdit}
+                  onChange={e => setBrief(b => ({ ...b, audience: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl border text-sm" style={{ borderColor: "#E3E6E2" }} />
+                <datalist id="comm-audiences">{AUDIENCES.map(a => <option key={a} value={a} />)}</datalist>
+              </div>
+              <div>
+                <label htmlFor={`${uid}-objective`} className="block text-xs mb-1" style={{ color: "#66716B" }}>Objectif</label>
+                <input id={`${uid}-objective`} list="comm-objectives" value={brief.objective} disabled={!canEdit}
+                  onChange={e => setBrief(b => ({ ...b, objective: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl border text-sm" style={{ borderColor: "#E3E6E2" }} />
+                <datalist id="comm-objectives">{OBJECTIVES.map(o => <option key={o} value={o} />)}</datalist>
+              </div>
+              <div>
+                <label htmlFor={`${uid}-tone`} className="block text-xs mb-1" style={{ color: "#66716B" }}>Ton</label>
+                <select id={`${uid}-tone`} value={brief.tone} disabled={!canEdit}
+                  onChange={e => setBrief(b => ({ ...b, tone: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl border text-sm" style={{ borderColor: "#E3E6E2" }}>
+                  {TONES.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+            </div>
+            <div>
+              <label htmlFor={`${uid}-key`} className="block text-xs mb-1" style={{ color: "#66716B" }}>Message clé / appel à l&apos;action</label>
+              <textarea id={`${uid}-key`} rows={2} value={brief.keyMessage} disabled={!canEdit}
+                onChange={e => setBrief(b => ({ ...b, keyMessage: e.target.value }))}
+                className="w-full px-3 py-2 rounded-xl border text-sm" style={{ borderColor: "#E3E6E2" }}
+                placeholder="Ex. : remercier la municipalité de Jeïta et inviter à la visite du 12 septembre." />
+            </div>
+            <p className="text-xs" style={{ color: "#66716B" }}>
+              Enregistrez le brief avant de générer : il oriente le style, la longueur et l&apos;angle de chaque contenu.
+            </p>
+          </div>
+
+          {/* Génération + contenus */}
+          {canEdit && (
+            <button onClick={() => run("gen", () => generateCampaignContents(campaign.id))} disabled={!!busy}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold"
+              style={{ background: "var(--brand-accent,#0E6B5C)", opacity: busy === "gen" ? 0.7 : 1 }}>
+              <Sparkles size={15} /> {busy === "gen" ? "Génération en cours…" : contents ? "Régénérer les contenus IA" : "Générer les contenus IA"}
+            </button>
+          )}
+
+          {contents && (
+            <div>
+              <div className="flex gap-1 mb-2" role="tablist" aria-label="Langue des contenus">
+                {langs.filter(l => contents[l]).map(l => (
+                  <button key={l} onClick={() => setActiveLang(l)} className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                    role="tab" aria-selected={activeLang === l}
+                    style={{
+                      background: activeLang === l ? "var(--brand-accent-soft,#E4F0EC)" : "#EEF0EE",
+                      color: activeLang === l ? "var(--brand-accent,#0E6B5C)" : "#66716B",
+                    }}>{LANG_LABEL[l] ?? l}</button>
+                ))}
+              </div>
+              <div className="space-y-3">
+                {CHANNELS.filter(ch => contents[activeLang]?.[ch.key] !== undefined || brief.channels.includes(ch.key)).map(ch => (
+                  <div key={ch.key}>
+                    <div className="flex items-center justify-between mb-1">
+                      <label htmlFor={`${uid}-${activeLang}-${ch.key}`} className="text-xs font-semibold tracking-wider" style={{ color: "#66716B" }}>{ch.label.toUpperCase()}</label>
+                      <button onClick={() => copy(`${activeLang}-${ch.key}`, contents[activeLang]?.[ch.key] ?? "")}
+                        aria-label={`Copier le contenu ${ch.label}`}
+                        className="flex items-center gap-1 text-xs underline" style={{ color: "var(--brand-accent,#0E6B5C)" }}>
+                        {copied === `${activeLang}-${ch.key}` ? <><Check size={12} aria-hidden="true" /> Copié</> : <><Copy size={12} aria-hidden="true" /> Copier</>}
+                      </button>
+                    </div>
+                    <textarea id={`${uid}-${activeLang}-${ch.key}`} rows={4} dir={activeLang === "ar" ? "rtl" : "ltr"} disabled={!canEdit}
+                      value={contents[activeLang]?.[ch.key] ?? ""}
+                      onChange={e => setContents(c => ({ ...(c ?? {}), [activeLang]: { ...(c?.[activeLang] ?? {}), [ch.key]: e.target.value } }))}
+                      className="w-full px-3 py-2 rounded-xl border text-sm" style={{ borderColor: "#E3E6E2" }} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Check-list éthique */}
+          <div className="rounded-xl border p-4" style={{ borderColor: "#E3E6E2", background: "#FAFBFA" }}>
+            <div className="text-xs font-semibold tracking-wider mb-2" style={{ color: "#66716B" }}>CHECK-LIST AVANT VALIDATION</div>
+            {CHECKLIST_ITEMS.map(item => (
+              <label key={item.key} className="flex items-start gap-2 py-1 cursor-pointer">
+                <input type="checkbox" checked={!!checklist[item.key]} disabled={!canEdit}
+                  onChange={e => setChecklist(c => ({ ...c, [item.key]: e.target.checked }))} className="mt-0.5" />
+                <span className="text-sm" style={{ color: "#17211D" }}>{item.label}</span>
+              </label>
+            ))}
+          </div>
+
+          <ErrorMessage>{error}</ErrorMessage>
         </div>
-      </div>
-    </div>
+    </Modal>
   )
 }

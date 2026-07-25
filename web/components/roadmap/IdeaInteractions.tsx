@@ -134,8 +134,9 @@ export function Comments({ ideaId, comments }: { ideaId: string; comments: Comme
             {c.canDelete && (
               <button
                 onClick={() => startTransition(async () => { await deleteComment({ commentId: c.id, ideaId }) })}
-                className="p-1 rounded hover:bg-red-50 flex-shrink-0" title="Supprimer">
-                <Trash2 size={13} style={{ color: "#A3342C" }} />
+                className="p-1 rounded hover:bg-red-50 flex-shrink-0"
+                aria-label={`Supprimer le commentaire de ${c.authorName}`} title="Supprimer">
+                <Trash2 size={13} style={{ color: "#A3342C" }} aria-hidden="true" />
               </button>
             )}
           </div>

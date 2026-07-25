@@ -15,6 +15,8 @@ export default function Footer({ brandName = "Solid'Pilot" }: { brandName?: stri
       <div className="flex items-center justify-center gap-3">
         <Link href="/mentions-legales" className="underline">Mentions légales</Link>
         <Link href="/confidentialite" className="underline">Confidentialité</Link>
+        {/* Mention obligatoire de l'état de conformité (décret 2019-768) */}
+        <Link href="/accessibilite" className="underline">Accessibilité : non conforme</Link>
       </div>
     </footer>
   )
