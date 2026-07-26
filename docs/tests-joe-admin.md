@@ -10,7 +10,7 @@ protocoles : A1 à A3 conditionnent les leurs.
 
 ## Préalable — les migrations
 
-Une seule requête. Les six compteurs doivent valoir **1**.
+Une seule requête. Les sept compteurs doivent valoir **1**.
 
 ```sql
 select
@@ -23,10 +23,14 @@ select
   (select count(*) from pg_policies
     where tablename='ai_reports' and policyname='Create ai reports')           as policy_report_0039,
   (select count(*) from information_schema.tables
-    where table_name='email_settings')                                        as table_email_0040;
+    where table_name='email_settings')                                        as table_email_0040,
+  (select count(*) from information_schema.columns
+    where table_name='validations' and column_name='step')                    as col_step_0041;
 ```
 
-Si `table_email_0040` vaut 0, appliquez la **0040** avant A9.
+Si `table_email_0040` vaut 0, appliquez la **0040** avant A10.
+Si `col_step_0041` vaut 0, appliquez la **0041** avant A7 — sans elle le
+circuit route encore vers le financeur, donc vers le MEAE.
 
 ---
 
@@ -79,10 +83,10 @@ select pr.name, o.name as organisation, po.role
   join organizations o on o.id = po.org_id
  order by pr.name, o.name;
 
--- Les deux sources de vérité du « porteur » doivent concorder : le repli
--- de validation (0031) lit projects.lead_org_id, l'écran lit le rôle
--- « porteur ». Une divergence enverrait un devis sans financeur à la
--- mauvaise organisation, SANS erreur visible. Attendu : trois « ok ».
+-- Les deux sources de vérité du « porteur » doivent concorder : la chaîne
+-- de validation (0041) lit projects.lead_org_id, l'écran lit le rôle
+-- « porteur ». Une divergence enverrait le devis à la mauvaise
+-- organisation, SANS erreur visible. Attendu : trois « ok ».
 select pr.name,
        lead.name as lead_org_id, po_porteur.name as role_porteur,
        case when lead.id is distinct from po_porteur.id
@@ -158,34 +162,42 @@ puis rajouter la personne.
 Le même garde-fou qu'au retrait : sans lui, on contournerait par le rôle
 ce qu'on interdit par le retrait.
 
-## A7. ⭐⭐ Préparer la chaîne de validation
+## A7. ⭐⭐ La chaîne de validation
 
-**À faire avant d'envoyer son protocole à Maria.** Le circuit se joue à
-trois : Maria dépose, Bérengère décide, vous constatez.
+Le circuit a été refondu le 27/07 : le devis ne part plus vers le
+financeur de la ligne, mais suit la chaîne réelle — **organisation
+porteuse, puis organisation coordinatrice**. Le MEAE et le Département
+votent une enveloppe et attendent un compte rendu ; ils ne sont plus
+sollicités.
 
-Un devis part **automatiquement** vers le financeur de sa ligne. Si ce
-financeur est le CD78 ou le MEAE — qui n'ont aucun compte — personne ne
-pourra statuer, et B6 tombera à plat.
-
-```sql
-select bl.poste, bl.amount, o.name as financeur
-  from budget_lines bl
-  left join organizations o on o.id = bl.funder_org_id
-  join phases ph on ph.id = bl.phase_id
-  join projects pr on pr.id = ph.project_id
- where pr.name like 'CEM Liban — Coordination%'
- order by o.name nulls first, bl.poste;
-```
-
-S'il n'existe aucune ligne financée par YCID :
+1. Vérifiez la chaîne de chaque projet :
 
 ```sql
-update budget_lines set funder_org_id = (select id from organizations where name = 'YCID')
- where id = '<id de la ligne choisie>';
+select pr.name as projet,
+       porteur.name as etape_1_porteur,
+       coord.name   as etape_2_coordinateur
+  from projects pr
+  left join organizations porteur on porteur.id = pr.lead_org_id
+  left join platform_settings s on s.id = true
+  left join organizations coord on coord.id = s.coordinator_org_id
+ order by pr.name;
 ```
 
-**Communiquez le nom exact de cette ligne à Maria et Bérengère** — leurs
-protocoles disent « la ligne indiquée par Joe ».
+**Attendu** : Triade Villepreux → **LEY** puis YCID ; Triade Jouy →
+**Comité de Jumelage** puis YCID ; Coordination → **YCID** aux deux
+places, ce qui réduit la chaîne à une seule étape (on ne demande pas
+deux fois la même signature).
+
+2. Si `etape_2_coordinateur` est vide, la 0041 n'a pas trouvé YCID :
+
+```sql
+update platform_settings
+   set coordinator_org_id = (select id from organizations where name = 'YCID')
+ where id = true;
+```
+
+**Il n'y a plus rien à préparer pour Maria** : n'importe quelle ligne de
+la Coordination convient désormais, le financeur ne routant plus rien.
 
 ## A8. ⭐ L'unanimité et la file « À valider »
 
@@ -314,7 +326,7 @@ La chaîne à trois, dans cet ordre :
 
 | # | Qui | Test | Effet |
 |---|---|---|---|
-| 1 | Vous | A7 | une ligne financée par YCID est désignée |
+| 1 | Vous | A7 | la chaîne est vérifiée (aucune ligne à désigner) |
 | 2 | Maria | M8a | dépôt du devis → « en attente », Engagé reste à 0 € |
 | 3 | Bérengère | B6 | validation → **Engagé passe à 300 €** |
 | 4 | Maria | M8b | facture, paiement, annulation |
