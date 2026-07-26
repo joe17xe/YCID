@@ -12,7 +12,10 @@ export default async function CreerUtilisateurPage() {
   if (!user) redirect("/")
   if (!(await isUserAdmin(supabase, user.id))) redirect("/dashboard")
 
-  const { data: me } = await supabase.from("profiles").select("platform_role").eq("id", user.id).maybeSingle()
+  const [{ data: me }, { data: orgs }] = await Promise.all([
+    supabase.from("profiles").select("platform_role").eq("id", user.id).maybeSingle(),
+    supabase.from("organizations").select("id, name").order("name"),
+  ])
   const canCreateAdmin = (me?.platform_role ?? "admin") === "admin"
 
   return (
@@ -21,7 +24,7 @@ export default async function CreerUtilisateurPage() {
         <ChevronLeft size={16} /> Retour à la liste
       </Link>
       <h1 className="text-2xl font-bold mb-6" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>Nouvel utilisateur</h1>
-      <UserForm canCreateAdmin={canCreateAdmin} />
+      <UserForm canCreateAdmin={canCreateAdmin} organizations={(orgs ?? []) as { id: string; name: string }[]} />
     </div>
   )
 }

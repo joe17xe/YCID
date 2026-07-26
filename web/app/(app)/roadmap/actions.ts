@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
-import { isUserAdmin } from '@/lib/permissions'
+import { canManageRoadmap } from '@/lib/permissions'
 
 const IDEA_STATUSES = ['idee', 'acceptee', 'en_cours', 'livree', 'refusee']
 const IDEA_PRIORITIES = ['basse', 'moyenne', 'haute']
@@ -31,7 +31,7 @@ export async function updateIdea(input: { ideaId: string; title: string; descrip
   if (!user) return { ok: false, error: 'Non authentifié.' }
   const { data: idea } = await supabase.from('ideas').select('author_id').eq('id', input.ideaId).maybeSingle()
   if (!idea) return { ok: false, error: 'Idée introuvable.' }
-  if (idea.author_id !== user.id && !(await isUserAdmin(supabase, user.id))) {
+  if (idea.author_id !== user.id && !(await canManageRoadmap(supabase, user.id))) {
     return { ok: false, error: "Seul l'auteur ou un admin peut modifier cette idée." }
   }
   const title = (input.title ?? '').trim()
@@ -52,7 +52,7 @@ export async function manageIdea(input: { ideaId: string; status: string; priori
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: 'Non authentifié.' }
-  if (!(await isUserAdmin(supabase, user.id))) return { ok: false, error: 'Réservé aux administrateurs.' }
+  if (!(await canManageRoadmap(supabase, user.id))) return { ok: false, error: 'Arbitrage produit réservé aux responsables projet et aux administrateurs.' }
   if (!IDEA_STATUSES.includes(input.status)) return { ok: false, error: 'Statut invalide.' }
   if (!IDEA_PRIORITIES.includes(input.priority)) return { ok: false, error: 'Priorité invalide.' }
   const difficulty = input.difficulty ? Number(input.difficulty) : null
@@ -75,7 +75,7 @@ export async function deleteIdea(ideaId: string): Promise<Result> {
   if (!user) return { ok: false, error: 'Non authentifié.' }
   const { data: idea } = await supabase.from('ideas').select('author_id').eq('id', ideaId).maybeSingle()
   if (!idea) return { ok: false, error: 'Idée introuvable.' }
-  if (idea.author_id !== user.id && !(await isUserAdmin(supabase, user.id))) {
+  if (idea.author_id !== user.id && !(await canManageRoadmap(supabase, user.id))) {
     return { ok: false, error: "Seul l'auteur ou un admin peut supprimer cette idée." }
   }
   const { error } = await supabase.from('ideas').delete().eq('id', ideaId)
@@ -116,7 +116,7 @@ export async function deleteComment(input: { commentId: string; ideaId: string }
   if (!user) return { ok: false, error: 'Non authentifié.' }
   const { data: comment } = await supabase.from('idea_comments').select('author_id').eq('id', input.commentId).maybeSingle()
   if (!comment) return { ok: false, error: 'Commentaire introuvable.' }
-  if (comment.author_id !== user.id && !(await isUserAdmin(supabase, user.id))) {
+  if (comment.author_id !== user.id && !(await canManageRoadmap(supabase, user.id))) {
     return { ok: false, error: "Seul l'auteur ou un admin peut supprimer ce commentaire." }
   }
   const { error } = await supabase.from('idea_comments').delete().eq('id', input.commentId)

@@ -10,6 +10,7 @@ import PhaseDialog from "@/components/tasks/PhaseDialog"
 import TaskDialog from "@/components/tasks/TaskDialog"
 import { BudgetLineDialog, CreateTaskFromLineButton, IndicatorDialog, MeasureDialog, MeetingDialog, DecisionDialog } from "@/components/project/ProjectDataDialogs"
 import TaskDocuments from "@/components/project/TaskDocuments"
+import DeleteTaskButton from "@/components/tasks/DeleteTaskButton"
 import BudgetLineDocuments from "@/components/project/BudgetLineDocuments"
 import PhasePhotos, { type PhasePhoto } from "@/components/project/PhasePhotos"
 import DocumentsPanel, { type ProjectDoc } from "@/components/project/DocumentsPanel"
@@ -53,7 +54,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
   const [{ data: project }, { data: phases }, { data: budgetLines }, { data: indicators }, { data: meetings }, { data: audit }, { data: phasePhotos }, { data: allDocs }, canEditCompleted] = await Promise.all([
     supabase.from("projects").select("*, project_organizations(org_id, role, organizations(id, name, type)), project_members(user_id, role, profiles(id, full_name, email)), validation_rules(id, role, doc_type)").eq("id", id).single(),
     supabase.from("phases").select("*, tasks(*, profiles:assignee_id(full_name), documents(*))").eq("project_id", id).order("position"),
-    supabase.from("budget_lines").select("*, funder:funder_org_id(name), owner:owner_org_id(name), phase:phase_id(name), allocations:budget_line_tasks(task_id, amount, task:task_id(title)), documents(id, filename, type, amount, paid, paid_at, uploaded_at, validations(id, decision, comment, org:org_id(name)))").eq("project_id", id).order("year"),
+    supabase.from("budget_lines").select("*, funder:funder_org_id(name), owner:owner_org_id(name), phase:phase_id(name), allocations:budget_line_tasks(task_id, amount, task:task_id(title)), documents(id, filename, type, amount, paid, paid_at, uploaded_at, validations(id, org_id, decision, comment, org:org_id(name), decider:decided_by(full_name)))").eq("project_id", id).order("year"),
     supabase.from("indicators").select("*, measures:indicator_measures(*)").eq("project_id", id),
     supabase.from("meetings").select("*, decisions(*, owner:owner_user_id(full_name))").eq("project_id", id).order("date", { ascending: false }),
     supabase.from("audit_log").select("*, profiles:user_id(full_name)").eq("project_id", id).order("at", { ascending: false }).limit(20),
@@ -78,6 +79,18 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
     const { data: signed } = await supabase.storage.from("documents").createSignedUrls(photoPaths, GALLERY_URL_TTL)
     for (const s of signed ?? []) if (s.path && s.signedUrl) photoUrlByPath.set(s.path, s.signedUrl)
   }
+  // Qui peut décider d'une validation (correctif 0036) : le membre de
+  // l'organisation SOLLICITÉE, ou un administrateur plateforme. Se
+  // contenter du rôle projet affichait « Valider » à des profils que la
+  // base refuse ensuite — et surtout, laissait une organisation trancher
+  // au nom d'une autre.
+  const [{ data: myOrgs }, { data: myProfile }] = await Promise.all([
+    supabase.from("memberships").select("org_id").eq("user_id", user.id),
+    supabase.from("profiles").select("is_platform_admin").eq("id", user.id).maybeSingle(),
+  ])
+  const myOrgIds = new Set((myOrgs ?? []).map((m: { org_id: string }) => m.org_id))
+  const isPlatformAdmin = !!myProfile?.is_platform_admin
+
   // supabase-js type les jointures « to-one » tantôt en objet, tantôt en
   // tableau selon l'inférence : on normalise une fois pour toutes.
   const one = <T,>(v: T | T[] | null): T | null => (Array.isArray(v) ? v[0] ?? null : v)
@@ -433,11 +446,18 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                           <div className="flex flex-col items-end gap-1">
                             <div className="flex items-center gap-1">
                               {canTasks && t.status !== "terminee" && (
-                                <TaskDialog phaseId={ph.id} members={memberOptions} task={{
-                                  id: t.id, title: t.title, description: t.description ?? null,
-                                  assignee_id: t.assignee_id ?? null, start_date: t.start_date ?? null,
-                                  end_date: t.end_date ?? null, status: t.status, progress: t.progress,
-                                }} />
+                                <>
+                                  <TaskDialog phaseId={ph.id} members={memberOptions} task={{
+                                    id: t.id, title: t.title, description: t.description ?? null,
+                                    assignee_id: t.assignee_id ?? null, start_date: t.start_date ?? null,
+                                    end_date: t.end_date ?? null, status: t.status, progress: t.progress,
+                                  }} />
+                                  {/* Aucun moyen de supprimer une tâche n'existait :
+                                      deux clics sur « Créer la tâche » suffisaient à
+                                      en laisser une en double, définitivement. */}
+                                  <DeleteTaskButton taskId={t.id} projectId={id} title={t.title}
+                                    budget={taskBudget(t.id)} docCount={(t.documents ?? []).length} />
+                                </>
                               )}
                               <Badge label={ts.label} fg={ts.fg} bg={ts.bg} />
                             </div>
@@ -599,13 +619,19 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                               leur source, agrégés par la PR 39. */}
                           <div className="mt-1 font-normal">
                             <BudgetLineDocuments projectId={id} phaseId={l.phase_id ?? null} lineId={l.id} poste={l.poste}
-                              canManage={canBudget} canDecide={canBudget}
+                              canManage={canBudget}
                               docs={(l.documents ?? []).map((d: any) => ({
                                 id: d.id, filename: d.filename, type: d.type,
                                 amount: d.amount ?? null, paid: !!d.paid, paid_at: d.paid_at ?? null,
                                 validations: (d.validations ?? []).map((v: any) => ({
                                   id: v.id, decision: v.decision, comment: v.comment ?? null,
                                   orgName: (Array.isArray(v.org) ? v.org[0]?.name : v.org?.name) ?? null,
+                                  // Qui a tranché : « validé par LEY » et « validé par un
+                                  // administrateur au nom de LEY » ne sont pas la même
+                                  // affirmation devant un financeur.
+                                  deciderName: (Array.isArray(v.decider) ? v.decider[0]?.full_name : v.decider?.full_name) ?? null,
+                                  canDecide: myOrgIds.has(v.org_id) || isPlatformAdmin,
+                                  isMember: myOrgIds.has(v.org_id),
                                 })),
                               }))} />
                           </div>

@@ -9,7 +9,10 @@ import { parseRecipients } from '@/lib/recipients'
 import { adminClient } from '@/lib/supabase/admin'
 import { isUserAdmin } from '@/lib/permissions'
 
-const PLATFORM_ROLES = ['admin', 'ycid', 'user']
+// Deux rôles seulement (0037). Les garde-fous « ycid » plus bas sont
+// conservés à dessein : ils protègent encore les bases où la migration
+// n'a pas été jouée et où des comptes portent l'ancien rôle.
+const PLATFORM_ROLES = ['admin', 'user']
 
 // Rôle plateforme de l'utilisateur connecté + garde-fous
 async function currentContext(supabase: Awaited<ReturnType<typeof createClient>>) {
@@ -85,6 +88,28 @@ interface UserFormInput {
   password: string
   confirmPassword: string
   active: boolean
+  canManageRoadmap?: boolean
+  // Rattachement aux organisations (PR 42). C'est LE lien qui porte le
+  // périmètre : un membre d'YCID voit les projets où YCID figure. Il
+  // n'avait aucun écran — `memberships` était lue trois fois, écrite
+  // zéro fois, donc désespérément vide.
+  organizationIds?: string[]
+}
+
+// Remplace le rattachement d'un compte par la liste fournie. Un
+// remplacement plutôt qu'un ajout : le formulaire montre l'état complet,
+// décocher doit donc retirer.
+async function syncMemberships(userId: string, orgIds: string[] | undefined) {
+  if (!orgIds) return null
+  const admin = adminClient()
+  if (!admin) return "Rattachement non configuré : ajoutez SUPABASE_SERVICE_ROLE_KEY au serveur."
+  const { error: delErr } = await admin.from('memberships').delete().eq('user_id', userId)
+  if (delErr) return `Rattachement non mis à jour : ${delErr.message}`
+  if (!orgIds.length) return null
+  const { error: insErr } = await admin.from('memberships')
+    .insert(orgIds.map(org_id => ({ user_id: userId, org_id, role: 'membre' })))
+  if (insErr) return `Rattachement non mis à jour : ${insErr.message}`
+  return null
 }
 
 function validate(input: UserFormInput, requirePassword: boolean): string | null {
@@ -128,7 +153,8 @@ export async function createUser(input: UserFormInput): Promise<Result> {
     const { error: pErr } = await admin.from('profiles').update({
       full_name: input.fullName.trim(),
       platform_role: input.role,
-      is_platform_admin: input.role !== 'user',
+      is_platform_admin: input.role === 'admin',
+      can_manage_roadmap: !!input.canManageRoadmap,
       active: !!input.active,
     }).eq('id', created.userId)
     if (pErr) {
@@ -137,6 +163,9 @@ export async function createUser(input: UserFormInput): Promise<Result> {
       const suffix = missingColumn ? ' Appliquez la migration 0017 dans le SQL Editor Supabase.' : ''
       return { ok: false, error: `Compte créé mais profil non enregistré : ${describeError(pErr)}.${suffix}` }
     }
+
+    const orgErr = await syncMemberships(created.userId, input.organizationIds)
+    if (orgErr) return { ok: false, error: `Compte créé, mais ${orgErr.charAt(0).toLowerCase()}${orgErr.slice(1)}` }
 
     revalidatePath('/admin/utilisateurs')
     return { ok: true }
@@ -184,13 +213,17 @@ export async function updateUser(userId: string, input: UserFormInput): Promise<
       full_name: input.fullName.trim(),
       email,
       platform_role: input.role,
-      is_platform_admin: input.role !== 'user',
+      is_platform_admin: input.role === 'admin',
+      can_manage_roadmap: !!input.canManageRoadmap,
       active: !!input.active,
     }).eq('id', userId)
     if (pErr) {
       console.error('[updateUser] échec mise à jour profil:', { userId, code: pErr.code, message: pErr.message, details: pErr.details, hint: pErr.hint, pErr })
       return { ok: false, error: `Échec (profil) : ${describeError(pErr)}` }
     }
+
+    const orgErr = await syncMemberships(userId, input.organizationIds)
+    if (orgErr) return { ok: false, error: orgErr }
 
     revalidatePath('/admin/utilisateurs')
     return { ok: true }
@@ -297,7 +330,7 @@ export async function createUsersBulk(raw: string, role: string): Promise<{ ok: 
       }
       const { error: pErr } = await admin.from('profiles').update({
         full_name: r.fullName, platform_role: role,
-        is_platform_admin: role !== 'user', active: true,
+        is_platform_admin: role === 'admin', active: true,
       }).eq('id', created.userId)
       if (pErr) console.error('[createUsersBulk] profil non complété:', { email: r.email, message: pErr.message })
       lines.push({ ...r, status: 'cree', password })

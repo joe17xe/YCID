@@ -220,6 +220,56 @@ export async function saveTask(input: TaskInput): Promise<{ ok: boolean; error?:
   return { ok: true }
 }
 
+// ------------------------------------------------------------
+// Supprimer une tâche
+// ------------------------------------------------------------
+// Absente jusqu'ici : les policies de suppression existaient depuis la
+// 0005, mais aucune action ni aucun bouton ne les utilisait. Une tâche
+// créée par erreur — deux clics sur « Créer la tâche » suffisent —
+// restait donc définitivement dans le projet.
+//
+// Une tâche TERMINÉE reste protégée par le même verrou que sa
+// modification : seuls les profils habilités peuvent y toucher, et la
+// base tranche de toute façon.
+export async function deleteTask(input: { taskId: string; projectId: string }): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Non authentifié.' }
+
+  const { data: task } = await supabase.from('tasks')
+    .select('id, title, status, phases:phase_id(project_id)')
+    .eq('id', input.taskId).maybeSingle()
+  if (!task) return { ok: false, error: 'Tâche introuvable.' }
+  const phase = Array.isArray(task.phases) ? task.phases[0] : task.phases
+  if (!phase || phase.project_id !== input.projectId) return { ok: false, error: 'Tâche introuvable.' }
+  if (!(await canManageTasks(supabase, user.id, input.projectId))) {
+    return { ok: false, error: 'Suppression réservée aux membres du projet (chef, finances, contributeur) et aux admins.' }
+  }
+
+  // Ce que la suppression emporte, dit AVANT de la faire : les pièces
+  // jointes perdent leur rattachement (task_id passe à null) et les
+  // affectations budgétaires disparaissent. Le montant retourne au
+  // « non affecté » de sa ligne, il n'est pas perdu.
+  const { error } = await supabase.from('tasks').delete().eq('id', input.taskId)
+  if (error) {
+    return {
+      ok: false,
+      error: task.status === 'terminee'
+        ? 'Cette tâche est terminée : sa suppression est réservée aux administrateurs.'
+        : `Suppression refusée : ${error.message}`,
+    }
+  }
+
+  const { error: auditErr } = await supabase.from('audit_log').insert({
+    project_id: input.projectId, entity: 'task', entity_id: null,
+    label: task.title, action: 'supprime', user_id: user.id,
+  })
+  if (auditErr) console.error('[audit] trace NON enregistrée:', auditErr.message)
+
+  revalidatePath(`/projets/${input.projectId}`)
+  return { ok: true }
+}
+
 // ============================================================
 // PR 15 — Budget, indicateurs & COPIL
 // ============================================================
@@ -355,6 +405,20 @@ export async function createTaskFromBudgetLine(input: { projectId: string; lineI
 
   const title = (line.poste ?? '').trim()
   if (!title) return { ok: false, error: 'Le poste de la ligne est vide : impossible d\'en tirer un titre de tâche.' }
+
+  // Garde-fou d'idempotence. Le bouton pouvait être actionné deux fois
+  // sur la même ligne : la première création affectait le montant, la
+  // seconde naissait vide, et la phase se retrouvait avec deux tâches
+  // strictement homonymes — constaté en production. Rien dans le nom ne
+  // permet ensuite de les distinguer.
+  const { data: twin } = await supabase.from('tasks')
+    .select('id').eq('phase_id', line.phase_id).eq('title', title).maybeSingle()
+  if (twin) {
+    return {
+      ok: false,
+      error: `Une tâche « ${title} » existe déjà dans cette phase. Rattachez-la depuis le dialogue de la ligne plutôt que d'en créer une seconde.`,
+    }
+  }
 
   // Montant restant à répartir : créer une tâche ne doit pas faire
   // dépasser le total de la ligne (le trigger le refuserait de toute façon).

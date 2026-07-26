@@ -20,6 +20,14 @@ export interface LineValidation {
   decision: "en_attente" | "valide" | "refuse"
   comment: string | null
   orgName: string | null
+  deciderName: string | null
+  // Calculé côté serveur, par validation : membre de l'organisation
+  // sollicitée, ou administrateur plateforme. Un droit global serait faux
+  // — on peut décider pour une organisation et pas pour la suivante.
+  canDecide: boolean
+  // Membre de l'organisation sollicitée. Faux = décision par
+  // procuration, qui exige confirmation explicite et motif.
+  isMember: boolean
 }
 
 export interface LineDoc {
@@ -43,9 +51,9 @@ export function isEngaged(d: LineDoc): boolean {
   return d.validations.some(v => v.decision === "valide")
 }
 
-export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste, docs, canManage, canDecide }: {
+export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste, docs, canManage }: {
   projectId: string; phaseId: string | null; lineId: string; poste: string
-  docs: LineDoc[]; canManage: boolean; canDecide: boolean
+  docs: LineDoc[]; canManage: boolean
 }) {
   const router = useRouter()
   const supabase = createClient()
@@ -59,6 +67,9 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
   const [payDate, setPayDate] = useState("")
   const [refusing, setRefusing] = useState<string | null>(null)
   const [refusalReason, setRefusalReason] = useState("")
+  // Décision par procuration : deuxième temps imposé, avec motif.
+  const [proxy, setProxy] = useState<{ id: string; decision: "valide" | "refuse"; orgName: string } | null>(null)
+  const [proxyReason, setProxyReason] = useState("")
   const [pending, startTransition] = useTransition()
 
   const engaged = docs.filter(isEngaged).reduce((s, d) => s + (d.amount ?? 0), 0)
@@ -89,12 +100,12 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
   // Purger le message AVANT chaque action : sans cela une erreur
   // ancienne restait affichée sous une action qui venait de réussir —
   // on lisait « payé le 20/07 » juste au-dessus de l'échec précédent.
-  function runDecision(validationId: string, decision: "valide" | "refuse", comment: string) {
+  function runDecision(validationId: string, decision: "valide" | "refuse", comment: string, onBehalf = false) {
     setError("")
     startTransition(async () => {
-      const res = await decideValidation({ validationId, projectId, decision, comment })
+      const res = await decideValidation({ validationId, projectId, decision, comment, onBehalf })
       if (!res.ok) setError(res.error ?? "Décision impossible.")
-      else { setRefusing(null); setRefusalReason(""); router.refresh() }
+      else { setRefusing(null); setRefusalReason(""); setProxy(null); setProxyReason(""); router.refresh() }
     })
   }
 
@@ -221,7 +232,44 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
                             {v.decision === "en_attente" ? (
                               <>
                                 <span style={{ color: "#B4690E" }}>en attente</span>
-                                {canDecide && (refusing === v.id ? (
+                                {/* Procuration : deuxième temps imposé, motif
+                                    obligatoire. Décider pour une organisation
+                                    dont on n'est pas membre ne doit pas se
+                                    confondre avec une décision légitime. */}
+                                {v.canDecide && !v.isMember && proxy?.id === v.id ? (
+                                  <span className="flex items-center gap-1 flex-wrap">
+                                    <input value={proxyReason} onChange={e => setProxyReason(e.target.value)}
+                                      placeholder={`Motif — vous n'êtes pas membre de ${v.orgName ?? "cette organisation"}`}
+                                      aria-label="Motif de la décision par procuration"
+                                      className="px-2 py-1 rounded-lg border text-xs" style={{ borderColor: "#B4690E", minWidth: 240 }} />
+                                    <button type="button" disabled={pending || !proxyReason.trim()}
+                                      onClick={() => runDecision(v.id, proxy.decision, proxyReason, true)}
+                                      className="px-2 py-1 rounded-lg font-medium"
+                                      style={{ background: "#F7EDDD", color: "#8A6A1F", opacity: proxyReason.trim() ? 1 : 0.5 }}>
+                                      Confirmer au nom de {v.orgName ?? "cette organisation"}
+                                    </button>
+                                    <button type="button" onClick={() => { setProxy(null); setProxyReason("") }}
+                                      className="px-2 py-1 rounded-lg border font-medium" style={{ borderColor: "#E3E6E2", color: "#66716B" }}>
+                                      Annuler
+                                    </button>
+                                  </span>
+                                ) : v.canDecide && !v.isMember ? (
+                                  <span className="flex gap-1 items-center flex-wrap">
+                                    <span className="px-1.5 py-0.5 rounded" style={{ background: "#F7EDDD", color: "#8A6A1F" }}>
+                                      vous n&apos;êtes pas membre
+                                    </span>
+                                    <button type="button" disabled={pending}
+                                      onClick={() => { setError(""); setProxyReason(""); setProxy({ id: v.id, decision: "valide", orgName: v.orgName ?? "" }) }}
+                                      className="px-2 py-0.5 rounded-lg border font-medium" style={{ borderColor: "#E3E6E2", color: "#66716B" }}>
+                                      Valider à sa place…
+                                    </button>
+                                    <button type="button" disabled={pending}
+                                      onClick={() => { setError(""); setProxyReason(""); setProxy({ id: v.id, decision: "refuse", orgName: v.orgName ?? "" }) }}
+                                      className="px-2 py-0.5 rounded-lg border font-medium" style={{ borderColor: "#E3E6E2", color: "#66716B" }}>
+                                      Refuser à sa place…
+                                    </button>
+                                  </span>
+                                ) : v.canDecide && (refusing === v.id ? (
                                   <span className="flex items-center gap-1 flex-wrap">
                                     <input value={refusalReason} onChange={e => setRefusalReason(e.target.value)}
                                       placeholder="Motif du refus (facultatif)"
@@ -255,6 +303,11 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
                             ) : (
                               <span style={{ color: v.decision === "valide" ? "var(--brand-accent,#0E6B5C)" : "#A3342C" }}>
                                 {v.decision === "valide" ? "validé" : "refusé"}
+                                {/* Nommer le décideur : une décision prise au nom
+                                    d'une organisation par quelqu'un d'extérieur ne
+                                    doit pas se lire comme la décision de cette
+                                    organisation. */}
+                                {v.deciderName ? ` par ${v.deciderName}` : ""}
                                 {v.comment ? ` — ${v.comment}` : ""}
                               </span>
                             )}

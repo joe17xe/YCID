@@ -13,6 +13,9 @@ export interface AdminUserRow {
   active: boolean
   isSelf: boolean
   canDelete: boolean
+  canEdit: boolean
+  organizations: string[]
+  canManageRoadmap: boolean
 }
 
 function DeleteButton({ user }: { user: AdminUserRow }) {
@@ -85,7 +88,19 @@ export default function UsersTable({ users }: { users: AdminUserRow[] }) {
                   {u.isSelf && <span className="ml-2 text-xs px-1.5 py-0.5 rounded-full" style={{ background: "var(--brand-accent-soft,#E4F0EC)", color: "var(--brand-accent,#0E6B5C)" }}>Vous</span>}
                 </td>
                 <td className="px-5 py-3 font-mono text-xs" style={{ color: "#66716B" }}>{u.email}</td>
-                <td className="px-5 py-3"><span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: r.bg, color: r.fg }}>{r.label}</span></td>
+                <td className="px-5 py-3">
+                  <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: r.bg, color: r.fg }}>{r.label}</span>
+                  {/* Ce qui explique réellement le périmètre : les
+                      organisations. Le rôle seul ne le dit plus. */}
+                  <span className="block text-xs mt-1" style={{ color: u.organizations.length ? "#66716B" : "#9AA39D" }}>
+                    {u.organizations.length ? u.organizations.join(" · ") : "aucune organisation"}
+                  </span>
+                  {u.canManageRoadmap && (
+                    <span className="inline-block text-xs mt-1 px-1.5 py-0.5 rounded" style={{ background: "#F0E9F5", color: "#6B4A8C" }}>
+                      arbitre la roadmap
+                    </span>
+                  )}
+                </td>
                 <td className="px-5 py-3">
                   <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: u.active ? "var(--brand-accent-soft,#E4F0EC)" : "#F6E7E5", color: u.active ? "var(--brand-accent,#0E6B5C)" : "#A3342C" }}>
                     {u.active ? "Actif" : "Inactif"}
@@ -93,9 +108,15 @@ export default function UsersTable({ users }: { users: AdminUserRow[] }) {
                 </td>
                 <td className="px-5 py-3">
                   <div className="flex items-center justify-end gap-2">
-                    <Link href={`/admin/utilisateurs/${u.id}/editer`} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-sm font-medium hover:bg-gray-50" style={{ borderColor: "#E3E6E2", color: "#66716B" }}>
-                      <Settings size={13} /> Modifier
-                    </Link>
+                    {u.canEdit ? (
+                      <Link href={`/admin/utilisateurs/${u.id}/editer`} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-sm font-medium hover:bg-gray-50" style={{ borderColor: "#E3E6E2", color: "#66716B" }}>
+                        <Settings size={13} /> Modifier
+                      </Link>
+                    ) : (
+                      <span className="text-xs" style={{ color: "#9AA39D" }} title="Le rôle YCID ne peut pas modifier un Administrateur">
+                        Administrateur
+                      </span>
+                    )}
                     {u.canDelete && !u.isSelf && <DeleteButton user={u} />}
                   </div>
                 </td>
