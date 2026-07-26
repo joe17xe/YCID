@@ -80,6 +80,37 @@ select pr.name, o.name as organisation, po.role
  order by pr.name, o.name;
 ```
 
+**Vérifié le 26/07 : c'est le cas.** YCID n'est `porteur` que sur la
+Coordination et `financeur` sur les deux Triades — sans conséquence,
+`is_project_member()` joint `project_organizations` sans filtrer sur le
+rôle. Financeur, porteur ou observateur donnent la même visibilité.
+
+### A2 bis. Les deux sources de vérité du « porteur »
+
+Le repli de validation (0031) désigne l'organisation porteuse par
+`projects.lead_org_id`, alors que l'écran lit le rôle `porteur` de
+`project_organizations`. Si les deux divergent, un devis sans financeur
+part chez la mauvaise organisation, **sans erreur visible**.
+
+```sql
+select pr.name,
+       lead.name as lead_org_id,
+       po_porteur.name as role_porteur,
+       case when lead.id is distinct from po_porteur.id
+            then '⚠️ DIVERGENCE' else 'ok' end as verdict
+  from projects pr
+  left join organizations lead on lead.id = pr.lead_org_id
+  left join lateral (
+    select o.id, o.name from project_organizations po
+      join organizations o on o.id = po.org_id
+     where po.project_id = pr.id and po.role = 'porteur' limit 1
+  ) po_porteur on true
+ order by pr.name;
+```
+
+**Attendu** : trois `ok` — Coordination → YCID, Triade Jouy → Comité de
+Jumelage, Triade Villepreux → LEY.
+
 ## A3. ⭐⭐ Rattacher une personne à son organisation — l'écran neuf
 
 C'est la fonction construite hier soir ; elle n'a jamais été utilisée.
@@ -113,11 +144,31 @@ select p.full_name, o.name
    relit les rattachements ; s'il revient vide, l'enregistrement n'a pas
    pris et il faut me le dire.)
 
-6. Faites de même pour **Maria Maroun** avec son organisation réelle.
+6. Faites de même pour **Maria Maroun**, en cochant **LEY** — et rien
+   d'autre.
+
+Ce choix n'est pas neutre : l'organisation cochée décide de ce qu'elle
+verra, et son protocole (M2) attend **2 projets**.
+
+| Organisation cochée | Projets visibles |
+|---|---|
+| **LEY** | Coordination + Triade Villepreux = **2** ✅ |
+| YCID | les **3** ❌ M2 échoue, et elle hérite du périmètre programme |
+| Commune de Villepreux | Coordination + Triade Villepreux = 2 ✅ |
+
+LEY tombe juste sans intervention : porteuse de la Triade Villepreux,
+partenaire de la Coordination, absente de la Triade Jouy.
 
 **Attention** : décocher toutes les organisations d'un compte lui retire
 la vue sur les projets correspondants. C'est l'effet recherché, mais il
 est immédiat.
+
+**Ce que ce rattachement ne fait pas** : `observateur` et `beneficiaire`
+sont des libellés, pas des droits. Un compte rattaché à la Municipalité
+d'Azour — `observateur` sur la Coordination — aurait la **même vue
+complète** qu'un partenaire, budget et pièces compris. Théorique tant
+que ces organisations n'ont pas de compte ; à arbitrer avant d'en ouvrir
+côté libanais.
 
 ## A4. ⭐ Créer un compte — la valeur par défaut
 
