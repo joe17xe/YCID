@@ -98,29 +98,35 @@ le plus utile que vous puissiez donner.
 
 ## B6. Validation d'un devis — ce que vous pouvez et ne pouvez pas
 
-Un devis part en validation auprès du **financeur de la ligne**.
+Un devis suit une chaîne : l'**organisation porteuse** du projet valide,
+puis l'organisation qui **coordonne** le programme entérine.
 
 ⚠️ **À faire après Maria**, pas avant : c'est elle qui dépose le devis
 que vous allez valider. Joe vous dira quand.
 
 1. Ouvrez **CEM Liban — Coordination et actions communes** → onglet
-   **Budget** → la ligne indiquée par Joe → icône trombone 📎.
+   **Budget** → la ligne où Maria a déposé → icône trombone 📎.
 
 **Attendu** : un devis de 300 € **en attente de validation**, déposé par
 Maria Maroun, et les boutons **Valider** / **Refuser**. Vous les voyez
-parce que la ligne est financée par **YCID**, dont vous êtes membre.
+parce qu'YCID **porte** ce projet et que vous en êtes membre.
 
 2. Notez la valeur de **« Engagé (devis validés) »** — elle est à 0 €.
 3. **Validez** le devis.
 
 **Attendu** : « Engagé » passe à **300 €**.
 
-C'est le seul geste qui fait bouger ce chiffre. Et depuis cette semaine
-la règle est plus stricte : **chaque** organisation sollicitée doit
-valider — un devis à moitié approuvé n'engage rien. Si la ligne
-n'implique qu'YCID, votre seule validation suffit ; sinon la ligne
-affichera « en attente de N organisations sur M » et le montant
-attendra.
+C'est le seul geste qui fait bouger ce chiffre.
+
+Le circuit suit désormais l'ordre réel : **l'organisation porteuse
+valide, puis YCID entérine**. Sur la Coordination, YCID tient les deux
+rôles — votre seule validation suffit donc. Sur une Triade, vous ne
+verriez le devis qu'après la signature de LEY ou du Comité de Jumelage,
+et la ligne afficherait « son tour viendra après l'étape 1 » en
+attendant.
+
+Et le montant n'est engagé que lorsque **toutes** les étapes sont
+franchies : un devis à moitié approuvé n'engage rien.
 
 **Ce que ce test prouve vraiment** : Maria a déposé, vous avez décidé.
 Ni elle ni vous n'avez pu faire les deux. C'est tout l'objet du circuit.

@@ -146,17 +146,20 @@ de matière aux tests de Bérengère et de Joe. Le nettoyage viendra après.
 
 ### M8a. Le devis part tout seul en validation
 
-1. Sur la **Coordination**, onglet **Budget**, la ligne que Joe vous aura
-   indiquée → icône trombone 📎.
+1. Sur la **Coordination**, onglet **Budget**, **n'importe quelle
+   ligne** → icône trombone 📎.
 2. **Déposer une pièce** : un fichier, Nature **Devis**, Montant 300 €.
 
 **Attendu** : la pièce apparaît **« en attente de validation »**, sans
-que vous ayez rien cliqué de plus. Un devis part automatiquement vers
-l'organisation qui finance la ligne.
+que vous ayez rien cliqué de plus.
 
-Si plusieurs organisations sont sollicitées, la ligne affiche « en
-attente de N organisations sur M » : depuis cette semaine, **toutes**
-doivent valider pour que le montant soit engagé.
+Le devis part vers l'**organisation porteuse du projet**, puis vers
+l'organisation qui coordonne le programme. Sur la Coordination, YCID
+tient les deux rôles : il n'y a donc qu'une seule étape. Sur une Triade,
+il y en aurait deux — l'association porteuse d'abord, YCID ensuite.
+
+Le financeur de la ligne n'intervient plus : le budget est voté en
+amont, on en rend compte, on ne le fait pas réapprouver ligne à ligne.
 
 3. Regardez **« Engagé (devis validés) »** sur la ligne.
 
