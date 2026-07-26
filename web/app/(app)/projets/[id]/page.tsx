@@ -57,7 +57,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
   const [{ data: project }, { data: phases }, { data: budgetLines }, { data: indicators }, { data: meetings }, { data: audit }, { data: phasePhotos }, { data: allDocs }, canEditCompleted] = await Promise.all([
     supabase.from("projects").select("*, project_organizations(org_id, role, organizations(id, name, type)), project_members(user_id, role, profiles(id, full_name, email)), validation_rules(id, role, doc_type)").eq("id", id).single(),
     supabase.from("phases").select("*, tasks(*, profiles:assignee_id(full_name), documents(*))").eq("project_id", id).order("position"),
-    supabase.from("budget_lines").select("*, funder:funder_org_id(name), owner:owner_org_id(name), phase:phase_id(name), allocations:budget_line_tasks(task_id, amount, task:task_id(title)), documents(id, filename, type, amount, paid, paid_at, uploaded_at, validations(id, org_id, decision, comment, org:org_id(name), decider:decided_by(full_name)))").eq("project_id", id).order("year"),
+    supabase.from("budget_lines").select("*, funder:funder_org_id(name), owner:owner_org_id(name), phase:phase_id(name), allocations:budget_line_tasks(task_id, amount, task:task_id(title)), documents(id, filename, type, amount, paid, paid_at, uploaded_at, validations(id, org_id, decision, step, comment, org:org_id(name), decider:decided_by(full_name)))").eq("project_id", id).order("year"),
     supabase.from("indicators").select("*, measures:indicator_measures(*)").eq("project_id", id),
     supabase.from("meetings").select("*, decisions(*, owner:owner_user_id(full_name))").eq("project_id", id).order("date", { ascending: false }),
     supabase.from("audit_log").select("*, profiles:user_id(full_name)").eq("project_id", id).order("at", { ascending: false }).limit(20),
@@ -661,7 +661,14 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                               docs={(l.documents ?? []).map((d: any) => ({
                                 id: d.id, filename: d.filename, type: d.type,
                                 amount: d.amount ?? null, paid: !!d.paid, paid_at: d.paid_at ?? null,
-                                validations: (d.validations ?? []).map((v: any) => ({
+                                validations: (d.validations ?? []).map((v: any) => {
+                                  // Un échelon n'est actionnable que si tous
+                                  // ceux qui le précèdent ont validé — même
+                                  // règle que la policy 0041, pour ne pas
+                                  // proposer un bouton que la base refusera.
+                                  const step = v.step ?? 1
+                                  const blocked = (d.validations ?? []).some((o: any) => (o.step ?? 1) < step && o.decision !== 'valide')
+                                  return ({
                                   id: v.id, decision: v.decision, comment: v.comment ?? null,
                                   orgName: (Array.isArray(v.org) ? v.org[0]?.name : v.org?.name) ?? null,
                                   // Qui a tranché : « validé par LEY » et « validé par un
@@ -670,7 +677,9 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                                   deciderName: (Array.isArray(v.decider) ? v.decider[0]?.full_name : v.decider?.full_name) ?? null,
                                   canDecide: myOrgIds.has(v.org_id) || isPlatformAdmin,
                                   isMember: myOrgIds.has(v.org_id),
-                                })),
+                                  step, blocked,
+                                })
+                                }),
                               }))} />
                           </div>
                         </td>

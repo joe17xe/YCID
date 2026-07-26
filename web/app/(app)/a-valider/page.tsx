@@ -32,18 +32,30 @@ export default async function AValiderPage() {
 
   const { data: pending } = orgIds.length
     ? await supabase.from("validations")
-        .select(`id, org_id, organizations:org_id(name),
+        .select(`id, org_id, step, organizations:org_id(name),
                  documents:document_id(
                    id, filename, amount, project_id, uploaded_at,
                    uploaded_by, profiles:uploaded_by(full_name),
                    projects:project_id(name),
-                   budget_lines:budget_line_id(poste)
+                   budget_lines:budget_line_id(poste),
+                   validations(step, decision)
                  )`)
         .eq("decision", "en_attente")
         .in("org_id", orgIds)
     : { data: [] }
 
-  const rows = (pending ?? []).filter(v => v.documents)
+  // Ne montrer que ce sur quoi on peut AGIR. Le circuit est ordonné
+  // depuis la 0041 : le coordinateur n'a rien à faire d'un devis que le
+  // porteur n'a pas encore signé, et une file qui affiche l'inatteignable
+  // cesse vite d'être consultée.
+  const isActionable = (v: any) => {
+    const all = (Array.isArray(v.documents) ? v.documents[0] : v.documents)?.validations ?? []
+    const step = v.step ?? 1
+    return !all.some((o: any) => (o.step ?? 1) < step && o.decision !== 'valide')
+  }
+  const all = (pending ?? []).filter(v => v.documents)
+  const rows = all.filter(isActionable)
+  const waiting = all.length - rows.length
   const one = <T,>(x: T | T[] | null | undefined): T | null => (Array.isArray(x) ? x[0] ?? null : x ?? null)
 
   return (
@@ -55,6 +67,12 @@ export default async function AValiderPage() {
             ? "Rien n’attend votre décision."
             : `${rows.length} devis attend${rows.length > 1 ? "ent" : ""} une décision de ${orgIds.length > 1 ? "vos organisations" : "votre organisation"}.`}
         </p>
+        {waiting > 0 && (
+          <p className="mt-1 text-xs" style={{ color: "#66716B" }}>
+            {waiting} autre{waiting > 1 ? "s" : ""} vous {waiting > 1 ? "reviendront" : "reviendra"} une fois
+            l&apos;organisation porteuse prononcée.
+          </p>
+        )}
       </div>
 
       {orgIds.length === 0 && (

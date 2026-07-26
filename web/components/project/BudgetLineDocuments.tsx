@@ -29,6 +29,12 @@ export interface LineValidation {
   // Membre de l'organisation sollicitée. Faux = décision par
   // procuration, qui exige confirmation explicite et motif.
   isMember: boolean
+  // Rang dans la chaîne (0041) : 1 le porteur, 2 le coordinateur.
+  step: number
+  // Un échelon antérieur n'a pas encore signé. La base le refuse aussi
+  // (policy « Decide validation ») ; l'écran ne doit donc pas proposer
+  // une action qui sera rejetée.
+  blocked: boolean
 }
 
 export interface LineDoc {
@@ -261,8 +267,22 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
                       <ul className="mt-2 space-y-1">
                         {d.validations.map(v => (
                           <li key={v.id} className="flex items-center gap-2 text-xs">
-                            <span style={{ color: "#66716B" }}>{v.orgName ?? "Organisation"}</span>
-                            {v.decision === "en_attente" ? (
+                            <span style={{ color: "#66716B" }}>
+                              {d.validations.length > 1 && (
+                                <span className="mr-1 px-1.5 py-0.5 rounded" style={{ background: "#EEF0EE", color: "#66716B" }}>
+                                  {v.step}
+                                </span>
+                              )}
+                              {v.orgName ?? "Organisation"}
+                            </span>
+                            {v.decision === "en_attente" && v.blocked ? (
+                              // Le rang existe pour être respecté : le
+                              // coordinateur entérine ce que le porteur a
+                              // engagé, il ne le précède pas.
+                              <span style={{ color: "#9AA39D" }}>
+                                en attente — son tour viendra après l&apos;étape {v.step - 1}
+                              </span>
+                            ) : v.decision === "en_attente" ? (
                               <>
                                 <span style={{ color: "#B4690E" }}>en attente</span>
                                 {/* Procuration : deuxième temps imposé, motif
