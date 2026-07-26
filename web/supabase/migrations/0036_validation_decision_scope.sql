@@ -30,12 +30,21 @@ create policy "Decide validation" on validations
       select 1 from memberships m
        where m.user_id = auth.uid() and m.org_id = validations.org_id
     )
-    -- Recours d'exploitation : administrateur plateforme uniquement.
-    -- Volontairement PAS is_admin(), qui englobe les admins d'organisation
-    -- YCID / LEY et rouvrirait exactement le trou qu'on ferme.
+    -- Recours d'exploitation : rôle « admin » UNIQUEMENT.
+    --
+    -- Ni is_admin(), qui englobe le rôle « ycid ». Ni is_platform_admin,
+    -- piège moins visible : l'écran de gestion des comptes pose
+    -- `is_platform_admin = (role <> 'user')` (user-actions.ts), si bien
+    -- que TOUT compte de rôle « ycid » a ce drapeau à true. S'y fier
+    -- rouvrirait exactement le trou qu'on ferme — c'est un compte de
+    -- rôle ycid qui a validé au nom de LEY.
+    --
+    -- Le coalesce reprend la dérivation de l'application pour les
+    -- comptes antérieurs à la 0017, dont platform_role est nul.
     or exists (
       select 1 from profiles p
-       where p.id = auth.uid() and p.is_platform_admin = true
+       where p.id = auth.uid()
+         and coalesce(p.platform_role, case when p.is_platform_admin then 'admin' else 'user' end) = 'admin'
     )
   );
 
