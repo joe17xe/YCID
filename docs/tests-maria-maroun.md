@@ -141,17 +141,45 @@ avec M7, pas un défaut.
 Ce test éprouve donc votre **second rôle** — et il n'a encore jamais été
 essayé par personne.
 
-1. Sur la **Coordination**, onglet **Budget**, sur une ligne → icône
-   trombone 📎.
-2. **Déposer une pièce** : un fichier, Nature **Facture**, Montant 200 €.
-3. **« Marquer payée »**.
+**Ne supprimez rien à la fin de ce test** : ce que vous déposez ici sert
+de matière aux tests de Bérengère et de Joe. Le nettoyage viendra après.
+
+### M8a. Le devis part tout seul en validation
+
+1. Sur la **Coordination**, onglet **Budget**, la ligne que Joe vous aura
+   indiquée → icône trombone 📎.
+2. **Déposer une pièce** : un fichier, Nature **Devis**, Montant 300 €.
+
+**Attendu** : la pièce apparaît **« en attente de validation »**, sans
+que vous ayez rien cliqué de plus. Un devis part automatiquement vers
+l'organisation qui finance la ligne.
+
+3. Regardez **« Engagé (devis validés) »** sur la ligne.
+
+**Attendu** : il n'a **pas** bougé. Un devis déposé n'engage rien — il
+n'engagera qu'une fois validé, par quelqu'un d'autre.
+
+4. Cherchez un bouton pour valider **votre propre** devis.
+
+**Attendu** : il n'y en a pas. C'est voulu : vous êtes la déposante, et
+se valider soi-même viderait le circuit de son sens. La décision revient
+à l'organisation sollicitée.
+
+**Dites-moi vers quelle organisation le devis est parti** — c'est
+l'information que j'attends le plus de ce test.
+
+### M8b. La facture et le paiement
+
+1. Sur la même ligne → **Déposer une pièce** : Nature **Facture**,
+   Montant 200 €.
+2. **« Marquer payée »**.
 
 **Attendu** : un champ **date** apparaît dans le panneau — pas une
 fenêtre grise du navigateur — pré-rempli à aujourd'hui. Confirmez.
 
 **Attendu** : « payé le … » apparaît et la colonne **Payé** se met à jour.
 
-4. **Annuler le paiement**, puis supprimez la pièce de test.
+3. **Annulez le paiement** — et **laissez les deux pièces en place**.
 
 ## M9. Retrouver un document
 
@@ -231,4 +259,10 @@ Le numéro du test + ce que vous avez vu. Une capture d'écran est idéale.
 Et surtout : **qu'est-ce qui vous manque pour travailler ?** Vous êtes la
 personne qui utilisera cet outil au quotidien.
 
-**Pensez à retirer** en fin de test les pièces et photos déposées.
+**Pensez à retirer** en fin de test les pièces et photos déposées sur la
+**Triade** (M4, M5), ainsi que la ligne et la tâche « Test Maria » de
+M12.
+
+**En revanche, laissez en place le devis et la facture de M8**, sur la
+Coordination : Bérengère et Joe en ont besoin pour leurs propres tests.
+Joe les supprimera ensuite.

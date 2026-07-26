@@ -88,23 +88,47 @@ le plus utile que vous puissiez donner.
 
 Un devis part en validation auprès du **financeur de la ligne**.
 
-1. Onglet **Budget**, ligne **« Équipement de sensibilisation »**
-   (financée par YCID) → icône trombone 📎.
+⚠️ **À faire après Maria**, pas avant : c'est elle qui dépose le devis
+que vous allez valider. Joe vous dira quand.
 
-**Attendu** : si un devis y est en attente, vous voyez **Valider** /
-**Refuser**.
+1. Ouvrez **CEM Liban — Coordination et actions communes** → onglet
+   **Budget** → la ligne indiquée par Joe → icône trombone 📎.
 
-2. Ouvrez la ligne **« Aménagement du site principal du Shir »**
-   (financée par le Département).
+**Attendu** : un devis de 300 € **en attente de validation**, déposé par
+Maria Maroun, et les boutons **Valider** / **Refuser**. Vous les voyez
+parce que la ligne est financée par **YCID**, dont vous êtes membre.
 
-**Attendu** : vous voyez le devis et son état, mais **pas** les boutons
-de décision ordinaires. À la place : « vous n'êtes pas membre » et deux
-boutons « Valider à sa place… ». Cliquer dessus ouvre une saisie de motif
-**obligatoire**, et la décision serait tracée « AU NOM DE » cette
-organisation.
+2. Notez la valeur de **« Engagé (devis validés) »** — elle est à 0 €.
+3. **Validez** le devis.
 
-**N'allez pas jusqu'au bout** sur un devis réel. Dites-moi seulement si
-vous voyez bien cette différence de traitement.
+**Attendu** : « Engagé » passe à **300 €**. C'est le seul geste qui fait
+bouger ce chiffre : un devis déposé n'engage rien, un devis validé
+engage.
+
+**Ce que ce test prouve vraiment** : Maria a déposé, vous avez décidé.
+Ni elle ni vous n'avez pu faire les deux. C'est tout l'objet du circuit.
+
+### Et ce que vous ne pouvez pas faire
+
+4. Retournez sur la **Triade Villepreux**, ligne **« Aménagement du site
+   principal du Shir »** — financée par le **Département**, dont vous
+   n'êtes pas membre.
+
+**Attendu** : vous voyez la pièce et son état, mais **aucun bouton de
+décision**. Ni Valider, ni Refuser, ni rien pour passer outre.
+
+C'est le changement d'hier, et il vous concerne directement : vous aviez
+pu valider un devis qui relevait de **LEY**. La décision s'enregistrait
+alors sous LEY, sans que rien n'indique qu'une autre organisation avait
+tranché à sa place — indéfendable devant un financeur.
+
+Un recours existe toujours pour débloquer un devis adressé à une
+organisation sans compte actif, mais il est réservé à l'administrateur,
+exige un motif écrit et laisse une trace « AU NOM DE ». C'est Joe qui
+l'éprouve.
+
+**Si vous voyez malgré tout un bouton sur cette ligne, dites-le tout de
+suite** : ce serait la bascule incomplète.
 
 ## B7. Le rapport d'expert IA
 
