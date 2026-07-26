@@ -41,7 +41,7 @@ SQL Editor Supabase (ou via `supabase db push` avec la CLI) :
 | `migrations/0034_storage_stats.sql` | Écran Stockage : `storage_stats()`, `storage_orphans()`, `storage_by_project()` — lecture agrégée de `storage.objects`, réservée aux admins (PR 41) |
 | `migrations/0035_storage_stats_all_buckets.sql` | Correctif 41 : `storage_stats()` part de `storage.buckets` (jointure externe) — un espace vide disparaissait de l'inventaire |
 | `migrations/0036_validation_decision_scope.sql` | Décider d'une validation revient aux MEMBRES de l'organisation sollicitée ; recours réservé au rôle `admin` (correctif 38b) |
-| `migrations/0037_role_responsable_projet.sql` | Rôle plateforme « Responsable projet » : voit tout le portefeuille et arbitre la roadmap, sans console d'administration. Recâble `is_project_member`, `is_admin` et `is_platform_admin` sur `platform_role` (PR 42) |
+| `migrations/0037_two_platform_roles.sql` | **Deux rôles plateforme** (admin / user) : `is_admin()` réduit au seul rôle admin, périmètre porté par l'appartenance à une organisation, capacité `profiles.can_manage_roadmap` pour la gouvernance produit. Comptes « ycid » convertis (PR 42) |
 
 `seed.sql` contient les données de démonstration CEM Liban et s'exécute
 **après** les migrations, uniquement sur un environnement de démo.

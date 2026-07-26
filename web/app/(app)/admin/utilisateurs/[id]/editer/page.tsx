@@ -15,7 +15,7 @@ export default async function EditerUtilisateurPage({ params }: { params: Promis
 
   const [{ data: me }, { data: target }] = await Promise.all([
     supabase.from("profiles").select("platform_role").eq("id", user.id).maybeSingle(),
-    supabase.from("profiles").select("id, full_name, email, platform_role, is_platform_admin, active").eq("id", id).maybeSingle(),
+    supabase.from("profiles").select("id, full_name, email, platform_role, is_platform_admin, active, can_manage_roadmap").eq("id", id).maybeSingle(),
   ])
   if (!target) notFound()
 
@@ -38,6 +38,7 @@ export default async function EditerUtilisateurPage({ params }: { params: Promis
           email: target.email ?? "",
           platform_role: targetRole,
           active: target.active !== false,
+          can_manage_roadmap: target.can_manage_roadmap === true,
         }}
       />
     </div>

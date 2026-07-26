@@ -12,6 +12,7 @@ const border = { borderColor: "#E3E6E2" }
 
 interface UserData {
   id: string; full_name: string; email: string; platform_role: string; active: boolean
+  can_manage_roadmap?: boolean
 }
 
 export default function UserForm({ user, canCreateAdmin }: { user?: UserData; canCreateAdmin: boolean }) {
@@ -26,6 +27,7 @@ export default function UserForm({ user, canCreateAdmin }: { user?: UserData; ca
     password: "",
     confirmPassword: "",
     active: user?.active ?? true,
+    canManageRoadmap: user?.can_manage_roadmap ?? false,
   })
 
   function submit(e: React.FormEvent) {
@@ -81,6 +83,22 @@ export default function UserForm({ user, canCreateAdmin }: { user?: UserData; ca
           <span>
             <span className="text-sm font-medium" style={{ color: "#17211D" }}>Compte actif</span>
             <span className="block text-xs" style={{ color: "#66716B" }}>Un compte désactivé ne peut plus se connecter.</span>
+          </span>
+        </label>
+        {/* Gouvernance produit : ni un droit projet, ni de
+            l'administration technique. Une capacité cochée, pour ne pas
+            avoir à inventer un rôle intermédiaire — c'est ce mélange qui
+            avait donné la console d'administration à qui n'en avait pas
+            l'usage. */}
+        <label className="flex items-start gap-2.5 cursor-pointer mt-3">
+          <input type="checkbox" checked={form.canManageRoadmap}
+            onChange={e => setForm({ ...form, canManageRoadmap: e.target.checked })} className="mt-0.5" />
+          <span>
+            <span className="text-sm font-medium" style={{ color: "#17211D" }}>Arbitrage de la roadmap</span>
+            <span className="block text-xs" style={{ color: "#66716B" }}>
+              Peut changer le statut, la priorité et la difficulté des idées (rôle Product Owner).
+              N&apos;ouvre aucun accès à l&apos;administration.
+            </span>
           </span>
         </label>
       </div>

@@ -5,29 +5,23 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 // à `role <> 'user'`, donc vrai pour tout rôle non ordinaire. On
 // raisonne sur platform_role, avec repli sur le drapeau pour les comptes
 // antérieurs à la migration 0017.
-type PlatformRole = 'admin' | 'ycid' | 'responsable_projet' | 'user'
+type PlatformRole = 'admin' | 'user'
 async function platformRole(supabase: SupabaseClient, userId: string): Promise<PlatformRole> {
   const { data } = await supabase.from('profiles')
     .select('platform_role, is_platform_admin').eq('id', userId).maybeSingle()
   const role = data?.platform_role ?? (data?.is_platform_admin ? 'admin' : 'user')
-  return (['admin', 'ycid', 'responsable_projet', 'user'].includes(role) ? role : 'user') as PlatformRole
+  return (role === 'admin' ? 'admin' : 'user') as PlatformRole
 }
 
-// Administration de la plateforme : rôles « admin » et « ycid », plus
-// les admins d'organisation YCID / LEY. « Responsable projet » en est
-// volontairement exclu — il arbitre le produit, il n'administre pas.
+// Administration de l'OUTIL : comptes, marque, IA, mentions légales,
+// stockage. Le seul rôle « admin » (migration 0037).
+//
+// Le raccourci « admin d'organisation YCID / LEY » a été retiré : c'était
+// un troisième chemin global vers l'administration, du même genre que le
+// rôle « ycid » qu'on supprime. Piloter un programme ne veut pas dire
+// configurer l'outil.
 export async function isUserAdmin(supabase: SupabaseClient, userId: string): Promise<boolean> {
-  const [role, { data: adminOrgs }] = await Promise.all([
-    platformRole(supabase, userId),
-    supabase.from('memberships').select('role, organizations:org_id(name)').eq('user_id', userId).eq('role', 'admin_org'),
-  ])
-  if (role === 'admin' || role === 'ycid') return true
-  return (adminOrgs ?? []).some(m => {
-    // supabase-js peut typer la jointure to-one comme objet ou tableau
-    const org = Array.isArray(m.organizations) ? m.organizations[0] : m.organizations
-    const name = String(org?.name ?? '').toUpperCase()
-    return name.includes('YCID') || name.includes('LEY')
-  })
+  return (await platformRole(supabase, userId)) === 'admin'
 }
 
 // Modifier une tâche terminée est réservé aux mêmes admins.
@@ -80,11 +74,13 @@ export async function canManageMeetings(supabase: SupabaseClient, userId: string
   return role === 'chef_projet' || role === 'referent_mairie'
 }
 
-// Arbitrage de la roadmap : le Product Owner décide du produit sans
-// administrer la plateforme. Les deux droits étaient confondus parce
-// qu'un seul rôle les portait (migration 0037).
+// Arbitrage de la roadmap : une CAPACITÉ cochée sur le profil, pas un
+// rôle. La gouvernance produit n'est ni un droit projet ni de
+// l'administration technique — le Product Owner arbitre le backlog sans
+// toucher aux comptes.
 export async function canManageRoadmap(supabase: SupabaseClient, userId: string): Promise<boolean> {
-  const role = await platformRole(supabase, userId)
-  if (role === 'admin' || role === 'ycid' || role === 'responsable_projet') return true
-  return isUserAdmin(supabase, userId)
+  const { data } = await supabase.from('profiles')
+    .select('can_manage_roadmap, platform_role, is_platform_admin').eq('id', userId).maybeSingle()
+  if (data?.can_manage_roadmap) return true
+  return (data?.platform_role ?? (data?.is_platform_admin ? 'admin' : 'user')) === 'admin'
 }

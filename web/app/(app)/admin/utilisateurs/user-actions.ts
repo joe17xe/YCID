@@ -9,7 +9,10 @@ import { parseRecipients } from '@/lib/recipients'
 import { adminClient } from '@/lib/supabase/admin'
 import { isUserAdmin } from '@/lib/permissions'
 
-const PLATFORM_ROLES = ['admin', 'ycid', 'responsable_projet', 'user']
+// Deux rôles seulement (0037). Les garde-fous « ycid » plus bas sont
+// conservés à dessein : ils protègent encore les bases où la migration
+// n'a pas été jouée et où des comptes portent l'ancien rôle.
+const PLATFORM_ROLES = ['admin', 'user']
 
 // Rôle plateforme de l'utilisateur connecté + garde-fous
 async function currentContext(supabase: Awaited<ReturnType<typeof createClient>>) {
@@ -85,6 +88,7 @@ interface UserFormInput {
   password: string
   confirmPassword: string
   active: boolean
+  canManageRoadmap?: boolean
 }
 
 function validate(input: UserFormInput, requirePassword: boolean): string | null {
@@ -129,6 +133,7 @@ export async function createUser(input: UserFormInput): Promise<Result> {
       full_name: input.fullName.trim(),
       platform_role: input.role,
       is_platform_admin: input.role === 'admin',
+      can_manage_roadmap: !!input.canManageRoadmap,
       active: !!input.active,
     }).eq('id', created.userId)
     if (pErr) {
@@ -185,6 +190,7 @@ export async function updateUser(userId: string, input: UserFormInput): Promise<
       email,
       platform_role: input.role,
       is_platform_admin: input.role === 'admin',
+      can_manage_roadmap: !!input.canManageRoadmap,
       active: !!input.active,
     }).eq('id', userId)
     if (pErr) {
