@@ -7,7 +7,7 @@ import { ACCESS_ROLES } from "@/lib/constants"
 // « auditeur » restent affichables sur d'anciennes données, jamais
 // posables sur quelqu'un de nouveau.
 import { ASSIGNABLE_ROLES } from "@/lib/rbac"
-import { addProjectMember, removeProjectMember, createProjectUser } from "@/app/(app)/projets/[id]/actions"
+import { addProjectMember, removeProjectMember, createProjectUser, updateProjectMemberRole } from "@/app/(app)/projets/[id]/actions"
 
 const inputCls = "w-full px-3 py-2 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
 const border = { borderColor: "#E3E6E2" }
@@ -206,6 +206,45 @@ export function RemoveMemberButton({ projectId, userId, name }: { projectId: str
         {pending ? "…" : "Retirer"}
       </button>
       <button onClick={() => { setConfirming(false); setError("") }} className="text-xs" style={{ color: "#66716B" }}>Annuler</button>
+    </span>
+  )
+}
+
+// ============================================================
+// Changer le rôle d'un membre (J4)
+// ============================================================
+// Il n'existait qu'ajouter et retirer. Remplacer un responsable
+// supposait donc d'en ajouter un second puis de retirer le premier — le
+// garde-fou « ne pas retirer le dernier chef de projet » l'imposait. Et
+// rétrograder quelqu'un revenait à le retirer puis le rajouter, ce qui
+// efface son historique d'appartenance.
+export function MemberRoleSelect({ projectId, userId, name, role }: {
+  projectId: string; userId: string; name: string; role: string
+}) {
+  const [error, setError] = useState("")
+  const [value, setValue] = useState(role)
+  const [pending, startTransition] = useTransition()
+
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <select value={value} disabled={pending}
+        aria-label={`Rôle de ${name} sur ce projet`}
+        onChange={e => {
+          const next = e.target.value
+          const previous = value
+          setValue(next); setError("")
+          startTransition(async () => {
+            const res = await updateProjectMemberRole({ projectId, userId, role: next })
+            // Revenir à l'affichage précédent en cas de refus : laisser le
+            // nouveau rôle à l'écran ferait croire au succès.
+            if (!res.ok) { setValue(previous); setError(res.error ?? "Erreur") }
+          })
+        }}
+        className="text-xs px-2 py-1 rounded-lg border"
+        style={{ borderColor: "#E3E6E2", color: "#17211D", opacity: pending ? 0.6 : 1 }}>
+        {ASSIGNABLE_ROLES.map(k => <option key={k} value={k}>{ACCESS_ROLES[k].label}</option>)}
+      </select>
+      {error && <span role="alert" className="text-xs" style={{ color: "#A3342C" }}>{error}</span>}
     </span>
   )
 }

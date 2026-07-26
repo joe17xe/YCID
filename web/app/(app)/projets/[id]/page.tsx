@@ -19,12 +19,14 @@ import { GALLERY_URL_TTL, type DocMoment } from "@/lib/documents"
 import { financialsFor, sumFinancials, gap, fmtSignedEur, type Financials } from "@/lib/budget"
 
 const EMPTY_FIN: Financials = { planned: 0, engaged: 0, paid: 0, remainingToCommit: 0, remainingToPay: 0 }
-import { MemberDialog, InviteUserDialog, RemoveMemberButton } from "@/components/project/MemberDialog"
+import { MemberDialog, InviteUserDialog, RemoveMemberButton, MemberRoleSelect } from "@/components/project/MemberDialog"
 import HelpDialog from "@/components/help/HelpDialog"
 import DeleteProjectButton from "@/components/project/DeleteProjectButton"
 import ExpertReportDialog from "@/components/project/ExpertReportDialog"
 import CommPanel, { type Campaign } from "@/components/project/CommPanel"
 import PublicPageDialog from "@/components/project/PublicPageDialog"
+import ProjectEditDialog from "@/components/project/ProjectEditDialog"
+import ProjectDocUpload from "@/components/project/ProjectDocUpload"
 import { ChevronLeft } from "lucide-react"
 
 function Badge({ label, fg, bg }: { label: string; fg: string; bg: string }) {
@@ -222,6 +224,15 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
           <ChevronLeft size={16} /> Projets
         </Link>
         <div className="flex items-center gap-2 flex-wrap">
+          {canPhases && (
+            <ProjectEditDialog project={{
+              id, name: project.name, description: project.description ?? null,
+              country: project.country ?? null, zone: project.zone ?? null,
+              programme: project.programme ?? null,
+              start_date: project.start_date ?? null, end_date: project.end_date ?? null,
+              status: project.status, budget: project.budget ?? null,
+            }} />
+          )}
           {canPhases && <PublicPageDialog projectId={id} token={project.public_token ?? null} />}
           <ExpertReportDialog projectId={id} projectName={project.name} />
           {canEditCompleted && <DeleteProjectButton projectId={id} projectName={project.name} />}
@@ -315,7 +326,13 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                       <div className="text-xs" style={{ color: "#66716B" }}>{pm.profiles?.email}</div>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <Badge label={r.short ?? r.label} fg={r.fg} bg={r.bg} />
+                      {/* Le rôle se change sur place. Il fallait jusqu'ici
+                          retirer puis rajouter la personne — ce qui effaçait
+                          son historique d'appartenance — et, pour un
+                          responsable, en nommer un second d'abord. */}
+                      {canPhases
+                        ? <MemberRoleSelect projectId={id} userId={pm.user_id} name={pm.profiles?.full_name ?? ""} role={pm.role} />
+                        : <Badge label={r.short ?? r.label} fg={r.fg} bg={r.bg} />}
                       {canPhases && <RemoveMemberButton projectId={id} userId={pm.user_id} name={pm.profiles?.full_name ?? ""} />}
                     </div>
                   </div>
@@ -341,17 +358,32 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
           )}
           {(phases ?? []).map((ph: any) => {
             const phaseTasks = ph.tasks ?? []
-            // Avancement pondéré par le budget — mais SEULEMENT si chaque
-            // tâche de la phase est chiffrée. Pondérer alors qu'une tâche
-            // vaut 0 la ferait disparaître du calcul en silence : « signer
-            // la convention » ne compterait plus du tout. Tant que le
-            // chiffrage est partiel, on garde la moyenne simple et on le
-            // dit (mention « pondéré » sinon absente).
-            const weights = phaseTasks.map((t: any) => taskBudget(t.id))
-            const weighted = phaseTasks.length > 0 && weights.every((w: number) => w > 0)
+            // Avancement pondéré par le budget, avec PLANCHER À 2 %
+            // (arbitrage YCID du 25/07).
+            //
+            // La règle d'origine n'appliquait la pondération que si TOUTE
+            // tâche de la phase était chiffrée — donc jamais, puisqu'une
+            // tâche peut légitimement valoir 0 €. La pondération était
+            // morte-née.
+            //
+            // Pondérer sans plancher est pire encore : une tâche à 0 €
+            // disparaît du calcul, et la phase peut afficher 100 % alors
+            // que « signer la convention » n'est pas fait. C'est
+            // exactement ce qu'un financeur ne doit pas lire.
+            //
+            // Le plancher vaut pour TOUTES les tâches, pas seulement
+            // celles à 0 € : sans quoi une tâche à 100 € pèserait moins
+            // qu'une tâche à 0 €, ce qui serait absurde.
+            const phaseLinesForWeight = plannedByPhase.get(ph.id) ?? 0
+            const floor = phaseLinesForWeight * 0.02
+            const rawWeights = phaseTasks.map((t: any) => taskBudget(t.id))
+            const weighted = phaseTasks.length > 0 && phaseLinesForWeight > 0
+            const weights = weighted
+              ? rawWeights.map((w: number) => Math.max(w, floor))
+              : rawWeights
             const totalWeight = weights.reduce((s: number, w: number) => s + w, 0)
             const phProg = !phaseTasks.length ? 0
-              : weighted
+              : weighted && totalWeight > 0
                 ? Math.round(phaseTasks.reduce((s: number, t: any, i: number) => s + t.progress * weights[i], 0) / totalWeight)
                 : Math.round(phaseTasks.reduce((s: number, t: any) => s + t.progress, 0) / phaseTasks.length)
             // Deux chiffres coexistent : le budget saisi sur la phase et
@@ -386,7 +418,9 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                         ) : null
                       })()}
                       {phaseLinesTotal > 0 && <span title="Somme des lignes budgétaires de la phase">{fmtEur(phaseLinesTotal)}</span>}
-                      <span title={weighted ? "Moyenne pondérée par le budget des tâches" : "Moyenne des tâches, à parts égales"}>
+                      <span title={weighted
+                        ? "Moyenne pondérée par le budget des tâches, avec un poids plancher de 2 % du budget de la phase : une tâche à 0 € compte tout de même, la phase ne peut donc pas afficher 100 % tant qu'elle n'est pas faite."
+                        : "Moyenne des tâches, à parts égales — la phase n'a pas encore de budget réparti."}>
                         {phProg}%{weighted && <span className="text-xs"> pondéré</span>}
                       </span>
                       {canTasks && <TaskDialog phaseId={ph.id} members={memberOptions} />}
@@ -677,7 +711,18 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
 
       {/* ===== DOCUMENTS (PR 38d) ===== */}
       {tab === "documents" && (
-        <DocumentsPanel projectId={id} projectName={project.name} docs={projectDocs} canManage={canTasks} />
+        <>
+          {/* La convention de financement n'avait aucun point de dépôt :
+              ni sur une tâche, à laquelle elle ne se rattache pas, ni sur
+              une ligne budgétaire, puisqu'elle les couvre toutes. */}
+          {canTasks && (
+            <div className="flex justify-end mb-4">
+              <ProjectDocUpload projectId={id}
+                phases={(phases ?? []).map((p: any) => ({ id: p.id, name: p.name }))} />
+            </div>
+          )}
+          <DocumentsPanel projectId={id} projectName={project.name} docs={projectDocs} canManage={canTasks} />
+        </>
       )}
 
       {/* ===== IMPACT ===== */}

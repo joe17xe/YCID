@@ -803,3 +803,132 @@ export async function deleteProject(input: { projectId: string; confirmation: st
   revalidatePath('/projets')
   return { ok: true }
 }
+
+// ============================================================
+// Édition de la fiche projet (J4)
+// ============================================================
+// Rien ne permettait de modifier un projet après sa création : ni le
+// nom, ni les dates, ni surtout le MONTANT VOTÉ, devenu la référence du
+// pilotage financier avec la PR 39. Une erreur de saisie à la création
+// était définitive — figée par accident, pas par choix (seuls
+// `public_token` et `programme` avaient un chemin de mise à jour).
+
+export interface ProjectEditInput {
+  projectId: string
+  name: string
+  description: string
+  country: string
+  zone: string
+  programme: string
+  start_date: string
+  end_date: string
+  status: string
+  budget: string
+}
+
+const PROJECT_STATUSES = ['en_preparation', 'en_cours', 'suspendu', 'termine']
+
+export async function updateProject(input: ProjectEditInput): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Non authentifié.' }
+  // Même droit que la gestion des phases : piloter le projet.
+  if (!(await canManagePhases(supabase, user.id, input.projectId))) {
+    return { ok: false, error: 'Modification du projet réservée au responsable projet et aux admins.' }
+  }
+
+  const name = (input.name ?? '').trim()
+  if (!name) return { ok: false, error: 'Le nom du projet est obligatoire.' }
+  if (!PROJECT_STATUSES.includes(input.status)) return { ok: false, error: 'Statut invalide.' }
+  const budget = (input.budget ?? '').trim() ? Number(input.budget) : null
+  if (budget !== null && (!Number.isFinite(budget) || budget < 0)) {
+    return { ok: false, error: 'Le montant voté doit être un nombre positif.' }
+  }
+  if (input.start_date && input.end_date && input.end_date < input.start_date) {
+    return { ok: false, error: 'La date de fin doit être postérieure à la date de début.' }
+  }
+
+  const { data: before } = await supabase.from('projects')
+    .select('name, budget').eq('id', input.projectId).maybeSingle()
+  if (!before) return { ok: false, error: 'Projet introuvable.' }
+
+  const { error } = await supabase.from('projects').update({
+    name,
+    description: input.description?.trim() || null,
+    country: input.country?.trim() || null,
+    zone: input.zone?.trim() || null,
+    programme: input.programme?.trim() || null,
+    start_date: input.start_date || null,
+    end_date: input.end_date || null,
+    status: input.status,
+    budget,
+  }).eq('id', input.projectId)
+  if (error) return { ok: false, error: `Échec de la modification : ${error.message}` }
+
+  // Le montant voté est une donnée contractuelle : son changement se
+  // trace nommément, avec l'ancienne et la nouvelle valeur. « Projet
+  // modifié » ne suffirait pas six mois plus tard devant un financeur
+  // qui demande pourquoi l'enveloppe a bougé.
+  const eur = (n: number | null) => n == null ? 'non renseigné' : `${Math.round(n).toLocaleString('fr-FR')} €`
+  const budgetChanged = (before.budget ?? null) !== budget
+  const { error: auditErr } = await supabase.from('audit_log').insert({
+    project_id: input.projectId, entity: 'project', entity_id: input.projectId,
+    label: name, action: 'modifie', user_id: user.id,
+    comment: budgetChanged
+      ? `Fiche projet modifiée — MONTANT VOTÉ : ${eur(before.budget)} → ${eur(budget)}`
+      : 'Fiche projet modifiée',
+  })
+  if (auditErr) console.error('[audit] trace NON enregistrée:', auditErr.message)
+
+  revalidatePath(`/projets/${input.projectId}`)
+  return { ok: true }
+}
+
+// ------------------------------------------------------------
+// Changer le rôle d'un membre
+// ------------------------------------------------------------
+// Il n'existait qu'ajouter et retirer. Pour remplacer un responsable, il
+// fallait donc en ajouter un second puis retirer le premier — le garde-fou
+// « ne pas retirer le dernier chef de projet » l'imposait. Et pour
+// rétrograder quelqu'un, le retirer puis le rajouter, ce qui efface son
+// historique d'appartenance.
+export async function updateProjectMemberRole(input: { projectId: string; userId: string; role: string }): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Non authentifié.' }
+  if (!(await canManagePhases(supabase, user.id, input.projectId))) {
+    return { ok: false, error: 'Gestion des membres réservée au responsable projet et aux admins.' }
+  }
+  if (!MEMBER_ROLES.includes(input.role)) return { ok: false, error: 'Rôle invalide.' }
+
+  const { data: current } = await supabase.from('project_members')
+    .select('role').eq('project_id', input.projectId).eq('user_id', input.userId).maybeSingle()
+  if (!current) return { ok: false, error: 'Ce membre ne fait pas partie du projet.' }
+  if (current.role === input.role) return { ok: true }
+
+  // Même garde-fou que le retrait : rétrograder le dernier responsable
+  // laisserait le projet sans personne pour le piloter. Le contournement
+  // reste le bon geste — nommer le suivant d'abord.
+  if (current.role === 'chef_projet') {
+    const { data: chefs } = await supabase.from('project_members')
+      .select('user_id').eq('project_id', input.projectId).eq('role', 'chef_projet')
+    if ((chefs ?? []).length === 1) {
+      return { ok: false, error: 'Ce compte est le dernier responsable projet : nommez son remplaçant avant de changer son rôle.' }
+    }
+  }
+
+  const { error } = await supabase.from('project_members')
+    .update({ role: input.role }).eq('project_id', input.projectId).eq('user_id', input.userId)
+  if (error) return { ok: false, error: `Échec du changement de rôle : ${error.message}` }
+
+  const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', input.userId).maybeSingle()
+  const { error: auditErr } = await supabase.from('audit_log').insert({
+    project_id: input.projectId, entity: 'project_member', entity_id: input.userId,
+    label: profile?.full_name ?? input.userId, action: 'modifie', user_id: user.id,
+    comment: `Rôle projet : ${current.role} → ${input.role}`,
+  })
+  if (auditErr) console.error('[audit] trace NON enregistrée:', auditErr.message)
+
+  revalidatePath(`/projets/${input.projectId}`)
+  return { ok: true }
+}

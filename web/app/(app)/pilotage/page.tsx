@@ -63,7 +63,7 @@ export default async function PilotagePage() {
         <table className="w-full text-sm">
           <thead>
             <tr style={{ background: "#F5F6F4", borderBottom: "1px solid #E3E6E2" }}>
-              {["Projet", "Statut", "Avancement", "Budget", "Tâches en retard"].map(h => (
+              {["Projet", "Statut", "Avancement", "Montant voté", "Tâches en retard"].map(h => (
                 <th key={h} className="text-left px-5 py-3 text-xs font-semibold" style={{ color: "#66716B" }}>{h}</th>
               ))}
             </tr>

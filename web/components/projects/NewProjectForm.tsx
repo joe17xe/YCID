@@ -88,9 +88,18 @@ export default function NewProjectForm({ orgs }: { orgs: { id: string; name: str
             className={inputCls} style={{ borderColor: "#E3E6E2" }} />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Budget (€)</label>
+          {/* « Montant voté » et non « Budget » : depuis la PR 39, ce
+              chiffre est la référence contractuelle — l'enveloppe votée par
+              le financeur — à laquelle se compare la somme des lignes. Les
+              appeler tous deux « budget » entretenait la confusion que la
+              PR 39 servait à lever. */}
+          <label className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Montant voté (€)</label>
           <input type="number" min={0} step="0.01" value={form.budget} onChange={e => setForm({ ...form, budget: e.target.value })}
             className={inputCls} style={{ borderColor: "#E3E6E2" }} placeholder="48650" />
+          <p className="text-xs mt-1" style={{ color: "#66716B" }}>
+            L&apos;enveloppe votée par le financeur. Les lignes budgétaires se répartissent
+            dedans ; l&apos;écart entre les deux est signalé sur le projet.
+          </p>
         </div>
       </div>
       {error && <p className="text-sm rounded-lg px-3 py-2" style={{ background: "#F6E7E5", color: "#A3342C" }}>{error}</p>}
