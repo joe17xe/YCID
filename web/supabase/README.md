@@ -41,8 +41,8 @@ SQL Editor Supabase (ou via `supabase db push` avec la CLI) :
 | `migrations/0034_storage_stats.sql` | Écran Stockage : `storage_stats()`, `storage_orphans()`, `storage_by_project()` — lecture agrégée de `storage.objects`, réservée aux admins (PR 41) |
 | `migrations/0035_storage_stats_all_buckets.sql` | Correctif 41 : `storage_stats()` part de `storage.buckets` (jointure externe) — un espace vide disparaissait de l'inventaire |
 | `migrations/0036_validation_decision_scope.sql` | Décider d'une validation revient aux MEMBRES de l'organisation sollicitée ; recours réservé au rôle `admin` (correctif 38b) |
-| `migrations/0038_reader_role_merge.sql` | Un seul rôle de consultation : `validateur` et `auditeur` convertis en `lecteur` (conversions tracées au journal). Le premier ne validait plus rien depuis la 0036, le second était indistinguable du lecteur. Les valeurs restent dans l'enum — PostgreSQL ne les perd pas — mais ne sont plus proposées à la saisie |
 | `migrations/0037_two_platform_roles.sql` | **Deux rôles plateforme** (admin / user) : `is_admin()` réduit au seul rôle admin, périmètre porté par l'appartenance à une organisation, capacité `profiles.can_manage_roadmap` pour la gouvernance produit. Comptes « ycid » convertis (PR 42) |
+| `migrations/0038_reader_role_merge.sql` | **Auditeur, seul rôle de consultation** : `validateur` et `lecteur` convertis en `auditeur` (conversions tracées au journal). Le validateur ne validait plus rien depuis la 0036 ; le lecteur faisait doublon avec le rapport IA et la page vitrine publique. Policy « Add measure » resserrée — un auditeur ne saisit pas les chiffres qu'il contrôle. Sans risque à relancer si la première version, qui convertissait vers `lecteur`, a déjà tourné |
 
 `seed.sql` contient les données de démonstration CEM Liban et s'exécute
 **après** les migrations, uniquement sur un environnement de démo.

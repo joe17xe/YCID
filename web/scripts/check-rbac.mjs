@@ -121,32 +121,55 @@ for (const r of ASSIGNABLE) {
 }
 
 // ------------------------------------------------------------
-// 4. Le dépôt de pièces : matrice == SQL
+// 4. Matrice == SQL, pour les règles qui énumèrent des rôles
 // ------------------------------------------------------------
-// C'est LA ligne qui avait divergé. Le SQL fait foi ; la matrice doit le
-// refléter exactement.
-const upload = sqlAll.match(/can_upload_document[\s\S]*?pm\.role in \(([^)]*)\)/)
-if (!upload) {
-  fail('documents.upload', 'can_upload_document() introuvable dans les migrations — contrôle aveugle')
-} else {
-  const sqlRoles = new Set(roleArray(upload[1]))
-  const uiRoles = new Set(matrix.get('documents.upload') ?? [])
+// Le SQL fait foi ; la matrice doit le refléter exactement. On prend la
+// DERNIÈRE définition rencontrée : une policy est réécrite de migration
+// en migration, et seule la dernière s'applique — lire la première
+// donnerait un contrôle qui valide une règle morte.
+const lastMatch = (re) => {
+  let last = null
+  for (const m of sqlAll.matchAll(new RegExp(re, 'g'))) last = m
+  return last
+}
+
+// `[^;]*?` et non `[\s\S]*?` : borner au statement en cours. Une
+// recherche gloutonne traverse la fin d'une policy et attrape la liste
+// de rôles de la SUIVANTE — elle validait ainsi can_upload_document()
+// contre les rôles d'une policy de validation sans aucun rapport.
+// L'ancrage sur `create ...` évite aussi de partir d'un simple APPEL de
+// la fonction, dont il existe plusieurs.
+const SQL_CHECKS = [
+  { capability: 'documents.upload', source: 'can_upload_document()', re: 'create or replace function public\\.can_upload_document[^;]*?pm\\.role in \\(([^)]*)\\)' },
+  { capability: 'mesures.add', source: '"Add measure"', re: 'create policy "Add measure"[^;]*?pm\\.role in \\(([^)]*)\\)' },
+]
+
+for (const { capability, source, re } of SQL_CHECKS) {
+  const found = lastMatch(re)
+  if (!found) {
+    fail(capability, `${source} introuvable dans les migrations — contrôle aveugle`)
+    continue
+  }
+  const sqlRoles = new Set(roleArray(found[1]))
+  const uiRoles = new Set(matrix.get(capability) ?? [])
   const missing = [...sqlRoles].filter(r => !uiRoles.has(r))
   const extra = [...uiRoles].filter(r => !sqlRoles.has(r))
   if (missing.length || extra.length) {
-    fail('documents.upload', `matrice ≠ can_upload_document(). En trop dans la matrice : ${extra.join(', ') || '—'} ; manquants : ${missing.join(', ') || '—'}`)
+    fail(capability, `matrice ≠ ${source}. En trop dans la matrice : ${extra.join(', ') || '—'} ; manquants : ${missing.join(', ') || '—'}`)
   }
 }
 
 // ------------------------------------------------------------
-// 5. Le rôle de consultation ne peut rien modifier
+// 5. L'auditeur ne peut rien modifier
 // ------------------------------------------------------------
-// La définition même du rôle, arbitrée le 26/07 : « visualiser sans rien
-// pouvoir modifier ». Tout le reste peut changer, pas cela.
-const READ_ONLY = ['projets.view', 'budget.view', 'audit.view', 'mesures.add']
+// La définition même du rôle, arbitrée le 26/07 : consulter pour
+// contrôler, sans jamais toucher à ce qu'on contrôle. Un auditeur qui
+// peut modifier n'est plus un auditeur. Tout le reste peut évoluer, pas
+// cela.
+const READ_ONLY = ['projets.view', 'budget.view', 'audit.view']
 for (const [key, roles] of matrix) {
-  if (roles.includes('lecteur') && !READ_ONLY.includes(key)) {
-    fail('lecteur', `« ${key} » est accordé au rôle Lecteur, qui ne doit rien pouvoir modifier`)
+  if (roles.includes('auditeur') && !READ_ONLY.includes(key)) {
+    fail('auditeur', `« ${key} » est accordé à l'auditeur, qui ne doit rien pouvoir modifier`)
   }
 }
 

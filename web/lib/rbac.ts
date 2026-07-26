@@ -24,29 +24,30 @@ import type { ProjectMemberRole } from './types'
 // ------------------------------------------------------------
 // Les rôles
 // ------------------------------------------------------------
-// Cinq rôles attribuables. « validateur » et « auditeur » ont été
-// fusionnés dans « lecteur » (migration 0038, arbitrage du 26/07) :
+// Cinq rôles attribuables. « validateur » et « lecteur » ont été
+// retirés (migration 0038, arbitrage du 26/07) :
 //
 //   · « validateur » ne validait plus rien depuis la 0036. Décider
 //     revient au membre de l'organisation sollicitée — un mécanisme
 //     d'appartenance, pas un rôle projet. Le libellé promettait un
 //     pouvoir que le code avait retiré ;
-//   · « auditeur » et « lecteur » étaient rigoureusement identiques :
-//     aucun contrôle de l'application ne les distinguait.
+//   · « lecteur » n'avait pas de raison d'être : un compte qui ne sert
+//     qu'à regarder duplique deux choses qui existent déjà mieux, le
+//     rapport d'expert IA et la page vitrine publique (0021). Créer un
+//     compte, gérer son mot de passe et son cycle de vie pour un
+//     spectateur, c'est du coût sans contrepartie.
 //
-// Un seul rôle de consultation, qui voit tout sans rien pouvoir
-// modifier — journal d'audit compris. Masquer la traçabilité à un
-// lecteur reviendrait à réintroduire la distinction qu'on supprime,
-// alors que cette traçabilité est justement ce qu'on montre au
-// financeur.
+// « auditeur » subsiste et devient le seul rôle de consultation, parce
+// qu'il a une mission que ni un rapport ni une vitrine ne remplissent :
+// contrôler. Il lui faut le journal d'audit, qui ne se transmet pas.
 export const ASSIGNABLE_ROLES: ProjectMemberRole[] = [
-  'chef_projet', 'referent_mairie', 'resp_financier', 'contributeur', 'lecteur',
+  'chef_projet', 'referent_mairie', 'resp_financier', 'contributeur', 'auditeur',
 ]
 
 // Conservés pour l'affichage des données antérieures à la 0038. Un
 // enum PostgreSQL ne perd pas ses valeurs : elles ne sont plus
 // proposées à la saisie, mais restent lisibles si une ligne y échappe.
-export const LEGACY_ROLES: ProjectMemberRole[] = ['validateur', 'auditeur']
+export const LEGACY_ROLES: ProjectMemberRole[] = ['validateur', 'lecteur']
 
 const ALL: ProjectMemberRole[] = [...ASSIGNABLE_ROLES, ...LEGACY_ROLES]
 
@@ -59,7 +60,7 @@ export const ROLE_COLUMNS: { key: ProjectMemberRole; label: string }[] = [
   { key: 'referent_mairie', label: 'Référent Mairie' },
   { key: 'resp_financier', label: 'Resp. financier' },
   { key: 'contributeur', label: 'Contributeur · Terrain' },
-  { key: 'lecteur', label: 'Lecteur' },
+  { key: 'auditeur', label: 'Auditeur' },
 ]
 
 // ------------------------------------------------------------
@@ -108,10 +109,15 @@ export const RBAC_MATRIX: PermissionRow[] = [
     admin: true, roles: [], policy: '"Decide validation" — 0036',
   },
   { key: 'indicateurs.manage', label: 'Gérer les indicateurs d’impact', admin: true, roles: ['chef_projet', 'referent_mairie', 'resp_financier'] },
-  { key: 'mesures.add', label: 'Saisir une mesure d’impact', admin: true, roles: ALL, policy: '"Add measure" — 0006' },
+  // Resserré en 0038 : la policy de la 0006 admettait tout membre du
+  // projet, donc l'auditeur. Quelqu'un dont la mission est de contrôler
+  // les chiffres ne doit pas pouvoir en saisir.
+  { key: 'mesures.add', label: 'Saisir une mesure d’impact', admin: true, roles: CONTRIBUTORS, policy: '"Add measure" — 0038' },
   { key: 'copil.manage', label: 'Gérer les réunions COPIL', admin: true, roles: ['chef_projet', 'referent_mairie'] },
   { key: 'decisions.manage', label: 'Gérer les décisions', note: 'Le responsable d’une décision peut aussi la mettre à jour', admin: true, roles: ['chef_projet', 'referent_mairie'] },
-  { key: 'audit.view', label: 'Consulter le journal d’audit', note: 'Lecture seule, y compris pour le rôle Lecteur', admin: true, roles: ALL, policy: '"See audit" — 0001' },
+  // La raison d'être du rôle Auditeur : le journal ne se transmet pas
+  // dans un rapport, il se consulte.
+  { key: 'audit.view', label: 'Consulter le journal d’audit', note: 'Lecture seule — c’est ce qui distingue l’auditeur d’un destinataire de rapport', admin: true, roles: ALL, policy: '"See audit" — 0001' },
   { key: 'users.manage', label: 'Gérer les utilisateurs et invitations', admin: true, roles: [] },
   { key: 'orgs.create', label: 'Créer une organisation', admin: true, roles: [] },
 ]
