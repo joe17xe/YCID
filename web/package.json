@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "check:rbac": "node scripts/check-rbac.mjs",
-    "check": "tsc --noEmit && npm run check:rbac"
+    "check:selects": "node scripts/check-selects.mjs",
+    "check": "tsc --noEmit && npm run check:selects && npm run check:rbac"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",
