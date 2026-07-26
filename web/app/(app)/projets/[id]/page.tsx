@@ -631,6 +631,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                                   // affirmation devant un financeur.
                                   deciderName: (Array.isArray(v.decider) ? v.decider[0]?.full_name : v.decider?.full_name) ?? null,
                                   canDecide: myOrgIds.has(v.org_id) || isPlatformAdmin,
+                                  isMember: myOrgIds.has(v.org_id),
                                 })),
                               }))} />
                           </div>

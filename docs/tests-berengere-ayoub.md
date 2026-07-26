@@ -192,10 +192,18 @@ boutons **Valider** / **Refuser**.
 Valider / Refuser** — cette décision revient au Département et à LEY,
 pas à YCID.
 
-**C'est ce second point qui nous intéresse le plus.** Si vous voyez des
-boutons de décision sur une ligne qui ne concerne pas YCID, dites-le
-tout de suite : cela signifierait qu'une organisation peut trancher au
-nom d'une autre.
+**Attendu précis** : à la place des boutons habituels, vous verrez la
+mention « vous n'êtes pas membre » et deux boutons « Valider à sa
+place… » / « Refuser à sa place… ». C'est volontaire : décider pour une
+autre organisation reste possible — sinon un devis adressé à une
+organisation sans compte actif resterait bloqué pour toujours — mais
+exige une **seconde confirmation avec un motif obligatoire**, et la
+décision est tracée au Journal comme prise « AU NOM DE » cette
+organisation.
+
+**N'allez pas jusqu'au bout de cette procuration** sur un devis réel.
+Dites-moi seulement si vous voyez bien cette différence de traitement
+entre une ligne financée par YCID et une ligne financée par un tiers.
 
 **Ne validez rien** sans en parler à Joe — dites-moi seulement ce que
 vous voyez.

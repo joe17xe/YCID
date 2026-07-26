@@ -112,6 +112,9 @@ async function submitForValidation(documentId: string): Promise<string | null> {
 
 export async function decideValidation(input: {
   validationId: string; projectId: string; decision: 'valide' | 'refuse'; comment?: string
+  // Décider À LA PLACE de l'organisation sollicitée : geste délibéré,
+  // jamais un clic ordinaire (arbitrage YCID du 26/07).
+  onBehalf?: boolean
 }): Promise<{ ok: boolean; error?: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -119,9 +122,27 @@ export async function decideValidation(input: {
   if (!['valide', 'refuse'].includes(input.decision)) return { ok: false, error: 'Décision invalide.' }
 
   const { data: v } = await supabase.from('validations')
-    .select('id, document_id, documents:document_id(filename, project_id)')
+    .select('id, document_id, org_id, organizations:org_id(name), documents:document_id(filename, project_id)')
     .eq('id', input.validationId).maybeSingle()
   if (!v) return { ok: false, error: 'Validation introuvable.' }
+
+  // Décider pour une organisation dont on n'est pas membre reste
+  // possible — sans quoi un devis adressé à une organisation sans compte
+  // actif resterait bloqué pour toujours — mais devient un acte explicite
+  // et motivé, pas un clic qui se confond avec une décision légitime.
+  const { data: membership } = await supabase.from('memberships')
+    .select('org_id').eq('user_id', user.id).eq('org_id', v.org_id).maybeSingle()
+  const org = Array.isArray(v.organizations) ? v.organizations[0] : v.organizations
+  const orgName = org?.name ?? 'cette organisation'
+  const onBehalf = !membership
+  if (onBehalf) {
+    if (!input.onBehalf) {
+      return { ok: false, error: `Vous n'êtes pas membre de « ${orgName} » : cette décision exige une confirmation explicite.` }
+    }
+    if (!(input.comment ?? '').trim()) {
+      return { ok: false, error: `Décider au nom de « ${orgName} » exige un motif, qui sera tracé au Journal.` }
+    }
+  }
 
   const { error } = await supabase.from('validations').update({
     decision: input.decision,
@@ -135,7 +156,14 @@ export async function decideValidation(input: {
   const { error: auditErr } = await supabase.from('audit_log').insert({
     project_id: input.projectId, entity: 'validation', entity_id: input.validationId,
     label: doc?.filename ?? null, action: 'modifie', user_id: user.id,
-    comment: `Devis ${input.decision === 'valide' ? 'validé' : 'refusé'}${input.comment ? ` — ${input.comment.trim()}` : ''}`,
+    // La procuration est écrite NOIR SUR BLANC dans la trace : lue six
+    // mois plus tard par un contrôleur, « validé » et « validé au nom de
+    // LEY, qui n'a pas décidé » ne racontent pas la même histoire.
+    comment: [
+      `Devis ${input.decision === 'valide' ? 'validé' : 'refusé'}`,
+      onBehalf ? ` AU NOM DE « ${orgName} » (décideur non membre de cette organisation)` : '',
+      input.comment ? ` — ${input.comment.trim()}` : '',
+    ].join(''),
   })
   if (auditErr) console.error('[audit] trace NON enregistrée:', auditErr.message)
   revalidatePath(`/projets/${input.projectId}`)
