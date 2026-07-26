@@ -8,10 +8,15 @@ d'abord à vérifier que vous avez maintenant **exactement les droits de
 votre métier**, et que vous pouvez travailler normalement.
 
 Vos rôles : **Terrain** sur la Triade Villepreux · Azour · LEY, et
-**Responsable projet** sur la Coordination. Les tests portent sur la
-Triade, donc sur votre rôle Terrain.
+**Chef de projet** sur la Coordination.
 
-Comptez **35 minutes**. Ce qui compte le plus est marqué ⭐.
+Les tests **M1 à M7, M9 et M11** portent sur la **Triade** — votre rôle
+Terrain. Les tests **M8, M10 et M12** portent sur la **Coordination** —
+votre rôle Chef de projet, qui ouvre le budget. Le changement de projet
+est signalé à chaque fois ; il n'est pas anodin, les deux rôles ne
+donnent pas les mêmes boutons.
+
+Comptez **40 minutes**. Ce qui compte le plus est marqué ⭐.
 
 ## ⚠️ Deux choses à ne pas faire
 
@@ -125,9 +130,19 @@ responsable financier — pas au rôle Terrain.
 Dites-moi simplement ce que vous constatez. Un refus ici est une bonne
 nouvelle : les droits font ce qu'ils annoncent.
 
-## M8. Déposer une facture
+## M8. Déposer une facture — ⚠️ sur la **Coordination**
 
-1. Onglet **Budget**, sur une ligne → icône trombone 📎.
+**Changez de projet ici.** Ouvrez **CEM Liban — Coordination et actions
+communes**, où vous êtes **Chef de projet**. Sur la Triade, votre rôle
+Terrain ne donne pas accès au dépôt : le trombone n'y affiche que la
+lecture, sans « Déposer une pièce » ni « Marquer payée ». C'est cohérent
+avec M7, pas un défaut.
+
+Ce test éprouve donc votre **second rôle** — et il n'a encore jamais été
+essayé par personne.
+
+1. Sur la **Coordination**, onglet **Budget**, sur une ligne → icône
+   trombone 📎.
 2. **Déposer une pièce** : un fichier, Nature **Facture**, Montant 200 €.
 3. **« Marquer payée »**.
 
@@ -153,7 +168,11 @@ fenêtre grise du navigateur — pré-rempli à aujourd'hui. Confirmez.
 Personne n'a encore pu le faire, et vous travaillez sans doute surtout
 sur téléphone.
 
-1. En **portrait**, onglet **Budget** → crayon d'une ligne.
+**Restez sur la Coordination** — comme M8, ce test passe par le crayon
+d'une ligne budgétaire, absent sur la Triade où vous êtes Terrain.
+
+1. En **portrait**, sur la **Coordination**, onglet **Budget** → crayon
+   d'une ligne.
 2. Dans **Poste**, tapez **au moins dix caractères**.
 
 **Attendu** : le clavier reste ouvert du premier au dernier caractère, et
@@ -170,10 +189,38 @@ le champ ne se déplace pas sous vos doigts.
 
 ## M11. Le rapport d'expert IA
 
-1. Sur le projet → **Rapport d'expert IA** → **Générer**.
+1. Sur la **Triade**, → **Rapport d'expert IA** → **Générer**.
 
 **Question** : y reconnaissez-vous votre projet ? S'il se trompe sur un
 fait, c'est important à savoir.
+
+## M12. ⭐ Votre rôle Chef de projet — sur la **Coordination**
+
+Ce rôle n'a jamais été éprouvé. Vous êtes la seule à pouvoir le faire.
+
+1. Sur la **Coordination**, onglet **Budget** → **« + Ligne
+   budgétaire »** → un poste « Test Maria », montant 500 € →
+   enregistrez.
+
+**Attendu** : la ligne apparaît, et le total de la phase augmente de
+500 €.
+
+2. Sur cette ligne → **« Créer la tâche »**.
+
+**Attendu** : une tâche « Test Maria » est créée dans la phase, avec le
+montant affecté.
+
+3. Recommencez **immédiatement** « Créer la tâche » sur la même ligne.
+
+**Attendu** : c'est **refusé**, avec un message disant que la tâche
+existe déjà. Un doublon s'était créé hier faute de ce garde-fou — dites
+si vous obtenez malgré tout deux tâches.
+
+4. Onglet **Tâches** → supprimez la tâche « Test Maria », puis revenez
+   au Budget supprimer la ligne.
+
+**Attendu** : les deux disparaissent, et le total de la phase revient à
+sa valeur d'origine.
 
 ---
 
