@@ -80,6 +80,37 @@ select pr.name, o.name as organisation, po.role
  order by pr.name, o.name;
 ```
 
+**Vérifié le 26/07 : c'est le cas.** YCID n'est `porteur` que sur la
+Coordination et `financeur` sur les deux Triades — sans conséquence,
+`is_project_member()` joint `project_organizations` sans filtrer sur le
+rôle. Financeur, porteur ou observateur donnent la même visibilité.
+
+### A2 bis. Les deux sources de vérité du « porteur »
+
+Le repli de validation (0031) désigne l'organisation porteuse par
+`projects.lead_org_id`, alors que l'écran lit le rôle `porteur` de
+`project_organizations`. Si les deux divergent, un devis sans financeur
+part chez la mauvaise organisation, **sans erreur visible**.
+
+```sql
+select pr.name,
+       lead.name as lead_org_id,
+       po_porteur.name as role_porteur,
+       case when lead.id is distinct from po_porteur.id
+            then '⚠️ DIVERGENCE' else 'ok' end as verdict
+  from projects pr
+  left join organizations lead on lead.id = pr.lead_org_id
+  left join lateral (
+    select o.id, o.name from project_organizations po
+      join organizations o on o.id = po.org_id
+     where po.project_id = pr.id and po.role = 'porteur' limit 1
+  ) po_porteur on true
+ order by pr.name;
+```
+
+**Attendu** : trois `ok` — Coordination → YCID, Triade Jouy → Comité de
+Jumelage, Triade Villepreux → LEY.
+
 ## A3. ⭐⭐ Rattacher une personne à son organisation — l'écran neuf
 
 C'est la fonction construite hier soir ; elle n'a jamais été utilisée.
@@ -113,11 +144,31 @@ select p.full_name, o.name
    relit les rattachements ; s'il revient vide, l'enregistrement n'a pas
    pris et il faut me le dire.)
 
-6. Faites de même pour **Maria Maroun** avec son organisation réelle.
+6. Faites de même pour **Maria Maroun**, en cochant **LEY** — et rien
+   d'autre.
+
+Ce choix n'est pas neutre : l'organisation cochée décide de ce qu'elle
+verra, et son protocole (M2) attend **2 projets**.
+
+| Organisation cochée | Projets visibles |
+|---|---|
+| **LEY** | Coordination + Triade Villepreux = **2** ✅ |
+| YCID | les **3** ❌ M2 échoue, et elle hérite du périmètre programme |
+| Commune de Villepreux | Coordination + Triade Villepreux = 2 ✅ |
+
+LEY tombe juste sans intervention : porteuse de la Triade Villepreux,
+partenaire de la Coordination, absente de la Triade Jouy.
 
 **Attention** : décocher toutes les organisations d'un compte lui retire
 la vue sur les projets correspondants. C'est l'effet recherché, mais il
 est immédiat.
+
+**Ce que ce rattachement ne fait pas** : `observateur` et `beneficiaire`
+sont des libellés, pas des droits. Un compte rattaché à la Municipalité
+d'Azour — `observateur` sur la Coordination — aurait la **même vue
+complète** qu'un partenaire, budget et pièces compris. Théorique tant
+que ces organisations n'ont pas de compte ; à arbitrer avant d'en ouvrir
+côté libanais.
 
 ## A4. ⭐ Créer un compte — la valeur par défaut
 
@@ -160,13 +211,65 @@ déjà dans cette phase ». Pas de second exemplaire.
 **Attendu** : la tâche disparaît, la répartition budgétaire qui la
 visait aussi, et le tout est tracé au Journal.
 
+## A6 bis. ⭐⭐ Préparer la chaîne de validation
+
+**À faire avant d'envoyer son protocole à Maria.** Le circuit devis →
+validé → engagé se joue à trois : Maria dépose, Bérengère décide, vous
+constatez. Encore faut-il que le devis parte vers une organisation où
+quelqu'un siège.
+
+Un devis rattaché à une ligne part **automatiquement** vers le financeur
+de cette ligne (`saveDocument` appelle `submitForValidation` dès que la
+nature est « devis »). Si ce financeur est le CD78 ou le MEAE, personne
+ne pourra statuer : ces organisations n'ont pas de compte. Le devis
+resterait bloqué et B6 tomberait à plat.
+
+1. Trouvez sur la **Coordination** une ligne financée par **YCID** :
+
+```sql
+select bl.poste, bl.amount, o.name as financeur
+  from budget_lines bl
+  left join organizations o on o.id = bl.funder_org_id
+  join phases ph on ph.id = bl.phase_id
+  join projects pr on pr.id = ph.project_id
+ where pr.name like 'CEM Liban — Coordination%'
+ order by o.name nulls first, bl.poste;
+```
+
+2. **S'il n'y en a aucune**, posez YCID comme financeur sur une ligne —
+   c'est de toute façon l'organisation porteuse de ce projet :
+
+```sql
+update budget_lines
+   set funder_org_id = (select id from organizations where name = 'YCID')
+ where id = '<id de la ligne choisie>';
+```
+
+3. **Communiquez le nom exact de cette ligne à Maria et à Bérengère.**
+   Leurs deux protocoles disent « la ligne indiquée par Joe ».
+
+**Ordre d'exécution** : Maria fait M8a (dépôt du devis) → vous prévenez
+Bérengère → elle fait B6 (validation) → « Engagé » passe à 300 €.
+
+Une ligne sans financeur **du tout** n'est pas un cas d'erreur : le
+devis part alors vers l'organisation porteuse, YCID ici. Le repli est
+ordonné (règles → financeur → porteuse) depuis la 0031.
+
 ## A7. ⭐ Validation au nom d'une autre organisation
 
 Le vrai correctif du problème remonté hier : Bérengère a validé un devis
 qui relevait de LEY.
 
+**Vous êtes le seul à pouvoir tester ce chemin** : le bloc « Valider à
+sa place… » ne s'affiche que pour un compte `admin` non membre de
+l'organisation sollicitée. Bérengère, redevenue `user`, ne voit plus
+rien du tout sur une ligne hors de son organisation — c'est ce qu'elle
+vérifie en B6.
+
 1. Ouvrez un devis en attente dont l'organisation sollicitée **n'est pas
-   la vôtre** ▸ trombone 📎.
+   la vôtre** ▸ trombone 📎. Une ligne financée par le **CD78** ou le
+   **MEAE** convient : ces organisations n'ont aucun compte, c'est
+   exactement le cas que le recours est censé débloquer.
 
 **Attendu** : pas les boutons ordinaires, mais la mention que vous n'êtes
 pas membre et deux boutons **« Valider à sa place… »**.
@@ -180,10 +283,15 @@ pas membre et deux boutons **« Valider à sa place… »**.
 4. Contrôle en base :
 
 ```sql
-select v.id, o.name as sollicitee, v.status,
+select d.filename, o.name as sollicitee, v.decision,
+       pr.full_name as decideur, v.comment,
        validation_decided_outside_org(v.id) as hors_organisation
-  from validations v join organizations o on o.id = v.org_id
- order by v.created_at desc limit 10;
+  from validations v
+  join organizations o on o.id = v.org_id
+  join documents d on d.id = v.document_id
+  left join profiles pr on pr.id = v.decided_by
+ order by v.decided_at desc nulls last
+ limit 10;
 ```
 
 **Attendu** : `hors_organisation = true` sur la vôtre.
@@ -233,10 +341,27 @@ la même famille de panne.
 
 ## Ordre conseillé
 
-**A1 → A2 → A3 d'abord.** Tant que les rattachements ne sont pas posés,
-les tests de Bérengère et Maria mesurent une donnée manquante, pas le
-logiciel. Une fois A3 fait, envoyez-leur leurs protocoles et enchaînez
-A4 → A10 pendant qu'elles testent.
+**A1 → A2 → A2 bis → A3 → A6 bis, avant tout envoi.** Tant que les
+rattachements ne sont pas posés, les tests de Bérengère et Maria
+mesurent une donnée manquante, pas le logiciel ; et sans A6 bis, le
+devis de Maria partira vers une organisation où personne ne siège.
+
+Ensuite seulement : envoyez leurs protocoles, et enchaînez A4 → A10
+pendant qu'elles testent.
+
+La chaîne à trois se déroule dans cet ordre, et il n'est pas
+interchangeable :
+
+| # | Qui | Test | Effet |
+|---|---|---|---|
+| 1 | Vous | A6 bis | une ligne financée par YCID est désignée |
+| 2 | Maria | M8a | dépôt du devis → « en attente », Engagé reste à 0 € |
+| 3 | Bérengère | B6 | validation → **Engagé passe à 300 €** |
+| 4 | Maria | M8b | facture, paiement, annulation |
+| 5 | Vous | A7 | le recours administrateur, sur une **autre** ligne |
+
+Si l'étape 3 ne fait pas bouger « Engagé », c'est le cœur du pilotage
+financier qui ne fonctionne pas — signalez-le avant tout le reste.
 
 ## Ce que je veux en retour
 

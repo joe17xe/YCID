@@ -26,7 +26,9 @@ export interface SaveDocumentInput {
   moment?: DocMoment | null
 }
 
-export async function saveDocument(input: SaveDocumentInput): Promise<{ ok: boolean; error?: string }> {
+// `warning` : la pièce est bien enregistrée, mais quelque chose d'utile
+// n'a pas eu lieu. Distinct de `error`, qui annule le dépôt.
+export async function saveDocument(input: SaveDocumentInput): Promise<{ ok: boolean; error?: string; warning?: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: 'Non authentifié.' }
@@ -69,9 +71,18 @@ export async function saveDocument(input: SaveDocumentInput): Promise<{ ok: bool
   // Uniquement s'il est rattaché à une ligne : sans ligne à créditer, la
   // validation ne serait affichée nulle part et n'alimenterait aucun
   // montant — un circuit ouvert dans le vide.
+  // L'échec de la mise en validation était avalé dans un console.error :
+  // le devis s'affichait comme une pièce jointe ordinaire, sans « en
+  // attente », et « engagé » restait à zéro sans que rien ne l'explique.
+  // Une panne muette sur le chiffre qui pilote le financier est pire que
+  // le refus du dépôt — elle se découvre en réunion.
+  let warning: string | undefined
   if (input.type === 'devis' && input.budgetLineId) {
     const subErr = await submitForValidation(created.id)
-    if (subErr) console.error('[saveDocument] mise en validation impossible:', subErr)
+    if (subErr) {
+      console.error('[saveDocument] mise en validation impossible:', subErr)
+      warning = `Le devis est enregistré, mais n'est PAS parti en validation : ${subErr} Tant qu'il n'est pas validé, il n'alimente pas le montant engagé.`
+    }
   }
 
   const { error: auditErr } = await supabase.from('audit_log').insert({
@@ -81,7 +92,7 @@ export async function saveDocument(input: SaveDocumentInput): Promise<{ ok: bool
   })
   if (auditErr) console.error('[audit] trace NON enregistrée:', auditErr.message)
   revalidatePath(`/projets/${input.projectId}`)
-  return { ok: true }
+  return { ok: true, warning }
 }
 
 // ------------------------------------------------------------
@@ -122,9 +133,20 @@ export async function decideValidation(input: {
   if (!['valide', 'refuse'].includes(input.decision)) return { ok: false, error: 'Décision invalide.' }
 
   const { data: v } = await supabase.from('validations')
-    .select('id, document_id, org_id, organizations:org_id(name), documents:document_id(filename, project_id)')
+    .select('id, document_id, org_id, decision, organizations:org_id(name), documents:document_id(filename, project_id)')
     .eq('id', input.validationId).maybeSingle()
   if (!v) return { ok: false, error: 'Validation introuvable.' }
+
+  // Une décision déjà prise ne se rejoue pas en silence. Les boutons
+  // n'apparaissent qu'en attente, mais deux personnes peuvent trancher
+  // à quelques secondes d'écart : la seconde écrasait la première, y
+  // compris un refus par une validation, sans que rien ne le signale.
+  if (v.decision !== 'en_attente') {
+    return {
+      ok: false,
+      error: `Déjà ${v.decision === 'valide' ? 'validé' : 'refusé'} — rafraîchissez la page. Pour revenir sur une décision, retirez le devis et redéposez-le.`,
+    }
+  }
 
   // Décider pour une organisation dont on n'est pas membre reste
   // possible — sans quoi un devis adressé à une organisation sans compte
