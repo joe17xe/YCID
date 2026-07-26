@@ -1,13 +1,27 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-// Admins de la plateforme : admins plateforme (is_platform_admin)
-// et admins d'organisation YCID / LEY.
+// Rôle plateforme effectif. `is_platform_admin` ne dit PAS ce que son
+// nom laisse croire : l'écran de gestion des comptes l'a longtemps posé
+// à `role <> 'user'`, donc vrai pour tout rôle non ordinaire. On
+// raisonne sur platform_role, avec repli sur le drapeau pour les comptes
+// antérieurs à la migration 0017.
+type PlatformRole = 'admin' | 'ycid' | 'responsable_projet' | 'user'
+async function platformRole(supabase: SupabaseClient, userId: string): Promise<PlatformRole> {
+  const { data } = await supabase.from('profiles')
+    .select('platform_role, is_platform_admin').eq('id', userId).maybeSingle()
+  const role = data?.platform_role ?? (data?.is_platform_admin ? 'admin' : 'user')
+  return (['admin', 'ycid', 'responsable_projet', 'user'].includes(role) ? role : 'user') as PlatformRole
+}
+
+// Administration de la plateforme : rôles « admin » et « ycid », plus
+// les admins d'organisation YCID / LEY. « Responsable projet » en est
+// volontairement exclu — il arbitre le produit, il n'administre pas.
 export async function isUserAdmin(supabase: SupabaseClient, userId: string): Promise<boolean> {
-  const [{ data: profile }, { data: adminOrgs }] = await Promise.all([
-    supabase.from('profiles').select('is_platform_admin').eq('id', userId).single(),
+  const [role, { data: adminOrgs }] = await Promise.all([
+    platformRole(supabase, userId),
     supabase.from('memberships').select('role, organizations:org_id(name)').eq('user_id', userId).eq('role', 'admin_org'),
   ])
-  if (profile?.is_platform_admin) return true
+  if (role === 'admin' || role === 'ycid') return true
   return (adminOrgs ?? []).some(m => {
     // supabase-js peut typer la jointure to-one comme objet ou tableau
     const org = Array.isArray(m.organizations) ? m.organizations[0] : m.organizations
@@ -64,4 +78,13 @@ export async function canManageMeetings(supabase: SupabaseClient, userId: string
   if (await isUserAdmin(supabase, userId)) return true
   const role = await getProjectRole(supabase, userId, projectId)
   return role === 'chef_projet' || role === 'referent_mairie'
+}
+
+// Arbitrage de la roadmap : le Product Owner décide du produit sans
+// administrer la plateforme. Les deux droits étaient confondus parce
+// qu'un seul rôle les portait (migration 0037).
+export async function canManageRoadmap(supabase: SupabaseClient, userId: string): Promise<boolean> {
+  const role = await platformRole(supabase, userId)
+  if (role === 'admin' || role === 'ycid' || role === 'responsable_projet') return true
+  return isUserAdmin(supabase, userId)
 }

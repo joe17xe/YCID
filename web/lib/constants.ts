@@ -141,5 +141,8 @@ export const IDEA_PRIORITY: Record<string, { label: string; fg: string; bg: stri
 export const PLATFORM_ROLES: Record<string, { label: string; fg: string; bg: string }> = {
   admin: { label: 'Administrateur', fg: '#6B4A8C', bg: '#F0E9F5' },
   ycid: { label: 'YCID', fg: '#0E6B5C', bg: '#E4F0EC' },
+  // Cran intermédiaire (0037) : voit tout le portefeuille et arbitre la
+  // roadmap, sans accès à la console d'administration.
+  responsable_projet: { label: 'Responsable projet', fg: '#3B5488', bg: '#E8ECF5' },
   user: { label: 'Utilisateur', fg: '#66716B', bg: '#EEF0EE' },
 }

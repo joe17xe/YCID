@@ -4,7 +4,7 @@ import { redirect, notFound } from "next/navigation"
 import Link from "next/link"
 import { ChevronLeft } from "lucide-react"
 import { IDEA_STATUS, IDEA_PRIORITY, fmtDate } from "@/lib/constants"
-import { isUserAdmin } from "@/lib/permissions"
+import { canManageRoadmap } from "@/lib/permissions"
 import IdeaDialog from "@/components/roadmap/IdeaDialog"
 import { VoteButton, AdminPanel, DeleteIdeaButton, Comments } from "@/components/roadmap/IdeaInteractions"
 
@@ -19,7 +19,7 @@ export default async function IdeaDetailPage({ params }: { params: Promise<{ id:
     supabase.from("idea_votes").select("user_id").eq("idea_id", id),
     supabase.from("idea_comments").select("*").eq("idea_id", id).order("created_at"),
     supabase.from("profiles").select("id, full_name"),
-    isUserAdmin(supabase, user.id),
+    canManageRoadmap(supabase, user.id),
   ])
   if (!idea) notFound()
 

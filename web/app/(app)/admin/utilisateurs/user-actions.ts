@@ -9,7 +9,7 @@ import { parseRecipients } from '@/lib/recipients'
 import { adminClient } from '@/lib/supabase/admin'
 import { isUserAdmin } from '@/lib/permissions'
 
-const PLATFORM_ROLES = ['admin', 'ycid', 'user']
+const PLATFORM_ROLES = ['admin', 'ycid', 'responsable_projet', 'user']
 
 // Rôle plateforme de l'utilisateur connecté + garde-fous
 async function currentContext(supabase: Awaited<ReturnType<typeof createClient>>) {
@@ -128,7 +128,7 @@ export async function createUser(input: UserFormInput): Promise<Result> {
     const { error: pErr } = await admin.from('profiles').update({
       full_name: input.fullName.trim(),
       platform_role: input.role,
-      is_platform_admin: input.role !== 'user',
+      is_platform_admin: input.role === 'admin',
       active: !!input.active,
     }).eq('id', created.userId)
     if (pErr) {
@@ -184,7 +184,7 @@ export async function updateUser(userId: string, input: UserFormInput): Promise<
       full_name: input.fullName.trim(),
       email,
       platform_role: input.role,
-      is_platform_admin: input.role !== 'user',
+      is_platform_admin: input.role === 'admin',
       active: !!input.active,
     }).eq('id', userId)
     if (pErr) {
@@ -297,7 +297,7 @@ export async function createUsersBulk(raw: string, role: string): Promise<{ ok: 
       }
       const { error: pErr } = await admin.from('profiles').update({
         full_name: r.fullName, platform_role: role,
-        is_platform_admin: role !== 'user', active: true,
+        is_platform_admin: role === 'admin', active: true,
       }).eq('id', created.userId)
       if (pErr) console.error('[createUsersBulk] profil non complété:', { email: r.email, message: pErr.message })
       lines.push({ ...r, status: 'cree', password })

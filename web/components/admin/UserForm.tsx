@@ -56,7 +56,10 @@ export default function UserForm({ user, canCreateAdmin }: { user?: UserData; ca
           {roleOptions.map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
         </select>
         <p className="text-xs mt-1" style={{ color: "#66716B" }}>
-          Administrateur : accès complet. YCID : accès complet mais ne gère pas les administrateurs. Utilisateur : accès selon ses projets.
+          Administrateur : accès complet.
+          YCID : accès complet, mais ne gère pas les administrateurs.
+          Responsable projet : voit tous les projets et arbitre la roadmap, sans accès à l&apos;administration.
+          Utilisateur : accès limité aux projets dont il est membre.
         </p>
       </div>
       <div>
