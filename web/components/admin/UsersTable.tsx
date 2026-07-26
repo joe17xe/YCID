@@ -13,6 +13,7 @@ export interface AdminUserRow {
   active: boolean
   isSelf: boolean
   canDelete: boolean
+  canEdit: boolean
 }
 
 function DeleteButton({ user }: { user: AdminUserRow }) {
@@ -93,9 +94,15 @@ export default function UsersTable({ users }: { users: AdminUserRow[] }) {
                 </td>
                 <td className="px-5 py-3">
                   <div className="flex items-center justify-end gap-2">
-                    <Link href={`/admin/utilisateurs/${u.id}/editer`} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-sm font-medium hover:bg-gray-50" style={{ borderColor: "#E3E6E2", color: "#66716B" }}>
-                      <Settings size={13} /> Modifier
-                    </Link>
+                    {u.canEdit ? (
+                      <Link href={`/admin/utilisateurs/${u.id}/editer`} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-sm font-medium hover:bg-gray-50" style={{ borderColor: "#E3E6E2", color: "#66716B" }}>
+                        <Settings size={13} /> Modifier
+                      </Link>
+                    ) : (
+                      <span className="text-xs" style={{ color: "#9AA39D" }} title="Le rôle YCID ne peut pas modifier un Administrateur">
+                        Administrateur
+                      </span>
+                    )}
                     {u.canDelete && !u.isSelf && <DeleteButton user={u} />}
                   </div>
                 </td>

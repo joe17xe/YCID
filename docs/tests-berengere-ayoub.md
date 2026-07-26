@@ -25,11 +25,12 @@ Tout le reste est sans risque : vous pouvez créer, modifier, annuler.
 1. Connectez-vous.
 2. Regardez le **menu de gauche** (ou le menu ☰ sur téléphone).
 
-**Notez la liste complète des entrées que vous voyez.** C'est important :
-selon vos droits, vous devriez voir une section Administration
-(Utilisateurs, Accès & rôles, Stockage, Configuration) ou non.
+**Notez la liste complète des entrées que vous voyez.**
 
-Dites-moi simplement : voyez-vous « Administration » ? Oui ou non.
+Votre compte porte aujourd'hui un rôle global « YCID », qui ouvre la
+section Administration. C'est connu et en cours d'arbitrage : la question
+n'est pas de savoir si vous la voyez — vous la verrez — mais si ce
+périmètre correspond à votre fonction. Dites-moi ce que vous en pensez.
 
 ## B2. La roadmap — consultation
 
@@ -94,8 +95,9 @@ vous êtes la seule à pouvoir le vérifier.
 
 1. Menu **Pilotage**.
 
-**Attendu** : les 3 projets du programme CEM, avec leurs montants, et un
-total autour de **105 700 €**.
+**Attendu** : les 3 projets du programme CEM et un total d'environ
+105 700 €. Vous les voyez tous grâce à votre rôle global : l'un d'eux n'a
+aucun membre déclaré.
 
 La Triade Villepreux affiche « 2 en retard » dans la colonne des tâches :
 c'est une donnée réelle du projet, pas une anomalie de l'outil.
@@ -104,8 +106,7 @@ c'est une donnée réelle du projet, pas une anomalie de l'outil.
 
 **Attendu** : les mêmes 3 projets, avec leur statut et leur avancement.
 
-**Dites-moi combien de projets vous voyez.** Si vous en voyez moins de 3,
-c'est une question de droits qui mérite d'être corrigée.
+**Dites-moi combien de projets vous voyez.**
 
 ## B7. Le budget d'un projet — les trois montants
 
@@ -113,7 +114,8 @@ c'est une question de droits qui mérite d'être corrigée.
 2. Onglet **Budget**.
 
 **Attendu** : six chiffres en haut — Voté, Prévu, Engagé, Payé, Reste à
-engager, Valorisations.
+engager, Valorisations. Les montants exacts bougent d'un jour à l'autre,
+ne les comparez à rien.
 
 3. Regardez s'il y a un **bandeau orange** en haut.
 

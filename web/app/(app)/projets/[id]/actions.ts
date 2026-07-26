@@ -406,6 +406,20 @@ export async function createTaskFromBudgetLine(input: { projectId: string; lineI
   const title = (line.poste ?? '').trim()
   if (!title) return { ok: false, error: 'Le poste de la ligne est vide : impossible d\'en tirer un titre de tâche.' }
 
+  // Garde-fou d'idempotence. Le bouton pouvait être actionné deux fois
+  // sur la même ligne : la première création affectait le montant, la
+  // seconde naissait vide, et la phase se retrouvait avec deux tâches
+  // strictement homonymes — constaté en production. Rien dans le nom ne
+  // permet ensuite de les distinguer.
+  const { data: twin } = await supabase.from('tasks')
+    .select('id').eq('phase_id', line.phase_id).eq('title', title).maybeSingle()
+  if (twin) {
+    return {
+      ok: false,
+      error: `Une tâche « ${title} » existe déjà dans cette phase. Rattachez-la depuis le dialogue de la ligne plutôt que d'en créer une seconde.`,
+    }
+  }
+
   // Montant restant à répartir : créer une tâche ne doit pas faire
   // dépasser le total de la ligne (le trigger le refuserait de toute façon).
   const { data: existing } = await supabase.from('budget_line_tasks')

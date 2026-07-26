@@ -1,6 +1,11 @@
-# Tests Solid'Pilot — Maria Maroun (cheffe de projet)
+# Tests Solid'Pilot — Maria Maroun
 
 Bonjour Maria,
+
+Vous intervenez avec deux rôles différents selon le projet :
+**Terrain (contributeur)** sur la Triade Villepreux · Azour · LEY, et
+**Chef de projet** sur la Coordination. Les tests ci-dessous portent sur
+la Triade Villepreux, donc sur votre rôle Terrain.
 
 Ces tests portent sur votre travail quotidien : suivre les tâches,
 justifier ce qui est fait, tenir le budget. Le but n'est pas de vérifier
@@ -25,23 +30,28 @@ Tout ce que vous créez ci-dessous, vous pourrez le retirer ensuite.
 1. Connectez-vous.
 2. Regardez le menu de gauche (ou ☰ sur téléphone).
 
-**Notez ce que vous voyez.** Point important : voyez-vous une section
-**Administration** (Utilisateurs, Stockage, Configuration) ?
+**Notez ce que vous voyez**, en particulier si une section
+**Administration** (Utilisateurs, Stockage, Configuration) apparaît.
 
-En tant que cheffe de projet, vous **ne devriez pas** la voir. Si vous la
-voyez, dites-le-moi : ce serait un droit accordé à tort.
+Nous savons déjà qu'elle est visible aujourd'hui : votre compte porte un
+rôle global « YCID » plus large que votre fonction. Ce n'est pas une
+erreur de votre part et le sujet est en cours de traitement — **n'entrez
+pas dans ces écrans**, ils ne vous concernent pas.
 
 ## M2. Vos projets
 
 1. Menu **Projets**.
 
-**Attendu** : les projets dont vous êtes membre. Notez combien.
+**Attendu** : vous êtes membre de **2 projets** — la Triade Villepreux
+(Terrain) et la Coordination (Chef). Un troisième peut apparaître du fait
+de votre rôle global ; ne vous en étonnez pas.
 
 2. Ouvrez **CEM Liban — Triade Villepreux · Azour · LEY**.
 3. Onglet **Aperçu**.
 
-**Attendu** : les organisations partenaires et les membres, dont vous,
-avec votre rôle affiché.
+**Attendu** : les organisations partenaires et les membres, dont vous.
+Votre rôle y est affiché **« Terrain »** — c'est bien le vôtre sur ce
+projet, ce n'est pas une erreur.
 
 ## M3. ⭐ Vos tâches
 
@@ -50,7 +60,9 @@ avec votre rôle affiché.
 **Attendu** : les phases (Action 1, 2, 3), chacune dépliant ses tâches
 avec statut, échéance et avancement.
 
-2. Trouvez une tâche qui vous est assignée (elle porte votre nom).
+2. Trouvez la tâche qui vous est assignée : **« Réalisation de la
+   sécurisation du site »** (Action 1). C'est la seule à votre nom sur
+   ce projet, inutile d'en chercher d'autres.
 3. Cliquez sur le crayon pour la modifier.
 4. Changez l'**avancement** (par exemple 0 % → 20 %) et enregistrez.
 
@@ -77,10 +89,12 @@ déclarer.
 
 **Attendu** : le document s'ouvre dans un nouvel onglet.
 
-5. Repérez une tâche **terminée** qui n'a aucune pièce.
+5. Repérez une tâche **terminée** qui n'a aucune pièce jointe.
 
 **Attendu** : elle porte un badge orange **« sans justificatif »**, et
-l'en-tête de la phase indique « N sans justificatif ».
+l'en-tête de la phase indique « N sans justificatif ». S'il n'y en a
+aucune dans cet état, passez ce point — cela veut dire que tout est
+justifié.
 
 **Question** : ce signalement vous paraît-il utile ou pénible ? Il est
 volontairement non bloquant — vous pouvez marquer une tâche terminée sans
@@ -124,6 +138,12 @@ explique ? Si un doute subsiste, dites lequel.
 affectent.
 
 ## M7. Relier une tâche et un budget
+
+⚠️ **Ce test peut vous être refusé, et c'est normal** : créer une ligne
+budgétaire est réservé au chef de projet et au responsable financier.
+Avec votre rôle Terrain sur ce projet, le bouton peut être absent ou
+l'enregistrement refusé. Dites-moi simplement ce que vous constatez —
+c'est une information utile, pas un échec.
 
 1. Onglet **Tâches**, sur une tâche affichant **0 €**, cliquez sur
    **« + ligne budgétaire »**.
@@ -172,13 +192,12 @@ chacune ce à quoi elle est rattachée.
 
 3. Cliquez sur **Réinitialiser**.
 
-**Attendu** : tous les filtres se vident, **y compris le champ de
-recherche**. Merci de vérifier ce point précis, un doute subsiste.
+**Attendu** : tous les filtres se vident, y compris le champ de
+recherche.
 
 4. Cliquez sur **« Télécharger »** : une archive ZIP se télécharge.
 
 **Attendu** : elle contient autant de fichiers que le bouton l'annonçait.
-Ouvrez-la et **comptez**.
 
 ## M10. ⭐ Sur téléphone — le test le plus attendu
 

@@ -24,8 +24,15 @@ export default async function AdminUtilisateursPage() {
   }
   const users: AdminUserRow[] = (profiles ?? []).map((p: RawProfile) => {
     const role = p.platform_role ?? (p.is_platform_admin ? "admin" : "user")
-    // Un YCID ne peut pas supprimer un Administrateur
+    // Un YCID ne peut ni supprimer NI MODIFIER un Administrateur : les
+    // deux sont refusés côté serveur (user-actions.ts), mais seule la
+    // suppression était masquée. « Modifier » restait proposé sur un
+    // compte administrateur, ouvrant un formulaire — champ mot de passe
+    // compris — dont l'enregistrement échouait ensuite. Proposer une
+    // action interdite, sur un écran de gestion des comptes, se lit
+    // comme une faille alors que le verrou tient.
     const canDelete = !(myRole === "ycid" && role === "admin")
+    const canEdit = !(myRole === "ycid" && role === "admin")
     return {
       id: p.id,
       full_name: p.full_name ?? "",
@@ -34,6 +41,7 @@ export default async function AdminUtilisateursPage() {
       active: p.active !== false,
       isSelf: p.id === user.id,
       canDelete,
+      canEdit,
     }
   })
 
