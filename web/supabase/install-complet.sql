@@ -4,7 +4,7 @@
 -- ⚠️⚠️⚠️  SCRIPT DESTRUCTIF  ⚠️⚠️⚠️
 -- Ce script SUPPRIME toutes les tables métier existantes (ancien schéma
 -- simple comme nouveau schéma) puis installe le schéma complet du dépôt
--- (migrations 0001 → 0008 concaténées, à jour des correctifs).
+-- (migrations 0001 → 0040 concaténées, à jour des correctifs).
 -- À exécuter EN UNE FOIS dans le SQL Editor Supabase, uniquement après
 -- avoir acté que les données actuelles sont jetables.
 -- Généré depuis web/supabase/migrations/ — ne pas éditer à la main :
@@ -1524,12 +1524,1343 @@ begin
 end;
 $$;
 
+
+-- ============================================================================
+-- MIGRATION 0027 — task budget link
+-- ============================================================================
+
+-- ============================================================
+-- PR 40 — Lien lignes budgétaires ↔ tâches
+-- ============================================================
+-- Cadrage YCID : « une ligne budgétaire est une tâche ; on peut ajouter
+-- une tâche supplémentaire sans budget (signer un contrat…) ».
+--
+-- Modèle retenu : N lignes → 1 tâche, et non un 1:1 strict. Trois cas
+-- réels du programme CEM ne rentrent pas dans un 1:1 :
+--   · co-financement — un même livrable financé par le Département, la
+--     Mairie et l'association donne trois lignes (financeurs distincts) ;
+--     en 1:1 le même travail apparaîtrait trois fois dans les tâches ;
+--   · valorisations (bénévolat, locaux) — ce ne sont pas des tâches ;
+--   · frais de structure — aucun livrable daté.
+-- Les deux extrémités restent possibles : tâche sans ligne, ligne sans
+-- tâche. D'où une colonne NULLABLE.
+
+alter table budget_lines
+  add column if not exists task_id uuid references tasks(id) on delete set null;
+
+create index if not exists budget_lines_task_id_idx on budget_lines(task_id);
+
+-- Cohérence structurelle. Rien ne vérifiait jusqu'ici que la phase d'une
+-- ligne appartenait bien au projet de cette ligne : on ferme aussi ce
+-- trou au passage, sinon le regroupement par phase peut afficher des
+-- lignes venues d'un autre projet.
+create or replace function public.check_budget_line_coherence()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_task_phase uuid;
+  v_phase_project uuid;
+begin
+  if new.task_id is not null then
+    select t.phase_id into v_task_phase from tasks t where t.id = new.task_id;
+    if v_task_phase is null then
+      raise exception 'Tâche introuvable.';
+    end if;
+    if new.phase_id is null then
+      -- Aligner plutôt que refuser : choisir la tâche suffit à situer la ligne.
+      new.phase_id := v_task_phase;
+    elsif new.phase_id <> v_task_phase then
+      raise exception 'La tâche financée n''appartient pas à la phase de la ligne budgétaire.';
+    end if;
+  end if;
+
+  if new.phase_id is not null then
+    select ph.project_id into v_phase_project from phases ph where ph.id = new.phase_id;
+    if v_phase_project is distinct from new.project_id then
+      raise exception 'La phase sélectionnée n''appartient pas au projet de la ligne budgétaire.';
+    end if;
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_budget_line_coherence on budget_lines;
+create trigger trg_budget_line_coherence
+  before insert or update on budget_lines
+  for each row execute function public.check_budget_line_coherence();
+
+-- ============================================================================
+-- MIGRATION 0028 — budget line task split
+-- ============================================================================
+
+-- ============================================================
+-- PR 40b — Répartition d'une ligne budgétaire sur plusieurs tâches
+-- ============================================================
+-- Précision du cadrage YCID (25/07/2026), postérieure à la 0027 :
+-- « une ligne budgétaire peut avoir plusieurs tâches ; un budget de
+-- 40 000 € peut être divisé en deux tâches, 10 000 € et 30 000 € ».
+--
+-- La 0027 posait `budget_lines.task_id` : UNE ligne → UNE tâche, pour
+-- la TOTALITÉ du montant. Cette colonne ne peut structurellement pas
+-- porter une répartition — il n'y a nulle part où écrire « 10 000 sur
+-- celle-ci, 30 000 sur celle-là ». D'où une table de liaison portant
+-- le montant affecté.
+--
+-- Le modèle devient N:M avec montant, et couvre les quatre cas réels :
+--   · co-financement — plusieurs lignes financent une même tâche
+--     (Département + Mairie + association sur le même livrable) ;
+--   · répartition — une ligne se répartit sur plusieurs tâches ;
+--   · ligne sans tâche — valorisation, frais de structure ;
+--   · tâche sans ligne — « signer la convention », budget 0 €.
+--
+-- La ligne conserve son `planned_amount` intact : c'est la vérité de
+-- la convention de financement, qu'on ne découpe pas. La répartition
+-- est opérationnelle et vient par-dessus. La somme des affectations
+-- peut donc être INFÉRIEURE au montant de la ligne (reste non
+-- affecté), jamais supérieure.
+
+create table if not exists budget_line_tasks (
+  budget_line_id uuid not null references budget_lines(id) on delete cascade,
+  task_id uuid not null references tasks(id) on delete cascade,
+  amount numeric not null default 0 check (amount >= 0),
+  primary key (budget_line_id, task_id)
+);
+
+create index if not exists budget_line_tasks_task_id_idx on budget_line_tasks(task_id);
+
+-- Reprise des données de la 0027 : le lien 1:1 existant devient une
+-- affectation de la totalité du montant. Sans cela, les rattachements
+-- saisis entre les deux migrations seraient perdus en silence.
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'budget_lines' and column_name = 'task_id'
+  ) then
+    insert into budget_line_tasks (budget_line_id, task_id, amount)
+    select bl.id, bl.task_id, coalesce(bl.planned_amount, 0)
+      from budget_lines bl
+     where bl.task_id is not null
+    on conflict do nothing;
+  end if;
+end $$;
+
+drop index if exists budget_lines_task_id_idx;
+alter table budget_lines drop column if exists task_id;
+
+-- ------------------------------------------------------------
+-- RLS : strictement alignée sur budget_lines. Une affectation n'a pas
+-- de droits propres — elle suit la ligne qu'elle découpe.
+-- ------------------------------------------------------------
+alter table budget_line_tasks enable row level security;
+
+drop policy if exists "See budget line tasks" on budget_line_tasks;
+create policy "See budget line tasks" on budget_line_tasks for select using (
+  exists (
+    select 1 from budget_lines bl
+     where bl.id = budget_line_tasks.budget_line_id
+       and is_project_member(bl.project_id)
+  )
+);
+
+drop policy if exists "Manage budget line tasks" on budget_line_tasks;
+create policy "Manage budget line tasks" on budget_line_tasks for all using (
+  exists (
+    select 1 from budget_lines bl
+      join project_members pm on pm.project_id = bl.project_id
+     where bl.id = budget_line_tasks.budget_line_id
+       and pm.user_id = auth.uid()
+       and pm.role in ('chef_projet', 'resp_financier')
+  )
+) with check (
+  exists (
+    select 1 from budget_lines bl
+      join project_members pm on pm.project_id = bl.project_id
+     where bl.id = budget_line_tasks.budget_line_id
+       and pm.user_id = auth.uid()
+       and pm.role in ('chef_projet', 'resp_financier')
+  )
+);
+
+drop policy if exists "Admins manage budget line tasks" on budget_line_tasks;
+create policy "Admins manage budget line tasks" on budget_line_tasks
+  for all using (is_admin() or is_lead_org_admin())
+  with check (is_admin() or is_lead_org_admin());
+
+-- ------------------------------------------------------------
+-- Cohérence
+-- ------------------------------------------------------------
+-- La 0027 validait `new.task_id`, colonne qui vient de disparaître :
+-- la fonction est remplacée, sans quoi les écritures sur budget_lines
+-- échoueraient. Elle conserve le contrôle phase ↔ projet (trou de la
+-- 0001) et gagne deux règles liées à la répartition.
+create or replace function public.check_budget_line_coherence()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_phase_project uuid;
+  v_bad_task text;
+  v_allocated numeric;
+begin
+  if new.phase_id is not null then
+    select ph.project_id into v_phase_project from phases ph where ph.id = new.phase_id;
+    if v_phase_project is distinct from new.project_id then
+      raise exception 'La phase sélectionnée n''appartient pas au projet de la ligne budgétaire.';
+    end if;
+  end if;
+
+  -- Changer la phase d'une ligne déjà répartie rendrait ses
+  -- affectations incohérentes : on refuse plutôt que de les détacher
+  -- en silence.
+  if tg_op = 'UPDATE' and new.phase_id is distinct from old.phase_id then
+    select t.title into v_bad_task
+      from budget_line_tasks blt
+      join tasks t on t.id = blt.task_id
+     where blt.budget_line_id = new.id
+       and (new.phase_id is null or t.phase_id <> new.phase_id)
+     limit 1;
+    if v_bad_task is not null then
+      raise exception 'La tâche « % » financée par cette ligne n''appartient pas à la nouvelle phase. Retirez l''affectation avant de changer de phase.', v_bad_task;
+    end if;
+  end if;
+
+  -- Baisser le montant sous la somme déjà répartie créerait une ligne
+  -- qui finance plus qu'elle ne porte.
+  if tg_op = 'UPDATE' then
+    select coalesce(sum(blt.amount), 0) into v_allocated
+      from budget_line_tasks blt where blt.budget_line_id = new.id;
+    if v_allocated > coalesce(new.planned_amount, 0) then
+      raise exception 'Le montant de la ligne (%) est inférieur à la somme déjà répartie sur les tâches (%).', coalesce(new.planned_amount, 0), v_allocated;
+    end if;
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_budget_line_coherence on budget_lines;
+create trigger trg_budget_line_coherence
+  before insert or update on budget_lines
+  for each row execute function public.check_budget_line_coherence();
+
+-- Symétrique, côté affectation.
+create or replace function public.check_budget_line_task_coherence()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_line_phase uuid;
+  v_line_amount numeric;
+  v_task_phase uuid;
+  v_allocated numeric;
+begin
+  select bl.phase_id, coalesce(bl.planned_amount, 0)
+    into v_line_phase, v_line_amount
+    from budget_lines bl where bl.id = new.budget_line_id;
+  select t.phase_id into v_task_phase from tasks t where t.id = new.task_id;
+  if v_task_phase is null then
+    raise exception 'Tâche introuvable.';
+  end if;
+
+  if v_line_phase is null then
+    -- Aligner plutôt que refuser : affecter une tâche suffit à situer
+    -- la ligne dans une phase (comportement retenu en 0027).
+    update budget_lines set phase_id = v_task_phase where id = new.budget_line_id;
+  elsif v_line_phase <> v_task_phase then
+    raise exception 'La tâche financée n''appartient pas à la phase de la ligne budgétaire.';
+  end if;
+
+  select coalesce(sum(blt.amount), 0) into v_allocated
+    from budget_line_tasks blt
+   where blt.budget_line_id = new.budget_line_id
+     and blt.task_id <> new.task_id;
+  if v_allocated + new.amount > v_line_amount then
+    raise exception 'La répartition (%) dépasse le montant de la ligne (%).', v_allocated + new.amount, v_line_amount;
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_budget_line_task_coherence on budget_line_tasks;
+create trigger trg_budget_line_task_coherence
+  before insert or update on budget_line_tasks
+  for each row execute function public.check_budget_line_task_coherence();
+
+-- ============================================================================
+-- MIGRATION 0029 — documents storage
+-- ============================================================================
+
+-- ============================================================
+-- PR 38a — Socle documentaire : bucket, rattachement, RLS
+-- ============================================================
+-- État de départ : la table `documents` existe depuis la 0001 (colonnes
+-- storage_path, type, amount, paid…) et l'enum doc_type couvre déjà les
+-- dix natures utiles. Mais RIEN n'était branché : aucun bucket Storage,
+-- aucune server action, aucun composant de dépôt, aucune requête
+-- `from('documents')` dans l'application. Le seul usage était le
+-- compteur « 📎 N doc » sur les tâches, structurellement toujours à 0.
+--
+-- Cette migration ne livre pas de fonction métier visible : c'est la
+-- plomberie sur laquelle reposent les PR 38b à 38e.
+
+-- ------------------------------------------------------------
+-- 1. Rattachement élargi
+-- ------------------------------------------------------------
+-- Un document ne pouvait se rattacher qu'à une tâche ou à une ligne
+-- budgétaire. Impossible d'attacher une convention au projet, ou des
+-- photos à une phase, sans inventer une tâche pour les porter.
+--
+-- `project_id` devient le rattachement de référence : toutes les RLS
+-- s'appuient dessus. Les policies d'origine remontaient au projet par
+-- sous-requête à travers tasks → phases, ce qui les rendait à la fois
+-- coûteuses et aveugles aux documents sans tâche.
+alter table documents
+  add column if not exists project_id uuid references projects(id) on delete cascade,
+  add column if not exists phase_id   uuid references phases(id)   on delete set null;
+
+-- Reprise de l'existant AVANT la contrainte NOT NULL : le projet se
+-- déduit de la tâche ou de la ligne selon le cas.
+update documents d set project_id = ph.project_id
+  from tasks t join phases ph on ph.id = t.phase_id
+ where d.task_id = t.id and d.project_id is null;
+
+update documents d set project_id = bl.project_id
+  from budget_lines bl
+ where d.budget_line_id = bl.id and d.project_id is null;
+
+update documents d set phase_id = t.phase_id
+  from tasks t
+ where d.task_id = t.id and d.phase_id is null;
+
+-- Un document sans projet n'est rattachable à rien et invisible sous
+-- RLS : on refuse plutôt que de laisser des orphelins silencieux.
+do $$
+declare n int;
+begin
+  select count(*) into n from documents where project_id is null;
+  if n > 0 then
+    raise exception 'Migration 0029 : % document(s) sans projet identifiable. Rattachez-les ou supprimez-les avant de rejouer.', n;
+  end if;
+end $$;
+
+alter table documents alter column project_id set not null;
+
+create index if not exists documents_project_id_idx on documents(project_id);
+create index if not exists documents_phase_id_idx   on documents(phase_id);
+
+-- ------------------------------------------------------------
+-- 2. Qui peut déposer
+-- ------------------------------------------------------------
+-- La lecture suit l'appartenance au projet ; le dépôt exige un rôle
+-- actif. `validateur`, `auditeur` et `lecteur` consultent sans déposer.
+create or replace function public.can_upload_document(pid uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+as $$
+  select coalesce(pid is not null and (
+    exists (
+      select 1 from project_members pm
+       where pm.project_id = pid and pm.user_id = auth.uid()
+         and pm.role in ('chef_projet', 'resp_financier', 'contributeur', 'referent_mairie')
+    )
+    or is_admin() or is_lead_org_admin()
+  ), false);
+$$;
+
+-- ------------------------------------------------------------
+-- 3. RLS de la table documents
+-- ------------------------------------------------------------
+-- Les policies de la 0001 / 0006 passaient par task_id ou
+-- budget_line_id : un document rattaché seulement au projet ou à une
+-- phase serait resté invisible. Elles sont remplacées, pas complétées.
+drop policy if exists "Project members see documents" on documents;
+create policy "Project members see documents" on documents
+  for select using (is_project_member(project_id) or is_admin() or is_lead_org_admin());
+
+drop policy if exists "Upload documents" on documents;
+create policy "Upload documents" on documents
+  for insert with check (can_upload_document(project_id));
+
+drop policy if exists "Update documents" on documents;
+create policy "Update documents" on documents
+  for update using (can_upload_document(project_id))
+  with check (can_upload_document(project_id));
+
+-- Suppression : l'auteur du dépôt, ou un profil de pilotage. Un
+-- contributeur ne doit pas pouvoir effacer la facture d'un autre.
+drop policy if exists "Delete documents" on documents;
+create policy "Delete documents" on documents
+  for delete using (
+    uploaded_by = auth.uid()
+    or exists (
+      select 1 from project_members pm
+       where pm.project_id = documents.project_id and pm.user_id = auth.uid()
+         and pm.role in ('chef_projet', 'resp_financier')
+    )
+    or is_admin() or is_lead_org_admin()
+  );
+
+-- ------------------------------------------------------------
+-- 4. Bucket Storage privé
+-- ------------------------------------------------------------
+-- PRIVÉ, contrairement à « avatars » : un devis, une facture ou une
+-- photo de terrain ne doivent pas être atteignables par URL devinable.
+-- L'accès passe par des URL signées à durée limitée.
+insert into storage.buckets (id, name, public)
+values ('documents', 'documents', false)
+on conflict (id) do nothing;
+
+-- Chemin : projets/<project_id>/<phase_id|_>/<uuid>-<nom>
+-- soit foldername(name) = {projets, <project_id>, <phase_id|_>}.
+-- Le cast en uuid est isolé dans une fonction : un objet au chemin
+-- inattendu ferait autrement échouer TOUTE requête sur storage.objects,
+-- Postgres ne garantissant pas l'ordre d'évaluation d'un AND.
+create or replace function public.document_path_project_id(object_name text)
+returns uuid
+language plpgsql
+immutable
+as $$
+begin
+  return ((storage.foldername(object_name))[2])::uuid;
+exception when others then
+  return null;
+end;
+$$;
+
+drop policy if exists "Documents read" on storage.objects;
+create policy "Documents read" on storage.objects
+  for select using (
+    bucket_id = 'documents'
+    and is_project_member(public.document_path_project_id(name))
+  );
+
+drop policy if exists "Documents upload" on storage.objects;
+create policy "Documents upload" on storage.objects
+  for insert with check (
+    bucket_id = 'documents'
+    and public.can_upload_document(public.document_path_project_id(name))
+  );
+
+drop policy if exists "Documents update" on storage.objects;
+create policy "Documents update" on storage.objects
+  for update using (
+    bucket_id = 'documents'
+    and public.can_upload_document(public.document_path_project_id(name))
+  );
+
+drop policy if exists "Documents delete" on storage.objects;
+create policy "Documents delete" on storage.objects
+  for delete using (
+    bucket_id = 'documents'
+    and public.can_upload_document(public.document_path_project_id(name))
+  );
+
+-- ============================================================================
+-- MIGRATION 0030 — validations circuit
+-- ============================================================================
+
+-- ============================================================
+-- PR 38b — Devis, factures et circuit de validation
+-- ============================================================
+-- La table `validations` existe depuis la 0001 mais n'a JAMAIS servi.
+-- Et pour cause : elle porte une policy de lecture et une policy de
+-- décision (update), mais AUCUNE policy d'insertion. Personne ne pouvait
+-- donc créer une validation — le circuit était structurellement mort,
+-- pas seulement inutilisé.
+--
+-- Cette migration ouvre l'insertion, réaligne la lecture sur
+-- documents.project_id (posé en 0029), et ajoute le peu qui manquait au
+-- suivi des montants : la date de paiement.
+
+-- ------------------------------------------------------------
+-- 1. Date de paiement
+-- ------------------------------------------------------------
+-- `documents.paid` (booléen) existe depuis la 0001, mais sans date : on
+-- pouvait savoir QU'une facture était payée, jamais QUAND. Un financeur
+-- public demande l'échéancier réel, pas un état à l'instant T.
+alter table documents
+  add column if not exists paid_at date;
+
+-- ------------------------------------------------------------
+-- 2. RLS de validations
+-- ------------------------------------------------------------
+-- Lecture : la 0006 remontait au projet par sous-requête à travers
+-- tasks → phases ou budget_lines. Depuis la 0029, documents.project_id
+-- est renseigné et NOT NULL : la jointure devient directe, et cesse
+-- d'être aveugle aux documents rattachés au seul projet.
+drop policy if exists "See validations" on validations;
+create policy "See validations" on validations
+  for select using (
+    exists (
+      select 1 from documents d
+       where d.id = validations.document_id
+         and (is_project_member(d.project_id) or is_admin() or is_lead_org_admin())
+    )
+  );
+
+-- Insertion : c'est ce qui manquait. Créer une validation revient à
+-- soumettre une pièce au circuit — même droit que déposer la pièce.
+drop policy if exists "Create validation" on validations;
+create policy "Create validation" on validations
+  for insert with check (
+    exists (
+      select 1 from documents d
+       where d.id = validations.document_id
+         and can_upload_document(d.project_id)
+    )
+  );
+
+-- Décision : membre de l'organisation sollicitée, ou pilotage du projet.
+-- La 0001 n'admettait QUE le membre de l'organisation : un devis adressé
+-- à une organisation sans compte actif restait bloqué pour toujours,
+-- sans recours.
+drop policy if exists "Decide validation" on validations;
+create policy "Decide validation" on validations
+  for update using (
+    exists (select 1 from memberships m where m.user_id = auth.uid() and m.org_id = validations.org_id)
+    or exists (
+      select 1 from documents d
+        join project_members pm on pm.project_id = d.project_id
+       where d.id = validations.document_id
+         and pm.user_id = auth.uid() and pm.role in ('chef_projet', 'validateur')
+    )
+    or is_admin() or is_lead_org_admin()
+  );
+
+-- Suppression : retirer une pièce doit emporter ses validations. La
+-- cascade de la FK s'en charge, mais un retrait manuel doit rester
+-- possible pour le pilotage (soumission adressée à la mauvaise organisation).
+drop policy if exists "Delete validation" on validations;
+create policy "Delete validation" on validations
+  for delete using (
+    exists (
+      select 1 from documents d
+        join project_members pm on pm.project_id = d.project_id
+       where d.id = validations.document_id
+         and pm.user_id = auth.uid() and pm.role in ('chef_projet', 'resp_financier')
+    )
+    or is_admin() or is_lead_org_admin()
+  );
+
+create index if not exists validations_document_id_idx on validations(document_id);
+
+-- ------------------------------------------------------------
+-- 3. À qui adresser une validation
+-- ------------------------------------------------------------
+-- `validation_rules(project_id, doc_type, role)` existe depuis la 0001,
+-- également inutilisée. Elle reste la source de vérité quand elle est
+-- renseignée. Mais exiger une configuration préalable rendrait le
+-- circuit invisible sur tout projet existant — d'où un repli explicite :
+-- le financeur de la ligne, sinon l'organisation porteuse du projet.
+create or replace function public.validation_orgs_for_document(doc_id uuid)
+returns setof uuid
+language sql
+security definer
+set search_path = public
+as $$
+  with doc as (
+    select d.id, d.type, d.project_id, d.budget_line_id from documents d where d.id = doc_id
+  ),
+  par_regle as (
+    select distinct po.org_id
+      from doc
+      join validation_rules vr on vr.project_id = doc.project_id and vr.doc_type = doc.type
+      join project_organizations po on po.project_id = doc.project_id and po.role = vr.role
+  ),
+  repli as (
+    select distinct org_id from (
+      -- Financeur de la ligne budgétaire concernée
+      select bl.funder_org_id as org_id
+        from doc join budget_lines bl on bl.id = doc.budget_line_id
+       where bl.funder_org_id is not null
+      union all
+      -- À défaut, l'organisation porteuse du projet
+      select p.lead_org_id
+        from doc join projects p on p.id = doc.project_id
+       where p.lead_org_id is not null
+    ) s where org_id is not null
+  )
+  select org_id from par_regle
+  union
+  select org_id from repli where not exists (select 1 from par_regle);
+$$;
+
+-- ============================================================================
+-- MIGRATION 0031 — validation orgs fallback
+-- ============================================================================
+
+-- ============================================================
+-- PR 38b (correctif) — Repli de validation : financeur PUIS porteuse
+-- ============================================================
+-- La 0030 annonçait « le financeur de la ligne, sinon l'organisation
+-- porteuse », mais sollicitait les DEUX : le UNION ALL du repli
+-- rassemblait funder_org_id et lead_org_id sans priorité entre eux.
+-- Constaté en test — un devis sur une ligne financée par le Département
+-- partait aussi en validation chez l'association porteuse, à qui l'on
+-- demandait donc d'approuver un devis qu'elle avait elle-même obtenu.
+--
+-- Ordre rétabli : règles du projet si configurées, sinon financeur de la
+-- ligne, sinon seulement l'organisation porteuse.
+
+create or replace function public.validation_orgs_for_document(doc_id uuid)
+returns setof uuid
+language sql
+security definer
+set search_path = public
+as $$
+  with doc as (
+    select d.id, d.type, d.project_id, d.budget_line_id from documents d where d.id = doc_id
+  ),
+  par_regle as (
+    select distinct po.org_id
+      from doc
+      join validation_rules vr on vr.project_id = doc.project_id and vr.doc_type = doc.type
+      join project_organizations po on po.project_id = doc.project_id and po.role = vr.role
+  ),
+  financeur as (
+    select distinct bl.funder_org_id as org_id
+      from doc join budget_lines bl on bl.id = doc.budget_line_id
+     where bl.funder_org_id is not null
+  ),
+  porteuse as (
+    select distinct p.lead_org_id as org_id
+      from doc join projects p on p.id = doc.project_id
+     where p.lead_org_id is not null
+  )
+  select org_id from par_regle
+  union
+  select org_id from financeur where not exists (select 1 from par_regle)
+  union
+  select org_id from porteuse
+   where not exists (select 1 from par_regle)
+     and not exists (select 1 from financeur);
+$$;
+
+-- ============================================================================
+-- MIGRATION 0032 — photos moment
+-- ============================================================================
+
+-- ============================================================
+-- PR 38c — Photos avant / pendant / après par phase
+-- ============================================================
+-- Matière première des rapports terrain et des supports de
+-- communication : une photo de chantier ne vaut que rapprochée de son
+-- état initial. Sans qualification du moment, une galerie de vingt
+-- photos ne raconte rien.
+
+create type doc_moment as enum ('avant', 'pendant', 'apres');
+
+-- Nullable : seules les photos portent un moment. Un devis n'a pas
+-- d'« avant ».
+alter table documents
+  add column if not exists moment doc_moment;
+
+-- La galerie interroge les photos d'une phase non rattachées à une
+-- tâche : c'est l'accès le plus fréquent de l'onglet Tâches.
+create index if not exists documents_phase_photo_idx
+  on documents(phase_id, type) where task_id is null;
+
+-- ------------------------------------------------------------
+-- Durcissement du bucket (dette signalée en 38a)
+-- ------------------------------------------------------------
+-- La limite de 10 Mo n'était vérifiée QUE dans le navigateur
+-- (MAX_DOC_SIZE). Un appel direct à l'API Storage passait outre : pas
+-- exploitable par un inconnu — les policies exigent d'être membre du
+-- projet avec un rôle de dépôt — mais un membre légitime pouvait
+-- saturer le stockage par accident. La limite est désormais appliquée
+-- par le serveur, seul endroit où elle vaut quelque chose.
+--
+-- Les types autorisés couvrent large à dessein : bloquer un format
+-- légitime en terrain associatif coûte plus cher que le risque écarté.
+-- HEIC / HEIF sont indispensables — c'est le format par défaut des
+-- iPhone, donc de la majorité des photos de chantier.
+update storage.buckets
+   set file_size_limit = 10485760,
+       allowed_mime_types = array[
+         'application/pdf',
+         'image/jpeg', 'image/png', 'image/webp', 'image/gif',
+         'image/heic', 'image/heif',
+         'application/msword',
+         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+         'application/vnd.ms-excel',
+         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+         'application/vnd.ms-powerpoint',
+         'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+         'text/plain', 'text/csv'
+       ]
+ where id = 'documents';
+
+-- ============================================================================
+-- MIGRATION 0033 — phase budget computed
+-- ============================================================================
+
+-- ============================================================
+-- PR 39 — Le budget de phase devient calculé
+-- ============================================================
+-- Cadrage YCID du 25/07/2026 : « on peut bouger un budget d'une
+-- activité vers une autre ; le montant total ne devrait pas changer,
+-- c'est un financement déjà voté ».
+--
+-- Cette règle tranche une question laissée ouverte depuis la 0001 :
+-- l'invariant est l'ENVELOPPE, pas la ligne. D'où deux conséquences
+-- opposées sur deux colonnes qui se ressemblaient :
+--
+--   · `projects.budget` CONSERVÉ, et change de sens : ce n'est pas un
+--     doublon de la somme des lignes, c'est le MONTANT VOTÉ — la
+--     référence contractuelle contre laquelle on compare la répartition.
+--     Le seul chiffre qui ne doit pas bouger.
+--
+--   · `phases.budget` SUPPRIMÉ : lui n'était relié à rien. Saisi à la
+--     main, jamais confronté aux lignes, il produisait des divergences
+--     silencieuses — constatées en production sur le projet CEM Liban :
+--     31 100 € déclarés contre 26 600 € de lignes sur une phase,
+--     4 550 € contre 9 050 € sur une autre. Garder deux montants
+--     modifiables pour la même chose ne fabrique que de l'écart.
+--     Le budget d'une phase est désormais la somme de ses lignes.
+
+-- Les valeurs saisies traduisaient une intention, même fausse : on les
+-- archive au journal d'audit avant de supprimer la colonne, plutôt que
+-- de les effacer sans trace.
+insert into audit_log (project_id, entity, entity_id, label, action, user_id, comment)
+select ph.project_id, 'phase', ph.id, ph.name, 'modifie', null,
+       'Budget de phase archivé avant suppression du champ (PR 39) : ' || ph.budget || ' €'
+  from phases ph
+ where ph.budget is not null;
+
+alter table phases drop column if exists budget;
+
+-- ============================================================================
+-- MIGRATION 0034 — storage stats
+-- ============================================================================
+
+-- ============================================================
+-- PR 41 — Écran Stockage (Admin) : inventaire et nettoyage
+-- ============================================================
+-- Besoin apparu avec les PR 38a → 38e : les pièces s'accumulent — les
+-- photos de chantier arrivent en HEIC depuis des iPhone, 3 à 5 Mo
+-- l'unité — et personne ne voit le quota se remplir.
+--
+-- Deuxième besoin, créé par la 38a : `deleteDocument` retire la ligne
+-- puis le fichier ; si le second échoue, l'échec est journalisé sans
+-- bloquer (bon choix : l'utilisateur ne doit pas rester avec une ligne
+-- qu'il croit supprimée). Mais rien ne remonte les fichiers orphelins
+-- qui en résultent.
+--
+-- Pourquoi du SQL plutôt qu'un parcours de bucket : `storage.list()`
+-- est paginé et ne descend que d'un niveau. Inventorier
+-- projets/<projet>/<phase>/<fichier> imposerait des dizaines d'appels,
+-- et le rapprochement avec la table `documents` — c'est-à-dire la
+-- détection des orphelins — se ferait de toute façon mieux ici.
+
+-- ------------------------------------------------------------
+-- 1. Occupation par bucket
+-- ------------------------------------------------------------
+create or replace function public.storage_stats()
+returns table (bucket text, files bigint, bytes bigint)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  -- Ces fonctions lisent TOUT le stockage, tous projets confondus :
+  -- réservées aux administrateurs, contrôle à l'intérieur puisqu'une
+  -- fonction security definer contourne la RLS par construction.
+  if not (is_admin() or is_lead_org_admin()) then
+    raise exception 'Réservé aux administrateurs.';
+  end if;
+  return query
+    select o.bucket_id::text,
+           count(*)::bigint,
+           coalesce(sum((o.metadata->>'size')::bigint), 0)::bigint
+      from storage.objects o
+     group by o.bucket_id
+     order by 3 desc;
+end;
+$$;
+
+-- ------------------------------------------------------------
+-- 2. Fichiers orphelins du bucket « documents »
+-- ------------------------------------------------------------
+-- Présents dans le bucket, sans ligne correspondante en base : ils
+-- consomment du quota et ne sont atteignables par aucun écran.
+create or replace function public.storage_orphans()
+returns table (path text, bytes bigint, created_at timestamptz)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not (is_admin() or is_lead_org_admin()) then
+    raise exception 'Réservé aux administrateurs.';
+  end if;
+  return query
+    select o.name::text,
+           coalesce((o.metadata->>'size')::bigint, 0)::bigint,
+           o.created_at
+      from storage.objects o
+     where o.bucket_id = 'documents'
+       and not exists (select 1 from documents d where d.storage_path = o.name)
+     order by o.created_at;
+end;
+$$;
+
+-- ------------------------------------------------------------
+-- 3. Occupation par projet
+-- ------------------------------------------------------------
+-- Le projet se lit dans le chemin projets/<project_id>/… : passer par
+-- la table `documents` raterait précisément les orphelins, qu'on veut
+-- justement voir peser.
+create or replace function public.storage_by_project()
+returns table (project_id uuid, project_name text, files bigint, bytes bigint)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not (is_admin() or is_lead_org_admin()) then
+    raise exception 'Réservé aux administrateurs.';
+  end if;
+  return query
+    select p.id, p.name::text, count(*)::bigint,
+           coalesce(sum((o.metadata->>'size')::bigint), 0)::bigint
+      from storage.objects o
+      join projects p
+        on p.id = public.document_path_project_id(o.name)
+     where o.bucket_id = 'documents'
+     group by p.id, p.name
+     order by 4 desc;
+end;
+$$;
+
+-- ============================================================================
+-- MIGRATION 0035 — storage stats all buckets
+-- ============================================================================
+
+-- ============================================================
+-- Correctif PR 41 — lister TOUS les espaces de stockage
+-- ============================================================
+-- Constaté en recette : l'écran Stockage n'affichait qu'un seul espace
+-- (« Pièces des projets ») au lieu des trois. Cause : la fonction
+-- agrégeait `storage.objects` en groupant par bucket_id. Un bucket sans
+-- aucun objet ne produit aucune ligne, donc disparaît — et rien ne
+-- distingue « bucket vide » de « bucket inexistant ».
+--
+-- Pour un écran dont la fonction est l'inventaire, c'est un défaut de
+-- fond : on ne peut pas constater qu'un espace est vide s'il n'est pas
+-- affiché. On part donc de `storage.buckets`, avec une jointure externe.
+
+create or replace function public.storage_stats()
+returns table (bucket text, files bigint, bytes bigint)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not (is_admin() or is_lead_org_admin()) then
+    raise exception 'Réservé aux administrateurs.';
+  end if;
+  return query
+    select b.id::text,
+           count(o.id)::bigint,
+           coalesce(sum((o.metadata->>'size')::bigint), 0)::bigint
+      from storage.buckets b
+      left join storage.objects o on o.bucket_id = b.id
+     group by b.id
+     order by 3 desc, 1;
+end;
+$$;
+
+-- ============================================================================
+-- MIGRATION 0036 — validation decision scope
+-- ============================================================================
+
+-- ============================================================
+-- Correctif 38b — qui peut décider d'une validation
+-- ============================================================
+-- Constaté en recette : un compte de rôle YCID a pu valider un devis
+-- adressé à « Libanais en Yvelines ». La décision s'enregistre alors
+-- sous l'organisation LEY, sans que rien n'indique qu'une autre
+-- organisation a tranché à sa place.
+--
+-- Cause : la policy posée en 0030 admettait `is_admin()`, vrai pour
+-- tout membre `admin_org` d'une organisation nommée YCID ou LEY. Le
+-- garde-fou visait à débloquer un devis adressé à une organisation sans
+-- compte actif — intention légitime, portée beaucoup trop large : il
+-- autorisait n'importe quel administrateur à se prononcer au nom de
+-- n'importe qui.
+--
+-- C'est d'autant plus grave avec la règle d'unanimité arbitrée le
+-- 25/07 : si un administrateur peut décider pour toutes les
+-- organisations, l'unanimité ne veut plus rien dire.
+--
+-- Règle retenue : décide qui est MEMBRE de l'organisation sollicitée.
+-- Le recours subsiste, mais réservé aux administrateurs PLATEFORME
+-- (`is_platform_admin`) — un rôle d'exploitation, pas un rôle
+-- partenaire. Et il devient visible : voir `decided_by` ci-dessous.
+
+drop policy if exists "Decide validation" on validations;
+create policy "Decide validation" on validations
+  for update using (
+    -- Cas normal : membre de l'organisation sollicitée.
+    exists (
+      select 1 from memberships m
+       where m.user_id = auth.uid() and m.org_id = validations.org_id
+    )
+    -- Recours d'exploitation : rôle « admin » UNIQUEMENT.
+    --
+    -- Ni is_admin(), qui englobe le rôle « ycid ». Ni is_platform_admin,
+    -- piège moins visible : l'écran de gestion des comptes pose
+    -- `is_platform_admin = (role <> 'user')` (user-actions.ts), si bien
+    -- que TOUT compte de rôle « ycid » a ce drapeau à true. S'y fier
+    -- rouvrirait exactement le trou qu'on ferme — c'est un compte de
+    -- rôle ycid qui a validé au nom de LEY.
+    --
+    -- Le coalesce reprend la dérivation de l'application pour les
+    -- comptes antérieurs à la 0017, dont platform_role est nul.
+    or exists (
+      select 1 from profiles p
+       where p.id = auth.uid()
+         and coalesce(p.platform_role, case when p.is_platform_admin then 'admin' else 'user' end) = 'admin'
+    )
+  );
+
+-- Le chef de projet perd ce droit, qu'il n'aurait jamais dû avoir : il
+-- est le plus souvent le déposant du devis. Se valider soi-même vide le
+-- circuit de son sens.
+
+-- ------------------------------------------------------------
+-- Rendre la décision hors organisation VISIBLE
+-- ------------------------------------------------------------
+-- `decided_by` était déjà renseigné, mais rien ne permettait de savoir
+-- si le décideur appartenait à l'organisation sollicitée. Pour une
+-- piste d'audit destinée à un financeur, « validé par LEY » et « validé
+-- par un administrateur au nom de LEY » ne sont pas la même affirmation.
+create or replace function public.validation_decided_outside_org(validation_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+as $$
+  select v.decided_by is not null
+     and not exists (
+       select 1 from memberships m
+        where m.user_id = v.decided_by and m.org_id = v.org_id
+     )
+    from validations v
+   where v.id = validation_id;
+$$;
+
+-- ============================================================================
+-- MIGRATION 0037 — two platform roles
+-- ============================================================================
+
+-- ============================================================
+-- PR 42 — Deux rôles plateforme : Administrateur et Utilisateur
+-- ============================================================
+-- Arbitrage YCID du 26/07 : « YCID est une organisation, pas un rôle ».
+--
+-- Le modèle d'origine confondait trois axes indépendants :
+--   · l'APPARTENANCE — à quelle organisation on appartient (YCID, LEY,
+--     Mairie d'Azour) ;
+--   · le PÉRIMÈTRE — quels projets on voit ;
+--   · la CAPACITÉ — ce qu'on peut y faire.
+--
+-- Le rôle « ycid » les écrasait tous les trois en un seul réglage
+-- global, et donnait l'administration complète à qui n'avait besoin que
+-- de voir le programme. C'est ce qui a ouvert la console de gestion des
+-- comptes à Maria Maroun, dont ce n'est pas la fonction.
+--
+-- Le modèle devient explicite :
+--   · le PÉRIMÈTRE vient de l'appartenance à une organisation —
+--     is_project_member() joignait DÉJÀ project_organizations, donc un
+--     membre d'YCID voit tous les projets auxquels YCID est rattachée.
+--     Le rôle global ne faisait que court-circuiter ce mécanisme ;
+--   · la CAPACITÉ vient du rôle PROJET (chef de projet, responsable
+--     financier, terrain, validateur…) ;
+--   · le rôle PLATEFORME ne garde qu'une question : administre-t-on
+--     l'outil lui-même ? Deux valeurs suffisent.
+--
+-- ⚠️ Conséquence assumée : is_admin() est utilisé par une soixantaine de
+-- policies. Les comptes « ycid » y perdent l'accès global — c'est
+-- précisément l'objet du changement. Ils conservent leurs droits par
+-- leurs rôles projet et leur organisation.
+
+-- ------------------------------------------------------------
+-- 1. Administrer l'outil : le seul rôle « admin »
+-- ------------------------------------------------------------
+create or replace function is_admin()
+returns boolean language sql security definer stable as $$
+  select exists (
+    select 1 from public.profiles
+     where id = auth.uid()
+       and coalesce(platform_role, case when is_platform_admin then 'admin' else 'user' end) = 'admin'
+  );
+$$;
+
+-- ------------------------------------------------------------
+-- 2. Voir un projet : appartenance, pas rôle global
+-- ------------------------------------------------------------
+-- L'administrateur conserve la vision complète : il doit pouvoir
+-- diagnostiquer un projet sans s'y ajouter comme membre. Mais c'est
+-- désormais le SEUL raccourci global.
+create or replace function is_project_member(pid uuid)
+returns boolean language sql security definer as $$
+  select
+    is_admin()
+    or exists (
+      select 1 from project_members
+      where project_id = pid and user_id = auth.uid()
+    )
+    -- Le vrai mécanisme de périmètre : appartenir à une organisation
+    -- rattachée au projet. Un membre d'YCID voit les projets où YCID
+    -- figure ; il suffit de l'y rattacher pour élargir sa vue.
+    or exists (
+      select 1 from project_organizations po
+      join memberships m on m.org_id = po.org_id
+      where po.project_id = pid and m.user_id = auth.uid()
+    );
+$$;
+
+-- ------------------------------------------------------------
+-- 3. Arbitrer la roadmap : une capacité, pas un rôle
+-- ------------------------------------------------------------
+-- La gouvernance produit n'est ni un droit projet ni de l'administration
+-- technique. Le Product Owner arbitre le backlog sans toucher aux
+-- comptes. Une case à cocher exprime cela sans inventer un rôle.
+alter table profiles
+  add column if not exists can_manage_roadmap boolean not null default false;
+
+create or replace function is_roadmap_manager()
+returns boolean language sql security definer stable as $$
+  select exists (
+    select 1 from public.profiles
+     where id = auth.uid()
+       and (can_manage_roadmap = true
+            or coalesce(platform_role, case when is_platform_admin then 'admin' else 'user' end) = 'admin')
+  );
+$$;
+
+drop policy if exists "Update own idea" on ideas;
+create policy "Update own idea" on ideas for update
+  using (author_id = auth.uid() or is_roadmap_manager());
+
+drop policy if exists "Delete own idea" on ideas;
+create policy "Delete own idea" on ideas for delete
+  using (author_id = auth.uid() or is_roadmap_manager());
+
+-- ------------------------------------------------------------
+-- 4. Reprise des comptes existants
+-- ------------------------------------------------------------
+-- Les comptes « ycid » deviennent « utilisateur » — ils perdent la
+-- console d'administration, ce qui est le but — mais CONSERVENT
+-- l'arbitrage de la roadmap. Retirer d'un coup deux droits dont un seul
+-- était en cause priverait Bérengère Ayoub de sa fonction sans
+-- décision. La case reste décochable compte par compte.
+update profiles
+   set can_manage_roadmap = true
+ where platform_role = 'ycid';
+
+update profiles
+   set platform_role = 'user'
+ where platform_role = 'ycid';
+
+-- `is_platform_admin` retrouve enfin le sens de son nom : vrai pour le
+-- seul administrateur. L'écran de gestion des comptes le posait à
+-- « rôle <> user », ce qui en faisait un synonyme trompeur de « pas un
+-- utilisateur ordinaire » — et c'est ce qui avait rendu mon correctif
+-- 0036 inopérant.
+update profiles
+   set is_platform_admin = (platform_role = 'admin')
+ where platform_role is not null
+   and is_platform_admin is distinct from (platform_role = 'admin');
+
+-- ============================================================================
+-- MIGRATION 0038 — reader role merge
+-- ============================================================================
+
+-- ============================================================
+-- 0038 — L'auditeur, seul rôle de consultation
+-- ============================================================
+-- Arbitrage du 26/07 : « je n'ai besoin ni du rôle lecteur ni du
+-- validateur — à quoi ça sert de se connecter pour voir, on peut lui
+-- transmettre un rapport. Un auditeur c'est autre chose. »
+--
+-- Deux rôles sortent :
+--
+--   · « validateur » ne validait plus rien depuis la 0036, qui a
+--     restreint la décision aux MEMBRES de l'organisation sollicitée —
+--     un mécanisme d'appartenance, pas un rôle projet — et retiré au
+--     passage la clause `pm.role in ('chef_projet','validateur')` posée
+--     en 0030. Le libellé promettait depuis un jour un pouvoir que le
+--     code avait supprimé ;
+--
+--   · « lecteur » n'avait pas de raison d'être. Un compte qui ne sert
+--     qu'à regarder duplique deux choses qui existent déjà mieux : le
+--     rapport d'expert IA, et la page vitrine publique par projet
+--     (0021, lien non devinable). Créer un compte, gérer son mot de
+--     passe et son cycle de vie pour un spectateur, c'est du coût sans
+--     contrepartie — et une surface d'accès de plus.
+--
+-- « auditeur » subsiste, et devient le SEUL rôle de consultation. Sa
+-- mission n'est pas de regarder mais de contrôler, et elle exige le
+-- journal d'audit — qui, lui, ne se transmet pas dans un rapport.
+--
+-- Un enum PostgreSQL ne perd jamais ses valeurs (`alter type ... drop
+-- value` n'existe pas). « validateur » et « lecteur » restent donc dans
+-- `project_member_role` ; ce qui change, c'est qu'ils ne sont plus
+-- proposés à la saisie (ASSIGNABLE_ROLES, lib/rbac.ts) et que plus
+-- personne ne les porte.
+--
+-- ⚠️ Cette migration remplace une première version, diffusée le même
+-- jour, qui convertissait vers « lecteur ». Elle est SANS RISQUE à
+-- relancer : si la première a déjà tourné, celle-ci reprend les
+-- « lecteur » ainsi créés et les mène à « auditeur ». Le résultat est
+-- identique dans les deux cas.
+
+-- ------------------------------------------------------------
+-- 1. Reprise des membres existants
+-- ------------------------------------------------------------
+-- Aucun droit n'est retiré à personne : ces trois rôles avaient déjà
+-- rigoureusement les mêmes. La conversion aligne l'affichage sur la
+-- réalité.
+insert into audit_log (project_id, entity, entity_id, label, action, comment)
+select pm.project_id, 'project_member', pm.user_id,
+       coalesce(p.full_name, p.email, pm.user_id::text),
+       'modifie',
+       format('Rôle « %s » converti en « auditeur » (0038 — rôle de consultation unique)', pm.role)
+  from project_members pm
+  left join profiles p on p.id = pm.user_id
+ where pm.role in ('validateur', 'lecteur');
+
+update project_members
+   set role = 'auditeur'
+ where role in ('validateur', 'lecteur');
+
+-- ------------------------------------------------------------
+-- 2. Un auditeur ne saisit pas les chiffres qu'il contrôle
+-- ------------------------------------------------------------
+-- La policy de la 0006 admettait tout membre du projet. Tant que la
+-- consultation n'était qu'un statut passif, la nuance était théorique ;
+-- avec un rôle dont la mission est le contrôle, elle ne l'est plus.
+-- Quelqu'un qui vérifie des indicateurs d'impact ne doit pas pouvoir en
+-- saisir.
+drop policy if exists "Add measure" on indicator_measures;
+create policy "Add measure" on indicator_measures
+  for insert with check (
+    exists (
+      select 1 from indicators i
+       join project_members pm on pm.project_id = i.project_id
+       where i.id = indicator_measures.indicator_id
+         and pm.user_id = auth.uid()
+         and pm.role in ('chef_projet', 'referent_mairie', 'resp_financier', 'contributeur')
+    )
+    or is_admin()
+  );
+
+-- ------------------------------------------------------------
+-- Contrôle
+-- ------------------------------------------------------------
+-- Doit renvoyer zéro ligne. Sinon, c'est qu'un membre a été créé avec un
+-- rôle retiré de la saisie — donc que le garde-fou applicatif
+-- (MEMBER_ROLES, actions.ts) a été contourné.
+--
+--   select role, count(*) from project_members
+--    where role in ('validateur','lecteur') group by role;
+
+-- ============================================================================
+-- MIGRATION 0039 — read only org scope
+-- ============================================================================
+
+-- ============================================================
+-- 0039 — Le droit de regard ne doit rien pouvoir écrire
+-- ============================================================
+-- Arbitrage du 26/07, énoncé par YCID :
+--
+--   « On ouvre un compte aux gens qui agissent. Mais quand on crée un
+--     compte pour une organisation — Commune de Villepreux par exemple —
+--     les gens ont accès aux informations des projets de la commune :
+--     ils ont un droit de REGARD. Ce ne sont pas les gens opérationnels.
+--     Un membre de la commune qui est chef de projet, lui, pourra agir :
+--     créer une tâche, un devis, etc. »
+--
+-- Le modèle repose donc sur deux couches indépendantes :
+--
+--   · l'ORGANISATION donne le PÉRIMÈTRE — quels projets on voit.
+--     is_project_member() joint project_organizations depuis la 0037 ;
+--   · le RÔLE PROJET donne la CAPACITÉ — ce qu'on peut y faire.
+--     lib/rbac.ts, et les policies nommant explicitement les rôles.
+--
+-- Le modèle ne tient que si AUCUNE règle d'écriture ne se contente de
+-- l'appartenance. Vérification faite sur les policies encore en vigueur
+-- (les réécritures successives en avaient neutralisé plusieurs) : deux
+-- seulement s'appuyaient sur is_project_member() en écriture.
+--
+--   · audit_log « Insert audit » — LÉGITIME, et nécessaire. La trace est
+--     écrite par celui qui agit, sous son propre identifiant
+--     (`user_id = auth.uid()`). L'interdire empêcherait de tracer.
+--     Inchangée.
+--
+--   · ai_reports « Create ai reports » — FUITE, corrigée ci-dessous.
+
+-- ------------------------------------------------------------
+-- Générer un rapport est une action, pas un regard
+-- ------------------------------------------------------------
+-- La 0024 ouvrait l'insertion à tout membre du projet. À l'époque, être
+-- membre supposait un rôle : la nuance n'existait pas. Depuis la 0037,
+-- l'appartenance à une organisation suffit à voir un projet — et donc,
+-- par cette policy, à y générer un rapport.
+--
+-- Deux raisons de fermer, dont une qui ne se rattrape pas :
+--   · la génération consomme la clé du fournisseur d'IA (0023) — un
+--     droit de regard qui engage une dépense n'est plus un droit de
+--     regard ;
+--   · le rapport s'inscrit dans l'historique du projet, sous le nom de
+--     qui l'a lancé.
+--
+-- La LECTURE reste ouverte à tout le périmètre : quelqu'un qui a le
+-- droit de regard peut lire les rapports produits par d'autres. C'est
+-- même le cœur de ce droit.
+drop policy if exists "Create ai reports" on ai_reports;
+create policy "Create ai reports" on ai_reports
+  for insert with check (
+    exists (
+      select 1 from project_members pm
+       where pm.project_id = ai_reports.project_id
+         and pm.user_id = auth.uid()
+         and pm.role in ('chef_projet', 'referent_mairie', 'resp_financier', 'contributeur')
+    )
+    or is_admin()
+    or is_lead_org_admin()
+  );
+
+-- ------------------------------------------------------------
+-- Contrôle
+-- ------------------------------------------------------------
+-- Recense les policies d'écriture qui s'appuient encore sur la seule
+-- appartenance. Attendu APRÈS cette migration : la seule ligne
+-- `audit_log / Insert audit`.
+--
+--   select tablename, policyname, cmd
+--     from pg_policies
+--    where schemaname = 'public'
+--      and cmd <> 'SELECT'
+--      and coalesce(qual, '') || coalesce(with_check, '') like '%is_project_member%'
+--    order by tablename, policyname;
+
+-- ============================================================================
+-- MIGRATION 0040 — email settings
+-- ============================================================================
+
+-- ============================================================
+-- 0040 — Envoi d'emails, entièrement configurable
+-- ============================================================
+-- Arbitrage du 25/07 : « il faut envoyer des mails à chaque fois qu'il y
+-- a une notification, surtout de validation ou d'action terminée. Il
+-- faut que ce soit complètement configurable, SMTP etc. Je ne veux pas
+-- que ça soit en dur. »
+--
+-- Même raisonnement que la configuration IA (0023) : un secret ne se
+-- met pas dans un fichier sur le serveur, où le changer suppose un accès
+-- SSH et un redémarrage. Il se saisit depuis l'administration.
+--
+-- SÉCURITÉ : le mot de passe SMTP est un secret. Cette table est donc
+-- séparée de `platform_settings` — lisible publiquement pour la marque —
+-- et n'est accessible qu'aux administrateurs. Côté serveur la lecture
+-- passe par la clé service ; le mot de passe n'est JAMAIS renvoyé au
+-- navigateur, seul un booléen « configuré » l'est.
+--
+-- POURQUOI CETTE MIGRATION MAINTENANT : l'unanimité arbitrée le 25/07
+-- rend une organisation silencieuse BLOQUANTE pour l'engagé. Sans
+-- notification, personne ne sait qu'on l'attend, et le circuit
+-- s'arrêterait au premier devis. Les deux se livrent ensemble.
+
+create table if not exists email_settings (
+  id boolean primary key default true check (id),
+  -- Interrupteur général. À false, l'application n'envoie rien et se
+  -- contente des notifications internes : c'est l'état par défaut, pour
+  -- qu'une installation neuve ne tente pas d'écrire à des inconnus.
+  enabled boolean not null default false,
+  host text,
+  port integer not null default 587,
+  -- true = TLS implicite (port 465). false = STARTTLS (port 587), le
+  -- cas courant.
+  secure boolean not null default false,
+  username text,
+  password text,
+  from_name text not null default 'Solid''Pilot',
+  from_email text,
+  -- Adresse publique de l'application, pour les liens des messages. Un
+  -- email qui annonce qu'une décision attend sans donner le chemin pour
+  -- s'y rendre ne sert à rien. Ici plutôt qu'en variable
+  -- d'environnement : la changer ne doit pas supposer un accès SSH et un
+  -- redémarrage.
+  site_url text,
+  -- Trace du dernier essai : sans elle, un envoi qui échoue en
+  -- silence — mot de passe changé, quota atteint — ne se découvre que
+  -- le jour où quelqu'un s'étonne de n'avoir rien reçu.
+  last_test_at timestamptz,
+  last_test_ok boolean,
+  last_test_error text,
+  updated_at timestamptz not null default now(),
+  updated_by uuid references profiles(id) on delete set null
+);
+
+insert into email_settings (id) values (true) on conflict (id) do nothing;
+
+alter table email_settings enable row level security;
+
+drop policy if exists "Admins read email settings" on email_settings;
+create policy "Admins read email settings" on email_settings
+  for select using (is_admin());
+
+drop policy if exists "Admins update email settings" on email_settings;
+create policy "Admins update email settings" on email_settings
+  for update using (is_admin()) with check (is_admin());
+
+-- ------------------------------------------------------------
+-- Ne pas écrire deux fois la même chose à la même personne
+-- ------------------------------------------------------------
+-- Un devis soumis à trois organisations engendre trois notifications ;
+-- une personne membre de deux d'entre elles en recevrait deux. La
+-- colonne porte l'adresse réellement servie, ce qui permet de constater
+-- après coup ce qui est parti — et de ne pas réémettre.
+alter table notifications
+  add column if not exists emailed_at timestamptz;
+
+create index if not exists notifications_unread_idx
+  on notifications (user_id, read_at) where read_at is null;
+
 -- ============================================================================
 -- FIN — Prochaines étapes (voir docs/procedure-deploiement.md) :
 --   1. Créer votre compte via la page de connexion de l'app (ou Dashboard
 --      Supabase > Authentication > Add user).
---   2. Vous promouvoir admin plateforme :
---        update profiles set is_platform_admin = true where email = 'votre@email';
---   3. (Optionnel) Charger les données de démonstration : seed.sql.
---   4. Désactiver le signup public (Authentication > Providers).
+--   2. Vous promouvoir administrateur. Depuis la 0037, `is_admin()` lit
+--      `platform_role` en priorité — poser les DEUX colonnes évite toute
+--      ambiguïté sur un compte créé avant cette migration :
+--        update profiles
+--           set platform_role = 'admin', is_platform_admin = true
+--         where email = 'votre@email';
+--   3. Vous rattacher à votre organisation — c'est CE lien qui décide des
+--      projets visibles depuis la 0037, pas le rôle plateforme :
+--        insert into memberships (user_id, org_id, role)
+--        select p.id, o.id, 'admin_org'
+--          from profiles p, organizations o
+--         where p.email = 'votre@email' and o.name = 'YCID';
+--   4. (Optionnel) Charger les données de démonstration : seed.sql.
+--   5. (Optionnel) Configurer l'envoi d'emails dans Administration ▸
+--      Configuration ▸ Email. Sans cela l'application fonctionne, mais
+--      les notifications restent internes.
+--   6. Désactiver le signup public (Authentication > Providers).
 -- ============================================================================

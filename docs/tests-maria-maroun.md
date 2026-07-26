@@ -33,8 +33,8 @@ Tout ce que vous créez ci-dessous, vous pourrez le retirer ensuite.
 1. Connectez-vous.
 2. Regardez le menu de gauche (ou ☰ sur téléphone).
 
-**Attendu** : Tableau de bord, Projets, Organisations, Import, Pilotage,
-Roadmap, Aide.
+**Attendu** : Tableau de bord, Projets, **À valider**, Organisations,
+Import, Pilotage, Roadmap, Aide.
 
 Vous ne devez **PLUS** voir de section **Administration** (Utilisateurs,
 Stockage, Configuration). Hier elle apparaissait sur votre compte —
@@ -154,6 +154,10 @@ de matière aux tests de Bérengère et de Joe. Le nettoyage viendra après.
 que vous ayez rien cliqué de plus. Un devis part automatiquement vers
 l'organisation qui finance la ligne.
 
+Si plusieurs organisations sont sollicitées, la ligne affiche « en
+attente de N organisations sur M » : depuis cette semaine, **toutes**
+doivent valider pour que le montant soit engagé.
+
 3. Regardez **« Engagé (devis validés) »** sur la ligne.
 
 **Attendu** : il n'a **pas** bougé. Un devis déposé n'engage rien — il
@@ -222,6 +226,19 @@ le champ ne se déplace pas sous vos doigts.
 **Question** : y reconnaissez-vous votre projet ? S'il se trompe sur un
 fait, c'est important à savoir.
 
+## M11 bis. Ce qui est nouveau cette semaine
+
+Trois choses ont été ajoutées ; dites-moi surtout si elles vous semblent
+à leur place.
+
+1. Menu **À valider** : vide pour vous, sauf si vous appartenez à une
+   organisation sollicitée. C'est normal — vous déposez les devis, vous
+   ne les validez pas.
+2. Sur la **Coordination** (où vous êtes Chef) : bouton **Modifier** en
+   haut du projet, pour corriger la fiche.
+3. Onglet **Documents** ▸ **Déposer une pièce** : pour une convention ou
+   un rapport qui porte sur le projet entier, et non sur une tâche.
+
 ## M12. ⭐ Votre rôle Chef de projet — sur la **Coordination**
 
 Ce rôle n'a jamais été éprouvé. Vous êtes la seule à pouvoir le faire.
@@ -244,7 +261,12 @@ montant affecté.
 existe déjà. Un doublon s'était créé hier faute de ce garde-fou — dites
 si vous obtenez malgré tout deux tâches.
 
-4. Onglet **Tâches** → supprimez la tâche « Test Maria », puis revenez
+4. Dans le bloc des membres (onglet Aperçu), le rôle de chacun se change
+   maintenant avec un **menu déroulant**, sans avoir à retirer puis
+   rajouter la personne. Ne modifiez rien — vérifiez seulement que le
+   menu existe.
+
+5. Onglet **Tâches** → supprimez la tâche « Test Maria », puis revenez
    au Budget supprimer la ligne.
 
 **Attendu** : les deux disparaissent, et le total de la phase revient à

@@ -2,11 +2,11 @@
 
 Bonjour Bérengère,
 
-Vous êtes Product Owner. Le modèle de droits a été refondu cette nuit :
-vos tests servent d'abord à vérifier que **vous avez exactement ce qu'il
-vous faut, et rien de plus**.
+Vous êtes Product Owner. Le modèle de droits a été refondu cette
+semaine : vos tests servent d'abord à vérifier que **vous avez
+exactement ce qu'il vous faut, et rien de plus**.
 
-Comptez **30 minutes**. Notez le numéro du test et ce que vous voyez si
+Comptez **35 minutes**. Notez le numéro du test et ce que vous voyez si
 ça ne correspond pas — inutile de chercher pourquoi.
 
 ## ⚠️ Deux choses à ne pas faire
@@ -24,7 +24,10 @@ Tout le reste est sans risque.
 2. Regardez le menu de gauche (ou ☰ sur téléphone).
 
 **Attendu — c'est le cœur du changement** : vous voyez Tableau de bord,
-Projets, Organisations, Import, Pilotage, Roadmap, Aide.
+Projets, **À valider**, Organisations, Import, Pilotage, Roadmap, Aide.
+
+« À valider » est nouveau : c'est là qu'apparaissent les devis qui
+attendent une décision d'YCID.
 
 Vous ne devez **PLUS** voir de section **Administration** (Utilisateurs,
 Accès & rôles, Stockage, Configuration). Hier elle apparaissait ; c'était
@@ -49,6 +52,15 @@ Vous les voyez parce que vous appartenez à **YCID**, et qu'YCID est
 rattachée aux trois projets — plus par un privilège global. Si vous n'en
 voyez qu'un ou deux, c'est que le rattachement n'a pas été fait :
 signalez-le.
+
+3. Ouvrez chaque projet → onglet **Aperçu**, bloc des membres.
+
+**Attendu** : vous y figurez comme **Auditrice** sur deux d'entre eux, et
+**Responsable financier** sur la Triade Jouy. L'auditrice consulte tout,
+journal d'audit compris, sans rien pouvoir modifier — donc pas de crayon
+ni de bouton de création sur ces deux projets. C'est normal, et ce n'est
+pas contradictoire avec le test B6 : décider d'un devis vient de votre
+appartenance à YCID, pas de votre rôle sur le projet.
 
 ## B3. ⭐ Vous arbitrez toujours la roadmap
 
@@ -101,9 +113,14 @@ parce que la ligne est financée par **YCID**, dont vous êtes membre.
 2. Notez la valeur de **« Engagé (devis validés) »** — elle est à 0 €.
 3. **Validez** le devis.
 
-**Attendu** : « Engagé » passe à **300 €**. C'est le seul geste qui fait
-bouger ce chiffre : un devis déposé n'engage rien, un devis validé
-engage.
+**Attendu** : « Engagé » passe à **300 €**.
+
+C'est le seul geste qui fait bouger ce chiffre. Et depuis cette semaine
+la règle est plus stricte : **chaque** organisation sollicitée doit
+valider — un devis à moitié approuvé n'engage rien. Si la ligne
+n'implique qu'YCID, votre seule validation suffit ; sinon la ligne
+affichera « en attente de N organisations sur M » et le montant
+attendra.
 
 **Ce que ce test prouve vraiment** : Maria a déposé, vous avez décidé.
 Ni elle ni vous n'avez pu faire les deux. C'est tout l'objet du circuit.
@@ -129,6 +146,23 @@ l'éprouve.
 
 **Si vous voyez malgré tout un bouton sur cette ligne, dites-le tout de
 suite** : ce serait la bascule incomplète.
+
+## B6 bis. ⭐ La file « À valider »
+
+Nouveau cette semaine, et c'est ce qui rend le circuit praticable :
+jusqu'ici il fallait ouvrir projet par projet, ligne par ligne, pour
+découvrir qu'une décision vous attendait.
+
+1. Menu **À valider**, deuxième entrée.
+
+**Attendu** : le devis de Maria y figure, avec son montant, le projet, la
+ligne, et « Sollicite YCID ». Un bouton **Examiner** mène à la ligne.
+
+2. Après votre validation en B6, il doit **disparaître** de la liste.
+
+**La question qui compte** : cette page vous suffirait-elle comme point
+d'entrée quotidien ? Que manque-t-il pour que vous n'ayez plus à
+chercher ailleurs ?
 
 ## B7. Le rapport d'expert IA
 
