@@ -73,7 +73,7 @@ export type Capability =
   | 'documents.upload' | 'validations.decide'
   | 'indicateurs.manage' | 'mesures.add'
   | 'copil.manage' | 'decisions.manage'
-  | 'audit.view' | 'users.manage' | 'orgs.create'
+  | 'audit.view' | 'rapports.generate' | 'users.manage' | 'orgs.create'
 
 interface PermissionRow {
   key: Capability
@@ -118,6 +118,10 @@ export const RBAC_MATRIX: PermissionRow[] = [
   // La raison d'être du rôle Auditeur : le journal ne se transmet pas
   // dans un rapport, il se consulte.
   { key: 'audit.view', label: 'Consulter le journal d’audit', note: 'Lecture seule — c’est ce qui distingue l’auditeur d’un destinataire de rapport', admin: true, roles: ALL, policy: '"See audit" — 0001' },
+  // Lire un rapport suit la visibilité ; le GÉNÉRER est une action — elle
+  // consomme la clé du fournisseur d'IA et s'inscrit à l'historique du
+  // projet. Un droit de regard qui engage une dépense n'en est plus un.
+  { key: 'rapports.generate', label: 'Générer un rapport d’expert IA', note: 'La lecture des rapports existants suit le simple droit de regard', admin: true, roles: CONTRIBUTORS, policy: '"Create ai reports" — 0039' },
   { key: 'users.manage', label: 'Gérer les utilisateurs et invitations', admin: true, roles: [] },
   { key: 'orgs.create', label: 'Créer une organisation', admin: true, roles: [] },
 ]

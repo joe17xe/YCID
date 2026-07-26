@@ -142,6 +142,7 @@ const lastMatch = (re) => {
 const SQL_CHECKS = [
   { capability: 'documents.upload', source: 'can_upload_document()', re: 'create or replace function public\\.can_upload_document[^;]*?pm\\.role in \\(([^)]*)\\)' },
   { capability: 'mesures.add', source: '"Add measure"', re: 'create policy "Add measure"[^;]*?pm\\.role in \\(([^)]*)\\)' },
+  { capability: 'rapports.generate', source: '"Create ai reports"', re: 'create policy "Create ai reports"[^;]*?pm\\.role in \\(([^)]*)\\)' },
 ]
 
 for (const { capability, source, re } of SQL_CHECKS) {
