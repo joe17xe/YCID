@@ -7,6 +7,7 @@ import { adminClient } from '@/lib/supabase/admin'
 import { adminCreateUser } from '@/lib/supabase/auth-admin'
 import { canEditCompletedTasks, canManagePhases, canManageTasks, canManageBudget, canManageMeetings, isUserAdmin } from '@/lib/permissions'
 import { notifyUser } from '@/lib/notify'
+import { ASSIGNABLE_ROLES } from '@/lib/rbac'
 import type { TaskStatus } from '@/lib/types'
 
 const TASK_STATUSES: TaskStatus[] = ['a_faire', 'en_cours', 'terminee', 'bloquee']
@@ -592,7 +593,10 @@ export async function saveDecision(input: DecisionInput): Promise<{ ok: boolean;
 // Gestion des membres du projet
 // ============================================================
 
-const MEMBER_ROLES = ['chef_projet', 'referent_mairie', 'resp_financier', 'contributeur', 'validateur', 'auditeur', 'lecteur']
+// Attribuables seulement : « validateur » et « auditeur » subsistent
+// dans l'enum PostgreSQL, qui ne perd jamais ses valeurs, mais ne
+// doivent plus être posés sur personne (0038).
+const MEMBER_ROLES: string[] = ASSIGNABLE_ROLES
 
 export async function addProjectMember(input: { projectId: string; userId: string; role: string }): Promise<{ ok: boolean; error?: string }> {
   const supabase = await createClient()

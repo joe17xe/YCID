@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { can, type Capability } from './rbac'
 
 // Rôle plateforme effectif. `is_platform_admin` ne dit PAS ce que son
 // nom laisse croire : l'écran de gestion des comptes l'a longtemps posé
@@ -43,35 +44,40 @@ export async function getProjectRole(supabase: SupabaseClient, userId: string, p
   return data?.role ?? null
 }
 
-// Gérer les phases : chef de projet ou admin (policies « Chef manage
-// phases » + « Admins manage phases », migration 0011).
+// Les quatre fonctions ci-dessous énuméraient chacune ses rôles à la
+// main — quatre listes de plus, à côté de celles de la page projet et
+// de la matrice d'affichage. Elles interrogent désormais lib/rbac.ts,
+// qui devient la seule liste à tenir juste côté application. Les
+// policies RLS restent la règle opposable ; ceci n'en est que le reflet
+// fidèle, et le reflet cesse d'avoir sa propre opinion.
+async function hasCapability(
+  supabase: SupabaseClient, userId: string, projectId: string, capability: Capability,
+): Promise<boolean> {
+  if (await isUserAdmin(supabase, userId)) return true
+  return can(await getProjectRole(supabase, userId, projectId), capability)
+}
+
+// Gérer les phases (policies « Chef manage phases » + « Admins manage
+// phases », migration 0011).
 export async function canManagePhases(supabase: SupabaseClient, userId: string, projectId: string): Promise<boolean> {
-  if (await isUserAdmin(supabase, userId)) return true
-  const role = await getProjectRole(supabase, userId, projectId)
-  return role === 'chef_projet' || role === 'referent_mairie'
+  return hasCapability(supabase, userId, projectId, 'phases.manage')
 }
 
-// Gérer les tâches : chef de projet, resp. financier, contributeur ou admin
-// (policies « Contributeur ... tasks » + « Admins manage tasks »).
+// Gérer les tâches (policies « Contributeur ... tasks » + « Admins
+// manage tasks »).
 export async function canManageTasks(supabase: SupabaseClient, userId: string, projectId: string): Promise<boolean> {
-  if (await isUserAdmin(supabase, userId)) return true
-  const role = await getProjectRole(supabase, userId, projectId)
-  return role === 'chef_projet' || role === 'referent_mairie' || role === 'resp_financier' || role === 'contributeur'
+  return hasCapability(supabase, userId, projectId, 'taches.manage')
 }
 
-// Gérer le budget et les indicateurs : chef, resp. financier ou admin
-// (policies « Manage budget lines / indicators » + overrides admin 0013).
+// Gérer le budget et les indicateurs (policies « Manage budget lines /
+// indicators » + overrides admin 0013).
 export async function canManageBudget(supabase: SupabaseClient, userId: string, projectId: string): Promise<boolean> {
-  if (await isUserAdmin(supabase, userId)) return true
-  const role = await getProjectRole(supabase, userId, projectId)
-  return role === 'chef_projet' || role === 'referent_mairie' || role === 'resp_financier'
+  return hasCapability(supabase, userId, projectId, 'budget.manage')
 }
 
-// Gérer les réunions et décisions COPIL : chef de projet ou admin.
+// Gérer les réunions et décisions COPIL.
 export async function canManageMeetings(supabase: SupabaseClient, userId: string, projectId: string): Promise<boolean> {
-  if (await isUserAdmin(supabase, userId)) return true
-  const role = await getProjectRole(supabase, userId, projectId)
-  return role === 'chef_projet' || role === 'referent_mairie'
+  return hasCapability(supabase, userId, projectId, 'copil.manage')
 }
 
 // Arbitrage de la roadmap : une CAPACITÉ cochée sur le profil, pas un

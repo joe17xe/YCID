@@ -3,6 +3,10 @@ import { useState, useTransition } from "react"
 import { UserPlus, UserMinus, Sparkles, Copy, Check } from "lucide-react"
 import Modal, { ErrorMessage } from "@/components/ui/Modal"
 import { ACCESS_ROLES } from "@/lib/constants"
+// Le sélecteur ne propose que les rôles attribuables : « validateur » et
+// « auditeur » restent affichables sur d'anciennes données, jamais
+// posables sur quelqu'un de nouveau.
+import { ASSIGNABLE_ROLES } from "@/lib/rbac"
 import { addProjectMember, removeProjectMember, createProjectUser } from "@/app/(app)/projets/[id]/actions"
 
 const inputCls = "w-full px-3 py-2 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
@@ -58,7 +62,7 @@ export function MemberDialog({ projectId, candidates }: {
             <label htmlFor="member-role" className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Rôle sur le projet *</label>
             <select id="member-role" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}
               className={inputCls} style={border}>
-              {Object.entries(ACCESS_ROLES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+              {ASSIGNABLE_ROLES.map(k => <option key={k} value={k}>{ACCESS_ROLES[k].label}</option>)}
             </select>
           </div>
           <ErrorMessage>{error}</ErrorMessage>
@@ -157,7 +161,7 @@ export function InviteUserDialog({ projectId }: { projectId: string }) {
             <div>
               <label htmlFor="invite-role" className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Rôle sur le projet *</label>
               <select id="invite-role" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })} className={inputCls} style={border}>
-                {Object.entries(ACCESS_ROLES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                {ASSIGNABLE_ROLES.map(k => <option key={k} value={k}>{ACCESS_ROLES[k].label}</option>)}
               </select>
             </div>
             <ErrorMessage>{error}</ErrorMessage>

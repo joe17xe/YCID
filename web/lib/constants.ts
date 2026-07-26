@@ -47,9 +47,16 @@ export const ACCESS_ROLES: Record<string, { label: string; short: string; fg: st
   referent_mairie: { label: 'Référent Mairie', short: 'Mairie', fg: '#1F5F7A', bg: '#E3F0F5' },
   resp_financier: { label: 'Responsable financier', short: 'Finances', fg: '#3B5488', bg: '#E8ECF5' },
   contributeur: { label: 'Contributeur · Terrain', short: 'Terrain', fg: '#8A6A1F', bg: '#F5EFE2' },
-  validateur: { label: 'Validateur / Financeur', short: 'Validateur', fg: '#6B4A8C', bg: '#F0E9F5' },
-  auditeur: { label: 'Auditeur', short: 'Auditeur', fg: '#2C6B7E', bg: '#E7F1F4' },
+  // Consultation intégrale, aucune modification — journal d'audit
+  // compris. Fusionne « validateur » et « auditeur » (0038) : le premier
+  // ne validait plus rien depuis la 0036 (décider vient de
+  // l'appartenance à l'organisation sollicitée), le second était
+  // indistinguable du lecteur.
   lecteur: { label: 'Lecteur', short: 'Lecteur', fg: '#66716B', bg: '#EEF0EE' },
+  // Rôles retirés de la saisie. Conservés ici pour que d'anciennes
+  // données restent lisibles plutôt que d'afficher une clé brute.
+  validateur: { label: 'Validateur (obsolète)', short: 'Obsolète', fg: '#6B4A8C', bg: '#F0E9F5' },
+  auditeur: { label: 'Auditeur (obsolète)', short: 'Obsolète', fg: '#2C6B7E', bg: '#E7F1F4' },
 }
 
 export const PROJECT_STATUS: Record<string, { label: string; fg: string; bg: string }> = {
