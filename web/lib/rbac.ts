@@ -140,6 +140,14 @@ const BY_KEY = new Map(RBAC_MATRIX.map(r => [r.key, r]))
 // décide d'afficher ou non un bouton. Proposer une action que le
 // serveur refusera est un défaut d'interface ; l'inverse serait une
 // faille, et c'est le SQL qui l'empêche.
+// Les rôles porteurs d'une capacité — pour les requêtes qui doivent
+// filtrer côté base (« qui prévenir », « qui peut décider »). Sans elle,
+// chaque appelant recopiait sa liste, et c'est ainsi qu'on s'est
+// retrouvé avec cinq exemplaires de la même règle.
+export function rolesWith(capability: Capability): string[] {
+  return [...(BY_KEY.get(capability)?.roles ?? [])]
+}
+
 export function can(role: string | null | undefined, capability: Capability): boolean {
   if (!role) return false
   const row = BY_KEY.get(capability)

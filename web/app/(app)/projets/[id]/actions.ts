@@ -8,6 +8,7 @@ import { adminCreateUser } from '@/lib/supabase/auth-admin'
 import { canEditCompletedTasks, canManagePhases, canManageTasks, canManageBudget, canManageMeetings, isUserAdmin } from '@/lib/permissions'
 import { notifyUser } from '@/lib/notify'
 import { ASSIGNABLE_ROLES } from '@/lib/rbac'
+import { notifyPeople, projectLeads } from '@/lib/notify-circuit'
 import type { TaskStatus } from '@/lib/types'
 
 const TASK_STATUSES: TaskStatus[] = ['a_faire', 'en_cours', 'terminee', 'bloquee']
@@ -214,6 +215,25 @@ export async function saveTask(input: TaskInput): Promise<{ ok: boolean; error?:
     await notifyUser(values.assignee_id, 'task_assigned', {
       title: `Tâche « ${title} » vous a été assignée${project?.name ? ` — ${project.name}` : ''}`,
       href: `/projets/${phase.project_id}`,
+    })
+  }
+
+  // Tâche achevée : prévenir les responsables du projet (arbitrage du
+  // 25/07 — « des mails à chaque notification, surtout de validation ou
+  // d'action terminée »). Le responsable n'est pas toujours celui qui
+  // exécute ; sans cela il découvre l'avancement en rouvrant l'écran.
+  if (input.status === 'terminee') {
+    const { data: project } = await supabase.from('projects').select('name').eq('id', phase.project_id).maybeSingle()
+    const leads = (await projectLeads(phase.project_id)).filter(id => id !== user.id)
+    await notifyPeople(leads, {
+      type: 'tache_terminee',
+      title: `Tâche terminée : « ${title} » — ${project?.name ?? 'projet'}`,
+      body: [
+        `La tâche « ${title} » vient d'être marquée terminée.`,
+        `Une tâche achevée sans pièce jointe reste signalée « sans justificatif » : c'est le moment de vérifier.`,
+      ],
+      path: `/projets/${phase.project_id}?tab=taches`,
+      linkLabel: 'Voir la tâche',
     })
   }
 

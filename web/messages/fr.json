@@ -12,7 +12,8 @@
     "access": "Accès & rôles",
     "storage": "Stockage",
     "configuration": "Configuration",
-    "signOut": "Déconnexion"
+    "signOut": "Déconnexion",
+    "toValidate": "À valider"
   },
   "account": {
     "roles": "RÔLES",

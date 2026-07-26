@@ -29,15 +29,36 @@ export interface Financials {
   remainingToPay: number
 }
 
-// Un devis compte comme engagé dès qu'UNE organisation l'a validé, et
-// jamais s'il a été refusé (règle posée en PR 38b). Exiger l'unanimité
-// bloquerait le suivi sur une organisation qui ne répond pas ; un refus,
-// lui, doit primer.
+// UNANIMITÉ (arbitrage YCID du 25/07). Un devis n'est engagé que si
+// CHAQUE organisation sollicitée l'a validé ; un seul refus rejette.
+//
+// La règle initiale se contentait d'une validation, au motif qu'exiger
+// l'unanimité bloquerait le suivi sur une organisation qui ne répond
+// pas. Objection retournée par le Product Owner : c'est précisément ce
+// qu'on veut. Un engagement financier sur lequel un cofinanceur ne s'est
+// pas prononcé n'est pas un engagement — l'afficher comme tel donnerait
+// une fausse assurance sur de l'argent public.
+//
+// Le blocage est donc assumé, à une condition : que l'organisation
+// silencieuse SACHE qu'on l'attend. C'est l'objet des notifications
+// livrées avec cette règle — les deux sont indissociables.
 export function isEngagedDoc(d: DocLike): boolean {
   if (d.type !== 'devis') return false
   const v = d.validations ?? []
+  // Un devis sans aucune validation n'est pas engagé : il n'a été
+  // soumis à personne. `every` sur un tableau vide vaut true, d'où ce
+  // garde-fou — sans lui, une soumission ratée compterait comme un
+  // accord général.
+  if (!v.length) return false
   if (v.some(x => x.decision === 'refuse')) return false
-  return v.some(x => x.decision === 'valide')
+  return v.every(x => x.decision === 'valide')
+}
+
+// Ce qui manque pour qu'un devis soit engagé. Sert à l'écran : « en
+// attente de 2 organisations sur 3 » se lit, « pas engagé » ne se lit
+// pas.
+export function pendingOrgCount(d: DocLike): number {
+  return (d.validations ?? []).filter(x => x.decision === 'en_attente').length
 }
 
 // Un devis n'est pas un paiement, même coché payé par erreur : seules

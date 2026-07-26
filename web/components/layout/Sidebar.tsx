@@ -1,7 +1,7 @@
 "use client"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { LayoutDashboard, FolderKanban, Building2, Upload, PieChart, Lightbulb, Users, ShieldCheck, Settings, HardDrive, HelpCircle, LogOut, ChevronLeft, ChevronRight } from "lucide-react"
+import { LayoutDashboard, FolderKanban, Building2, Upload, PieChart, Lightbulb, Users, ShieldCheck, Settings, HardDrive, HelpCircle, LogOut, ChevronLeft, ChevronRight, CheckSquare } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { useState } from "react"
 import { useTranslations } from "next-intl"
@@ -10,6 +10,9 @@ import { useTranslations } from "next-intl"
 export const NAV = [
   { href: "/dashboard", key: "dashboard", Icon: LayoutDashboard },
   { href: "/projets", key: "projects", Icon: FolderKanban },
+  // Placée haut : une décision qui attend est ce qui bloque le plus
+  // vite un projet, depuis que l'unanimité est requise.
+  { href: "/a-valider", key: "toValidate", Icon: CheckSquare },
   { href: "/organisations", key: "organisations", Icon: Building2 },
   { href: "/import", key: "import", Icon: Upload },
   { href: "/pilotage", key: "steering", Icon: PieChart },
