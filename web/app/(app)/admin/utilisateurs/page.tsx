@@ -12,16 +12,26 @@ export default async function AdminUtilisateursPage() {
   if (!user) redirect("/")
   if (!(await isUserAdmin(supabase, user.id))) redirect("/dashboard")
 
-  const [{ data: me }, { data: profiles, error }] = await Promise.all([
+  const [{ data: me }, { data: profiles, error }, { data: allMemberships }] = await Promise.all([
     supabase.from("profiles").select("platform_role").eq("id", user.id).maybeSingle(),
-    supabase.from("profiles").select("id, full_name, email, platform_role, is_platform_admin, active").order("full_name"),
+    supabase.from("profiles").select("id, full_name, email, platform_role, is_platform_admin, active, can_manage_roadmap").order("full_name"),
+    supabase.from("memberships").select("user_id, organizations:org_id(name)"),
   ])
   const myRole = me?.platform_role ?? "admin"
 
   type RawProfile = {
     id: string; full_name: string | null; email: string | null
     platform_role: string | null; is_platform_admin: boolean | null; active: boolean | null
+    can_manage_roadmap?: boolean | null
   }
+  // Rattachement par compte : c'est lui qui explique le périmètre, et
+  // il n'apparaissait nulle part.
+  const orgsByUser = new Map<string, string[]>()
+  for (const m of (allMemberships ?? []) as { user_id: string; organizations: { name: string } | { name: string }[] | null }[]) {
+    const o = Array.isArray(m.organizations) ? m.organizations[0] : m.organizations
+    if (o?.name) orgsByUser.set(m.user_id, [...(orgsByUser.get(m.user_id) ?? []), o.name])
+  }
+
   const users: AdminUserRow[] = (profiles ?? []).map((p: RawProfile) => {
     const role = p.platform_role ?? (p.is_platform_admin ? "admin" : "user")
     // Un YCID ne peut ni supprimer NI MODIFIER un Administrateur : les
@@ -42,6 +52,8 @@ export default async function AdminUtilisateursPage() {
       isSelf: p.id === user.id,
       canDelete,
       canEdit,
+      organizations: (orgsByUser.get(p.id) ?? []).sort(),
+      canManageRoadmap: p.can_manage_roadmap === true,
     }
   })
 

@@ -13,9 +13,13 @@ const border = { borderColor: "#E3E6E2" }
 interface UserData {
   id: string; full_name: string; email: string; platform_role: string; active: boolean
   can_manage_roadmap?: boolean
+  organizationIds?: string[]
 }
 
-export default function UserForm({ user, canCreateAdmin }: { user?: UserData; canCreateAdmin: boolean }) {
+export default function UserForm({ user, canCreateAdmin, organizations = [] }: {
+  user?: UserData; canCreateAdmin: boolean
+  organizations?: { id: string; name: string }[]
+}) {
   const router = useRouter()
   const isEdit = !!user
   const [error, setError] = useState("")
@@ -28,6 +32,7 @@ export default function UserForm({ user, canCreateAdmin }: { user?: UserData; ca
     confirmPassword: "",
     active: user?.active ?? true,
     canManageRoadmap: user?.can_manage_roadmap ?? false,
+    organizationIds: user?.organizationIds ?? [] as string[],
   })
 
   function submit(e: React.FormEvent) {
@@ -76,6 +81,36 @@ export default function UserForm({ user, canCreateAdmin }: { user?: UserData; ca
         <label className={label} style={{ color: "#66716B" }}>CONFIRMER LE MOT DE PASSE</label>
         <input type="password" value={form.confirmPassword} onChange={e => setForm({ ...form, confirmPassword: e.target.value })}
           required={!isEdit || !!form.password} autoComplete="new-password" className={inputCls} style={border} />
+      </div>
+      {/* Rattachement aux organisations. C'est CE lien qui décide du
+          périmètre : un membre d'YCID voit les projets auxquels YCID est
+          rattachée. Il n'existait aucun écran pour le poser — d'où une
+          table vide et des droits qui passaient par un rôle global. */}
+      <div className="pt-2 border-t" style={border}>
+        <span className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Organisations</span>
+        <p className="text-xs mb-2" style={{ color: "#66716B" }}>
+          Détermine les projets visibles : la personne voit tous les projets auxquels
+          l&apos;une de ses organisations est rattachée. Laisser vide limite l&apos;accès
+          aux projets dont elle est membre déclarée.
+        </p>
+        {organizations.length === 0 ? (
+          <p className="text-xs" style={{ color: "#9AA39D" }}>Aucune organisation enregistrée.</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-48 overflow-y-auto">
+            {organizations.map(o => (
+              <label key={o.id} className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: "#17211D" }}>
+                <input type="checkbox" checked={form.organizationIds.includes(o.id)}
+                  onChange={e => setForm({
+                    ...form,
+                    organizationIds: e.target.checked
+                      ? [...form.organizationIds, o.id]
+                      : form.organizationIds.filter(x => x !== o.id),
+                  })} />
+                {o.name}
+              </label>
+            ))}
+          </div>
+        )}
       </div>
       <div className="pt-2 border-t" style={border}>
         <label className="flex items-start gap-2.5 cursor-pointer">

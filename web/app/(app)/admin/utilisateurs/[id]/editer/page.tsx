@@ -13,9 +13,11 @@ export default async function EditerUtilisateurPage({ params }: { params: Promis
   if (!user) redirect("/")
   if (!(await isUserAdmin(supabase, user.id))) redirect("/dashboard")
 
-  const [{ data: me }, { data: target }] = await Promise.all([
+  const [{ data: me }, { data: target }, { data: orgs }, { data: myMemberships }] = await Promise.all([
     supabase.from("profiles").select("platform_role").eq("id", user.id).maybeSingle(),
     supabase.from("profiles").select("id, full_name, email, platform_role, is_platform_admin, active, can_manage_roadmap").eq("id", id).maybeSingle(),
+    supabase.from("organizations").select("id, name").order("name"),
+    supabase.from("memberships").select("org_id").eq("user_id", id),
   ])
   if (!target) notFound()
 
@@ -39,7 +41,9 @@ export default async function EditerUtilisateurPage({ params }: { params: Promis
           platform_role: targetRole,
           active: target.active !== false,
           can_manage_roadmap: target.can_manage_roadmap === true,
+          organizationIds: (myMemberships ?? []).map((m: { org_id: string }) => m.org_id),
         }}
+        organizations={(orgs ?? []) as { id: string; name: string }[]}
       />
     </div>
   )

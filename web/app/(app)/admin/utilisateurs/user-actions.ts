@@ -89,6 +89,27 @@ interface UserFormInput {
   confirmPassword: string
   active: boolean
   canManageRoadmap?: boolean
+  // Rattachement aux organisations (PR 42). C'est LE lien qui porte le
+  // périmètre : un membre d'YCID voit les projets où YCID figure. Il
+  // n'avait aucun écran — `memberships` était lue trois fois, écrite
+  // zéro fois, donc désespérément vide.
+  organizationIds?: string[]
+}
+
+// Remplace le rattachement d'un compte par la liste fournie. Un
+// remplacement plutôt qu'un ajout : le formulaire montre l'état complet,
+// décocher doit donc retirer.
+async function syncMemberships(userId: string, orgIds: string[] | undefined) {
+  if (!orgIds) return null
+  const admin = adminClient()
+  if (!admin) return "Rattachement non configuré : ajoutez SUPABASE_SERVICE_ROLE_KEY au serveur."
+  const { error: delErr } = await admin.from('memberships').delete().eq('user_id', userId)
+  if (delErr) return `Rattachement non mis à jour : ${delErr.message}`
+  if (!orgIds.length) return null
+  const { error: insErr } = await admin.from('memberships')
+    .insert(orgIds.map(org_id => ({ user_id: userId, org_id, role: 'membre' })))
+  if (insErr) return `Rattachement non mis à jour : ${insErr.message}`
+  return null
 }
 
 function validate(input: UserFormInput, requirePassword: boolean): string | null {
@@ -142,6 +163,9 @@ export async function createUser(input: UserFormInput): Promise<Result> {
       const suffix = missingColumn ? ' Appliquez la migration 0017 dans le SQL Editor Supabase.' : ''
       return { ok: false, error: `Compte créé mais profil non enregistré : ${describeError(pErr)}.${suffix}` }
     }
+
+    const orgErr = await syncMemberships(created.userId, input.organizationIds)
+    if (orgErr) return { ok: false, error: `Compte créé, mais ${orgErr.charAt(0).toLowerCase()}${orgErr.slice(1)}` }
 
     revalidatePath('/admin/utilisateurs')
     return { ok: true }
@@ -197,6 +221,9 @@ export async function updateUser(userId: string, input: UserFormInput): Promise<
       console.error('[updateUser] échec mise à jour profil:', { userId, code: pErr.code, message: pErr.message, details: pErr.details, hint: pErr.hint, pErr })
       return { ok: false, error: `Échec (profil) : ${describeError(pErr)}` }
     }
+
+    const orgErr = await syncMemberships(userId, input.organizationIds)
+    if (orgErr) return { ok: false, error: orgErr }
 
     revalidatePath('/admin/utilisateurs')
     return { ok: true }
