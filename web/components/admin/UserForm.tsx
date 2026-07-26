@@ -27,7 +27,12 @@ export default function UserForm({ user, canCreateAdmin, organizations = [] }: {
   const [form, setForm] = useState({
     fullName: user?.full_name ?? "",
     email: user?.email ?? "",
-    role: user?.platform_role ?? "admin",
+    // Un nouveau compte est un utilisateur ordinaire. La valeur par
+    // défaut « admin » datait d'un temps où le rôle portait le
+    // périmètre ; depuis la 0037 il ne porte plus que l'administration
+    // de l'outil, et un défaut à ce niveau ne se rattrape qu'en
+    // relisant la liste.
+    role: user?.platform_role ?? "user",
     password: "",
     confirmPassword: "",
     active: user?.active ?? true,
@@ -63,10 +68,10 @@ export default function UserForm({ user, canCreateAdmin, organizations = [] }: {
           {roleOptions.map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
         </select>
         <p className="text-xs mt-1" style={{ color: "#66716B" }}>
-          Administrateur : accès complet.
-          YCID : accès complet, mais ne gère pas les administrateurs.
-          Responsable projet : voit tous les projets et arbitre la roadmap, sans accès à l&apos;administration.
-          Utilisateur : accès limité aux projets dont il est membre.
+          Administrateur : administre l&apos;outil lui-même (comptes, stockage, configuration)
+          et voit tous les projets. Utilisateur : ne voit que les projets de ses
+          organisations et ceux dont il est membre. Le périmètre se règle ci-dessous,
+          par les organisations — pas par le rôle.
         </p>
       </div>
       <div>

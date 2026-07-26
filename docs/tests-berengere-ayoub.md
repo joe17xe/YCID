@@ -1,234 +1,137 @@
-# Tests Solid'Pilot — Bérengère Ayoub (YCID)
+# Tests Solid'Pilot — Bérengère Ayoub
 
 Bonjour Bérengère,
 
-Vous êtes Product Owner de Solid'Pilot. Ces tests portent sur ce que
-**vous** devez pouvoir faire : arbitrer la roadmap, suivre le
-portefeuille, et produire un rapport exploitable en COPIL.
+Vous êtes Product Owner. Le modèle de droits a été refondu cette nuit :
+vos tests servent d'abord à vérifier que **vous avez exactement ce qu'il
+vous faut, et rien de plus**.
 
-Comptez **30 à 40 minutes**. Notez simplement le numéro du test et ce
-que vous voyez si ça ne correspond pas — inutile de chercher pourquoi.
+Comptez **30 minutes**. Notez le numéro du test et ce que vous voyez si
+ça ne correspond pas — inutile de chercher pourquoi.
 
-## ⚠️ Trois choses à ne pas faire
+## ⚠️ Deux choses à ne pas faire
 
-- **Ne supprimez aucun projet** (le bouton existe, il est définitif).
-- Dans Administration ▸ Stockage, **ne cliquez jamais sur « Purger »**.
-- Ne supprimez pas de pièces ou de lignes budgétaires que vous n'avez
-  pas créées vous-même.
+- **Ne supprimez aucun projet** (le bouton est définitif).
+- Ne supprimez pas de pièces ou de lignes que vous n'avez pas créées.
 
-Tout le reste est sans risque : vous pouvez créer, modifier, annuler.
+Tout le reste est sans risque.
 
 ---
 
-## B1. Connexion et menu
+## B1. ⭐ Ce que vous voyez au menu — le test central
 
 1. Connectez-vous.
-2. Regardez le **menu de gauche** (ou le menu ☰ sur téléphone).
+2. Regardez le menu de gauche (ou ☰ sur téléphone).
 
-**Notez la liste complète des entrées que vous voyez.**
+**Attendu — c'est le cœur du changement** : vous voyez Tableau de bord,
+Projets, Organisations, Import, Pilotage, Roadmap, Aide.
 
-Votre compte porte aujourd'hui un rôle global « YCID », qui ouvre la
-section Administration. C'est connu et en cours d'arbitrage : la question
-n'est pas de savoir si vous la voyez — vous la verrez — mais si ce
-périmètre correspond à votre fonction. Dites-moi ce que vous en pensez.
+Vous ne devez **PLUS** voir de section **Administration** (Utilisateurs,
+Accès & rôles, Stockage, Configuration). Hier elle apparaissait ; c'était
+une erreur de conception que nous avons corrigée.
 
-## B2. La roadmap — consultation
+**Si vous la voyez encore, dites-le tout de suite.**
 
-1. Menu **Roadmap**.
+## B2. ⭐ Vous voyez toujours les trois projets
 
-**Attendu** : une liste de propositions (une vingtaine). Certaines
-portent le badge « Acceptée » — le programme engagé — d'autres « Idée »,
-le reste à décider. Le nombre exact bouge à chaque idée ajoutée, ne vous
-y arrêtez pas.
+C'est le contrepoint du test précédent : vous perdez l'administration,
+vous ne perdez pas la vue d'ensemble.
 
-2. Ouvrez « File "À valider" + notifications in-app et email ».
+1. Menu **Projets**.
 
-**Attendu** : une description longue expliquant le problème et ce qui est
-prévu.
+**Attendu** : les **3** projets du programme CEM.
 
-## B3. Voter et commenter
+2. Menu **Pilotage**.
 
-1. Sur une idée qui vous paraît prioritaire, **votez**.
+**Attendu** : les mêmes 3 projets, total d'environ 105 700 €.
 
-**Attendu** : le compteur augmente de 1.
+Vous les voyez parce que vous appartenez à **YCID**, et qu'YCID est
+rattachée aux trois projets — plus par un privilège global. Si vous n'en
+voyez qu'un ou deux, c'est que le rattachement n'a pas été fait :
+signalez-le.
 
-2. Cliquez à nouveau sur le vote.
+## B3. ⭐ Vous arbitrez toujours la roadmap
 
-**Attendu** : votre vote se retire, le compteur redescend.
+1. Menu **Roadmap** → ouvrez une idée.
+2. **Faites défiler jusqu'en bas**, sous le bloc « Fiche ».
 
-3. Revotez, puis écrivez un **commentaire** sur cette idée.
-
-**Attendu** : votre commentaire apparaît avec votre nom.
-
-## B4. ⭐ Gestion produit — le test le plus important
-
-C'est **votre** fonction : arbitrer les priorités.
-
-1. Ouvrez une idée.
-2. **Faites défiler la page vers le bas**, sous le bloc « Fiche » :
-   le panneau **« Gestion produit »** s'y trouve, en dessous de la
-   ligne de flottaison.
-
-**Attendu** : vous pouvez modifier le **statut** (Idée / Acceptée / En
-cours / Livrée), la **priorité** (Basse / Moyenne / Haute) et la
-**difficulté**.
+**Attendu** : le panneau **« Gestion produit »**, avec statut, priorité
+et difficulté modifiables.
 
 3. Changez la priorité d'une idée, puis remettez-la comme elle était.
 
-**Si vous ne voyez PAS ce panneau après avoir bien défilé jusqu'en bas
-de la page** : dites-le-moi. Cela
-signifie que votre compte n'a pas les droits nécessaires, et il faudra
-les ajuster. C'est un point que nous avions identifié comme incertain —
-vous êtes la seule à pouvoir le vérifier.
+C'est une capacité qui vous a été accordée nommément, indépendamment de
+l'administration. **Si le panneau a disparu, c'est un défaut de la
+bascule** — signalez-le.
 
-## B5. Proposer une idée
+## B4. Voter, commenter, proposer
 
-1. Bouton pour proposer une nouvelle idée.
-2. Titre : « Test Bérengère — à supprimer », description libre.
-3. Enregistrez.
+1. Votez pour une idée → le compteur monte. Revotez → il redescend.
+2. Commentez une idée → votre commentaire apparaît à votre nom.
+3. Proposez une idée « Test Bérengère — à supprimer », puis supprimez-la.
 
-**Attendu** : l'idée apparaît dans la liste, à votre nom.
+## B5. Le budget d'un projet
 
-4. Supprimez-la (vous en êtes l'autrice).
+1. Ouvrez **CEM Liban — Triade Villepreux · Azour · LEY** → onglet
+   **Budget**.
 
-## B6. Vue portefeuille
+**Attendu** : six chiffres — Voté, Prévu, Engagé, Payé, Reste à engager,
+Valorisations — et un bandeau orange signalant l'écart entre le montant
+voté et ce qui est réparti. Les montants bougent d'un jour à l'autre, ne
+les comparez à rien.
 
-1. Menu **Pilotage**.
+**La question qui compte** : ces six mots vous parlent-ils sans
+explication ? Si un libellé est ambigu, dites lequel — c'est le retour
+le plus utile que vous puissiez donner.
 
-**Attendu** : les 3 projets du programme CEM et un total d'environ
-105 700 €. Vous les voyez tous grâce à votre rôle global : l'un d'eux n'a
-aucun membre déclaré.
+## B6. Validation d'un devis — ce que vous pouvez et ne pouvez pas
 
-La Triade Villepreux affiche « 2 en retard » dans la colonne des tâches :
-c'est une donnée réelle du projet, pas une anomalie de l'outil.
+Un devis part en validation auprès du **financeur de la ligne**.
 
-2. Menu **Projets**.
+1. Onglet **Budget**, ligne **« Équipement de sensibilisation »**
+   (financée par YCID) → icône trombone 📎.
 
-**Attendu** : les mêmes 3 projets, avec leur statut et leur avancement.
+**Attendu** : si un devis y est en attente, vous voyez **Valider** /
+**Refuser**.
 
-**Dites-moi combien de projets vous voyez.**
+2. Ouvrez la ligne **« Aménagement du site principal du Shir »**
+   (financée par le Département).
 
-## B7. Le budget d'un projet — les trois montants
-
-1. Ouvrez **CEM Liban — Triade Villepreux · Azour · LEY**.
-2. Onglet **Budget**.
-
-**Attendu** : six chiffres en haut — Voté, Prévu, Engagé, Payé, Reste à
-engager, Valorisations. Les montants exacts bougent d'un jour à l'autre,
-ne les comparez à rien.
-
-3. Regardez s'il y a un **bandeau orange** en haut.
-
-**Attendu** : il indique un écart entre le montant voté (48 650 €) et ce
-qui est réparti dans les lignes — de l'ordre de −5 000 €. C'est normal et
-voulu : il signale que la répartition ne couvre pas encore toute
-l'enveloppe votée. Le chiffre exact varie selon les lignes du moment.
-
-**La question qui compte** : ces six chiffres vous parlent-ils ?
-Comprenez-vous la différence entre « Prévu », « Engagé » et « Payé » sans
-explication ? Si un libellé vous semble ambigu, dites-le — c'est
-exactement le genre de retour dont j'ai besoin.
-
-## B8. Le rapport d'expert IA
-
-C'est la pièce que vous pourriez annexer à un dossier de financement.
-
-1. Sur le projet, bouton **Rapport d'expert IA** → **Générer**.
-2. Patientez (30 à 60 secondes).
-
-**Attendu** : un rapport en 7 sections. En haut, une ligne « Périmètre
-analysé : 3 phase(s), une vingtaine de lignes budgétaires… ». Les
-nombres varient selon les données du moment ; seul compte le fait
-qu'aucun ne soit à zéro.
-
-3. **Vérifiez que le nombre de phases n'est pas 0.**
-4. Lisez la section **« Risques et alertes »**.
-
-**Attendu** : elle doit distinguer ce qui est *déclaré* de ce qui est
-*prouvé* — par exemple signaler qu'une tâche à 100 % sans pièce jointe
-est un avancement déclaratif.
-
-**Votre avis compte plus que la technique ici** : ce rapport est-il
-présentable en COPIL ? Trop long, trop court, trop vague ? Dites-le
-franchement.
-
-## B9. Les pièces justificatives
-
-1. Onglet **Documents** du projet.
-
-**Attendu** : la liste des pièces, chacune indiquant à quoi elle est
-rattachée (une tâche, une ligne budgétaire, une phase).
-
-2. Cliquez sur le nom d'une pièce.
-
-**Attendu** : le document s'ouvre dans un nouvel onglet.
-
-3. Utilisez le filtre **Nature** puis **Réinitialiser**.
-
-**Attendu** : après « Réinitialiser », tous les filtres sont vidés, y
-compris le champ de recherche.
-
-Un point connu, inutile de le signaler : la colonne « Déposé » peut
-afficher un jour de trop pour les pièces déposées en soirée. C'est un
-défaut d'affichage identifié, déjà corrigé et en attente de
-déploiement.
-
-## B10. Validation d'un devis
-
-Un devis part en validation auprès du **financeur de la ligne**
-concernée. Vous ne verrez donc de décision à prendre que sur les lignes
-financées par YCID.
-
-1. Onglet **Budget**, ligne **« Équipement de sensibilisation (panneaux,
-   tablettes) »** — financée par YCID.
-2. Cliquez sur l'icône trombone 📎.
-
-**Attendu** : si Joe y a déposé un devis pour ce test, il apparaît « en
-attente » avec YCID comme organisation sollicitée, et vous voyez les
-boutons **Valider** / **Refuser**.
-
-3. Ouvrez maintenant la ligne **« Aménagement du site principal du
-   Shir »**, financée par le Département.
-
-**Attendu** : vous voyez le devis et son état, mais **aucun bouton
-Valider / Refuser** — cette décision revient au Département et à LEY,
-pas à YCID.
-
-**Attendu précis** : à la place des boutons habituels, vous verrez la
-mention « vous n'êtes pas membre » et deux boutons « Valider à sa
-place… » / « Refuser à sa place… ». C'est volontaire : décider pour une
-autre organisation reste possible — sinon un devis adressé à une
-organisation sans compte actif resterait bloqué pour toujours — mais
-exige une **seconde confirmation avec un motif obligatoire**, et la
-décision est tracée au Journal comme prise « AU NOM DE » cette
+**Attendu** : vous voyez le devis et son état, mais **pas** les boutons
+de décision ordinaires. À la place : « vous n'êtes pas membre » et deux
+boutons « Valider à sa place… ». Cliquer dessus ouvre une saisie de motif
+**obligatoire**, et la décision serait tracée « AU NOM DE » cette
 organisation.
 
-**N'allez pas jusqu'au bout de cette procuration** sur un devis réel.
-Dites-moi seulement si vous voyez bien cette différence de traitement
-entre une ligne financée par YCID et une ligne financée par un tiers.
+**N'allez pas jusqu'au bout** sur un devis réel. Dites-moi seulement si
+vous voyez bien cette différence de traitement.
 
-**Ne validez rien** sans en parler à Joe — dites-moi seulement ce que
-vous voyez.
+## B7. Le rapport d'expert IA
 
-## B11. Sur téléphone
+1. Sur un projet → **Rapport d'expert IA** → **Générer** (30 à 60 s).
 
-1. Ouvrez l'application sur votre téléphone, **en mode portrait**.
-2. Ouvrez un projet.
+**Attendu** : un rapport en 7 sections, citant vos vraies phases. En
+en-tête, « Périmètre analysé : 3 phase(s)… » — **vérifiez que ce n'est
+pas 0**.
 
-**Attendu** : les boutons en haut (page publique, rapport IA, supprimer)
-sont réduits à de petites icônes et ne se chevauchent pas.
+2. Lisez **« Risques et alertes »** : elle doit distinguer ce qui est
+   *déclaré* de ce qui est *prouvé*.
 
-3. Naviguez entre les onglets, ouvrez la roadmap.
+**Votre avis compte plus que la technique** : ce rapport est-il
+présentable en COPIL ? Trop long, trop vague ? Dites-le franchement.
 
-**Attendu** : tout reste lisible sans zoomer.
+## B8. Sur téléphone
+
+1. Ouvrez l'application en **portrait**, sur un projet.
+
+**Attendu** : les boutons du haut sont réduits à de petites icônes et ne
+se chevauchent pas. La navigation reste lisible sans zoomer.
 
 ---
 
 ## Ce que j'attends de vous
 
-Pour chaque test qui ne se passe pas comme décrit : **le numéro** + ce
-que vous avez vu. Une capture d'écran vaut mieux qu'une explication.
+Le numéro du test + ce que vous avez vu, avec une capture si possible.
 
-Et surtout, au-delà des tests : **les libellés sont-ils clairs ?**
-Y a-t-il un écran où vous ne savez pas quoi faire ? C'est le retour le
-plus précieux, et personne d'autre que vous ne peut le donner.
+Et au-delà : **manque-t-il quelque chose à votre fonction ?** Vous êtes
+la seule à pouvoir répondre à ça.
