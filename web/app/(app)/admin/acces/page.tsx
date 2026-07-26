@@ -58,8 +58,14 @@ export default async function AdminAccesPage() {
       </div>
 
       <p className="mt-4 text-xs" style={{ color: "#66716B" }}>
-        Matrice en lecture seule — les règles vivent dans les migrations SQL (`supabase/migrations/`) et dans `lib/rbac.ts`.
+        Matrice en lecture seule, et désormais <strong>appliquée</strong> : c&apos;est elle que
+        l&apos;application interroge pour afficher ou masquer une action. La règle opposable
+        reste la sécurité au niveau des lignes (`supabase/migrations/`), inviolable depuis le
+        navigateur ; un contrôle automatique vérifie que les deux concordent.
         Un rôle non listé ici n&apos;a aucun accès : les projets ne sont visibles que par leurs membres et les admins.
+        <br />
+        <strong>Décider d&apos;une validation ne figure dans aucune colonne</strong> : ce droit ne vient
+        pas du rôle projet mais de l&apos;appartenance à l&apos;organisation sollicitée.
       </p>
     </div>
   )

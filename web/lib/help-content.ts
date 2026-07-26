@@ -15,9 +15,8 @@ export const HELP_ROLES: { role: string; desc: string }[] = [
   { role: "chef_projet", desc: "Définit le projet, les phases, le budget, les membres. Vérifie les éléments soumis." },
   { role: "resp_financier", desc: "Gère les lignes budgétaires et leur répartition sur les tâches, dépose devis et factures, marque les factures payées." },
   { role: "contributeur", desc: "Crée des tâches, dépose pièces et livrables sur les tâches, saisit les mesures d'indicateurs." },
-  { role: "validateur", desc: "Validation finale des éléments en revue et des devis." },
-  { role: "auditeur", desc: "Lecture seule intégrale, y compris le journal d'audit." },
-  { role: "lecteur", desc: "Consultation du projet et des rapports." },
+  { role: "referent_mairie", desc: "Mêmes droits de pilotage que le responsable projet, côté collectivité." },
+  { role: "auditeur", desc: "Contrôle : consultation intégrale, journal d'audit compris, sans aucune modification — pas même la saisie d'une mesure d'impact. Pour un simple destinataire d'information, préférez le rapport d'expert ou la page publique du projet, sans créer de compte." },
 ]
 
 export const HELP_STEPS: { title: string; text: string }[] = [
