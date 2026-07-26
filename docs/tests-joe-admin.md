@@ -2,32 +2,35 @@
 
 Vos tests ne recoupent pas ceux de Bérengère et Maria. Elles vérifient
 qu'elles ont *ce qu'il leur faut* ; vous vérifiez que **ce qu'elles n'ont
-plus est bien parti**, et que les outils construits hier fonctionnent.
+plus est bien parti**, que la reprise de données a eu lieu, et que ce qui
+a été construit cette semaine tient.
 
-Comptez **40 minutes**. À faire **avant** de leur envoyer leurs
-protocoles : si A1 ou A2 échoue, leurs tests n'ont pas de sens.
+Comptez **50 minutes**. À faire **avant** de leur envoyer leurs
+protocoles : A1 à A3 conditionnent les leurs.
 
-## Préalable — les trois migrations
+## Préalable — les migrations
 
-Vérifiez dans Supabase que **0035, 0036 et 0037** sont passées. Sinon
-rien de ce qui suit n'est testable.
+Une seule requête. Les six compteurs doivent valoir **1**.
 
 ```sql
 select
-  to_regclass('public.profiles') is not null                                as ok,
   (select count(*) from information_schema.columns
-    where table_name='profiles' and column_name='can_manage_roadmap')       as col_0037,
-  (select count(*) from pg_proc where proname='storage_stats')              as fn_0035,
-  (select count(*) from pg_proc where proname='validation_decided_outside_org') as fn_0036;
+    where table_name='profiles' and column_name='can_manage_roadmap')          as col_roadmap_0037,
+  (select count(*) from pg_proc where proname='storage_stats')                 as fn_storage_0035,
+  (select count(*) from pg_proc where proname='validation_decided_outside_org')as fn_outside_0036,
+  (select count(*) from pg_policies
+    where tablename='indicator_measures' and policyname='Add measure')         as policy_measure_0038,
+  (select count(*) from pg_policies
+    where tablename='ai_reports' and policyname='Create ai reports')           as policy_report_0039,
+  (select count(*) from information_schema.tables
+    where table_name='email_settings')                                        as table_email_0040;
 ```
 
-Les trois compteurs doivent valoir 1.
+Si `table_email_0040` vaut 0, appliquez la **0040** avant A9.
 
 ---
 
-## A1. ⭐⭐ La bascule des rôles a bien eu lieu
-
-C'est le test dont dépendent tous les autres.
+## A1. ⭐⭐ La bascule des rôles
 
 ```sql
 select p.full_name, p.email, p.platform_role, p.is_platform_admin,
@@ -42,60 +45,46 @@ select p.full_name, p.email, p.platform_role, p.is_platform_admin,
 
 **Attendu** :
 
-- `platform_role` ne vaut plus que **`admin`** ou **`user`**. Plus aucune
-  ligne à `ycid`. S'il en reste une, la 0037 n'est pas passée.
-- `is_platform_admin` est **true uniquement** sur les lignes `admin`.
-  C'était le piège de fond : cette colonne valait « pas un utilisateur
-  ordinaire », pas « administrateur ».
-- **Bérengère Ayoub** : `user`, `can_manage_roadmap = true`.
-- **Maria Maroun** : `user`, `can_manage_roadmap = false`.
-- **Vous** : `admin`.
+- `platform_role` ne vaut que **`admin`** ou **`user`** — plus aucun
+  `ycid` ;
+- `is_platform_admin` vrai **uniquement** sur les `admin`. C'était le
+  piège de fond : cette colonne signifiait « pas un utilisateur
+  ordinaire », pas « administrateur » ;
+- **Bérengère** : `user`, `can_manage_roadmap = true`, rattachée à YCID ;
+- **Maria** : `user`, `can_manage_roadmap = false` ;
+- **vous** : `admin`.
 
-Si Bérengère n'a pas `can_manage_roadmap`, posez-le — la reprise
-automatique de la 0037 ne trouve que les comptes encore marqués `ycid` :
+⚠️ La reprise automatique de la 0037 avait accordé l'arbitrage de la
+roadmap à **tous** les anciens comptes « ycid ». Si Maria ou Jordan
+l'ont encore et que ce n'est pas voulu :
 
 ```sql
-update profiles set can_manage_roadmap = true where email = 'bayoub@yvelines.fr';
+update profiles set can_manage_roadmap = false
+ where email in ('mariamaroun10@gmail.com', 'jmorice@yvelines.fr');
 ```
 
 ## A2. ⭐⭐ Le périmètre passe par l'organisation
 
-Le rôle global ne porte plus le périmètre. Si personne n'est rattaché à
-une organisation, **Bérengère ne verra plus qu'un projet ou aucun** — et
-elle vous le signalera comme un défaut alors que c'est une donnée
-manquante.
+La colonne `organisations` de A1 doit être renseignée pour tous ceux qui
+doivent voir des projets. Vide = ils ne verront que les projets dont ils
+sont membres déclarés.
 
-La colonne `organisations` de la requête A1 doit être renseignée pour
-Bérengère (**YCID**) et pour Maria (ses organisations réelles). Si elle
-affiche « — aucune — » partout, faites A3 **avant** d'envoyer les
-protocoles.
-
-Contrôle croisé — les trois projets doivent être rattachés à YCID :
+Deux contrôles de cohérence :
 
 ```sql
+-- Les trois projets doivent être rattachés à YCID (vérifié le 26/07 : OK)
 select pr.name, o.name as organisation, po.role
   from project_organizations po
   join projects pr on pr.id = po.project_id
   join organizations o on o.id = po.org_id
  order by pr.name, o.name;
-```
 
-**Vérifié le 26/07 : c'est le cas.** YCID n'est `porteur` que sur la
-Coordination et `financeur` sur les deux Triades — sans conséquence,
-`is_project_member()` joint `project_organizations` sans filtrer sur le
-rôle. Financeur, porteur ou observateur donnent la même visibilité.
-
-### A2 bis. Les deux sources de vérité du « porteur »
-
-Le repli de validation (0031) désigne l'organisation porteuse par
-`projects.lead_org_id`, alors que l'écran lit le rôle `porteur` de
-`project_organizations`. Si les deux divergent, un devis sans financeur
-part chez la mauvaise organisation, **sans erreur visible**.
-
-```sql
+-- Les deux sources de vérité du « porteur » doivent concorder : le repli
+-- de validation (0031) lit projects.lead_org_id, l'écran lit le rôle
+-- « porteur ». Une divergence enverrait un devis sans financeur à la
+-- mauvaise organisation, SANS erreur visible. Attendu : trois « ok ».
 select pr.name,
-       lead.name as lead_org_id,
-       po_porteur.name as role_porteur,
+       lead.name as lead_org_id, po_porteur.name as role_porteur,
        case when lead.id is distinct from po_porteur.id
             then '⚠️ DIVERGENCE' else 'ok' end as verdict
   from projects pr
@@ -108,123 +97,75 @@ select pr.name,
  order by pr.name;
 ```
 
-**Attendu** : trois `ok` — Coordination → YCID, Triade Jouy → Comité de
-Jumelage, Triade Villepreux → LEY.
+## A3. ⭐ Rattacher une personne à son organisation
 
-## A3. ⭐⭐ Rattacher une personne à son organisation — l'écran neuf
+1. **Administration ▸ Utilisateurs** : chaque ligne affiche ses
+   organisations.
+2. Ouvrez un compte ▸ **Modifier** : bloc **Organisations** (cases à
+   cocher) et, plus bas, **Arbitrage de la roadmap**.
+3. Cochez, enregistrez, rouvrez la fiche : la case doit être **restée
+   cochée**.
 
-C'est la fonction construite hier soir ; elle n'a jamais été utilisée.
+**Attention au choix**, il décide de ce que la personne voit. Pour
+**Maria**, cocher **LEY** donne exactement ses 2 projets ; cocher YCID
+lui en donnerait 3 et ferait échouer son propre M2.
 
-1. **Administration ▸ Utilisateurs**.
-
-**Attendu** : chaque ligne affiche désormais ses **organisations**. La
-plupart sont vides — c'est le problème que cet écran corrige.
-
-2. Ouvrez **Bérengère Ayoub** ▸ **Modifier**.
-
-**Attendu** : sous le mot de passe, un bloc **Organisations** avec une
-case par organisation, puis, sous « Compte actif », une case **Arbitrage
-de la roadmap** — déjà cochée pour elle.
-
-3. Cochez **YCID** → **Enregistrer**.
-
-**Attendu** : retour à la liste, « YCID » apparaît sur sa ligne.
-
-4. Vérifiez en base que le lien existe vraiment :
-
-```sql
-select p.full_name, o.name
-  from memberships m
-  join profiles p on p.id = m.user_id
-  join organizations o on o.id = m.org_id
- order by p.full_name;
-```
-
-5. Rouvrez sa fiche : la case doit être **restée cochée**. (Le formulaire
-   relit les rattachements ; s'il revient vide, l'enregistrement n'a pas
-   pris et il faut me le dire.)
-
-6. Faites de même pour **Maria Maroun**, en cochant **LEY** — et rien
-   d'autre.
-
-Ce choix n'est pas neutre : l'organisation cochée décide de ce qu'elle
-verra, et son protocole (M2) attend **2 projets**.
-
-| Organisation cochée | Projets visibles |
-|---|---|
-| **LEY** | Coordination + Triade Villepreux = **2** ✅ |
-| YCID | les **3** ❌ M2 échoue, et elle hérite du périmètre programme |
-| Commune de Villepreux | Coordination + Triade Villepreux = 2 ✅ |
-
-LEY tombe juste sans intervention : porteuse de la Triade Villepreux,
-partenaire de la Coordination, absente de la Triade Jouy.
-
-**Attention** : décocher toutes les organisations d'un compte lui retire
-la vue sur les projets correspondants. C'est l'effet recherché, mais il
-est immédiat.
-
-**Ce que ce rattachement ne fait pas** : `observateur` et `beneficiaire`
+**Ce que le rattachement ne fait pas** : `observateur` et `bénéficiaire`
 sont des libellés, pas des droits. Un compte rattaché à la Municipalité
-d'Azour — `observateur` sur la Coordination — aurait la **même vue
-complète** qu'un partenaire, budget et pièces compris. Théorique tant
-que ces organisations n'ont pas de compte ; à arbitrer avant d'en ouvrir
-côté libanais.
+d'Azour aurait la même vue complète qu'un partenaire. Théorique tant que
+ces organisations n'ont pas de compte ; à arbitrer avant d'en ouvrir côté
+libanais.
 
-## A4. ⭐ Créer un compte — la valeur par défaut
+## A4. ⭐ Créer un compte — les rôles ont changé
 
 1. **Utilisateurs ▸ Nouvel utilisateur**.
 
-**Attendu** : le menu **Rôle** ne propose plus que **Administrateur** et
-**Utilisateur** — ni « YCID », ni « Responsable projet ». Et il s'ouvre
-sur **Utilisateur**, pas sur Administrateur.
+**Attendu** : le menu **Rôle** ne propose que **Administrateur** et
+**Utilisateur**, et s'ouvre sur **Utilisateur** — plus sur
+Administrateur, ce qui était le défaut jusqu'à cette semaine.
 
-2. Lisez le texte sous le menu : il doit dire que le périmètre se règle
-   par les organisations, pas par le rôle.
+2. Le texte sous le menu doit dire que le périmètre se règle par les
+   organisations, pas par le rôle.
+3. Créez « Test Admin — à supprimer », puis supprimez-le.
 
-3. Créez « Test Admin — à supprimer », rôle Utilisateur, une organisation
-   cochée. Puis supprimez-le depuis la liste.
+## A5. Les rôles projet : cinq, plus sept
 
-## A5. « Modifier » ne s'affiche plus sur un administrateur inaccessible
+Ouvrez un projet ▸ **Aperçu** ▸ le sélecteur de rôle d'un membre.
 
-Sur la liste, une ligne **Administrateur** que vous n'avez pas le droit
-de toucher ne doit plus proposer « Modifier ». Le serveur refusait déjà
-l'enregistrement, mais le bouton restait offert — sur un écran de
-gestion de comptes, ça se lit comme une faille alors que le verrou tient.
+**Attendu** : Responsable projet · PM, Référent Mairie, Responsable
+financier, Contributeur · Terrain, **Auditeur**. Plus de « Validateur »
+ni de « Lecteur ».
 
-Sur **votre propre compte**, « Modifier » reste normal.
+```sql
+-- Attendu : aucune ligne
+select role, count(*) from project_members
+ where role in ('validateur','lecteur') group by role;
+```
 
-## A6. ⭐ Doublon de tâche et suppression
+## A6. ⭐ Changer le rôle d'un membre, et le garde-fou
 
-Vous avez créé deux tâches identiques par erreur, sans pouvoir les
-supprimer. Les deux manques sont comblés.
+Nouveau cette semaine : le rôle se change **sur place**, sans retirer
+puis rajouter la personne.
 
-1. Projet ▸ **Budget** ▸ une ligne ▸ **« Créer la tâche »**.
-2. Recommencez **immédiatement** sur la même ligne.
+1. Aperçu ▸ sur un membre, changez le rôle avec le sélecteur.
 
-**Attendu** : le second essai est refusé avec « Une tâche « … » existe
-déjà dans cette phase ». Pas de second exemplaire.
+**Attendu** : le changement prend, et le **Journal** porte
+« Rôle projet : X → Y ».
 
-3. Onglet **Tâches** : sur une tâche de test, un bouton de
-   **suppression** existe désormais. Supprimez les doublons restants
-   d'hier.
+2. Sur un projet à **un seul** responsable, essayez de le rétrograder.
 
-**Attendu** : la tâche disparaît, la répartition budgétaire qui la
-visait aussi, et le tout est tracé au Journal.
+**Attendu** : refus — « ce compte est le dernier responsable projet ».
+Le même garde-fou qu'au retrait : sans lui, on contournerait par le rôle
+ce qu'on interdit par le retrait.
 
-## A6 bis. ⭐⭐ Préparer la chaîne de validation
+## A7. ⭐⭐ Préparer la chaîne de validation
 
-**À faire avant d'envoyer son protocole à Maria.** Le circuit devis →
-validé → engagé se joue à trois : Maria dépose, Bérengère décide, vous
-constatez. Encore faut-il que le devis parte vers une organisation où
-quelqu'un siège.
+**À faire avant d'envoyer son protocole à Maria.** Le circuit se joue à
+trois : Maria dépose, Bérengère décide, vous constatez.
 
-Un devis rattaché à une ligne part **automatiquement** vers le financeur
-de cette ligne (`saveDocument` appelle `submitForValidation` dès que la
-nature est « devis »). Si ce financeur est le CD78 ou le MEAE, personne
-ne pourra statuer : ces organisations n'ont pas de compte. Le devis
-resterait bloqué et B6 tomberait à plat.
-
-1. Trouvez sur la **Coordination** une ligne financée par **YCID** :
+Un devis part **automatiquement** vers le financeur de sa ligne. Si ce
+financeur est le CD78 ou le MEAE — qui n'ont aucun compte — personne ne
+pourra statuer, et B6 tombera à plat.
 
 ```sql
 select bl.poste, bl.amount, o.name as financeur
@@ -236,51 +177,51 @@ select bl.poste, bl.amount, o.name as financeur
  order by o.name nulls first, bl.poste;
 ```
 
-2. **S'il n'y en a aucune**, posez YCID comme financeur sur une ligne —
-   c'est de toute façon l'organisation porteuse de ce projet :
+S'il n'existe aucune ligne financée par YCID :
 
 ```sql
-update budget_lines
-   set funder_org_id = (select id from organizations where name = 'YCID')
+update budget_lines set funder_org_id = (select id from organizations where name = 'YCID')
  where id = '<id de la ligne choisie>';
 ```
 
-3. **Communiquez le nom exact de cette ligne à Maria et à Bérengère.**
-   Leurs deux protocoles disent « la ligne indiquée par Joe ».
+**Communiquez le nom exact de cette ligne à Maria et Bérengère** — leurs
+protocoles disent « la ligne indiquée par Joe ».
 
-**Ordre d'exécution** : Maria fait M8a (dépôt du devis) → vous prévenez
-Bérengère → elle fait B6 (validation) → « Engagé » passe à 300 €.
+## A8. ⭐ L'unanimité et la file « À valider »
 
-Une ligne sans financeur **du tout** n'est pas un cas d'erreur : le
-devis part alors vers l'organisation porteuse, YCID ici. Le repli est
-ordonné (règles → financeur → porteuse) depuis la 0031.
+Nouveau cette semaine, et c'est le changement le plus structurant.
 
-## A7. ⭐ Validation au nom d'une autre organisation
+1. Menu **À valider** (deuxième entrée).
 
-Le vrai correctif du problème remonté hier : Bérengère a validé un devis
-qui relevait de LEY.
+**Attendu** : ce que doivent trancher **vos** organisations. Vide si
+rien n'attend. Pas de vue globale, même pour vous : votre recours existe
+mais se prend sur la ligne, avec le montant sous les yeux.
+
+2. Après le dépôt de Maria (M8a), la ligne doit y apparaître pour
+   Bérengère.
+3. Sur un devis soumis à **plusieurs** organisations, la ligne
+   budgétaire affiche « en attente de N organisations sur M ».
+
+**Attendu** : « Engagé » ne bouge **que** lorsque toutes ont validé. Un
+seul refus rejette.
+
+## A9. Le recours administrateur
 
 **Vous êtes le seul à pouvoir tester ce chemin** : le bloc « Valider à
-sa place… » ne s'affiche que pour un compte `admin` non membre de
-l'organisation sollicitée. Bérengère, redevenue `user`, ne voit plus
-rien du tout sur une ligne hors de son organisation — c'est ce qu'elle
-vérifie en B6.
+sa place… » n'apparaît que pour un compte `admin` non membre de
+l'organisation sollicitée.
 
-1. Ouvrez un devis en attente dont l'organisation sollicitée **n'est pas
-   la vôtre** ▸ trombone 📎. Une ligne financée par le **CD78** ou le
-   **MEAE** convient : ces organisations n'ont aucun compte, c'est
-   exactement le cas que le recours est censé débloquer.
+1. Un devis en attente d'une organisation **qui n'est pas la vôtre** ▸
+   trombone 📎. Une ligne financée par le CD78 ou le MEAE convient.
 
-**Attendu** : pas les boutons ordinaires, mais la mention que vous n'êtes
-pas membre et deux boutons **« Valider à sa place… »**.
+**Attendu** : pas les boutons ordinaires, mais « vous n'êtes pas
+membre » et **« Valider à sa place… »**.
 
-2. Cliquez : un champ **motif obligatoire** s'ouvre. Sans motif, refusé.
+2. Cliquez : **motif obligatoire**. Sans motif, refusé.
 3. Validez avec un motif de test.
 
-**Attendu** : au **Journal**, la trace porte **« AU NOM DE « … »
-(décideur non membre de cette organisation) »** et votre motif.
-
-4. Contrôle en base :
+**Attendu** : au Journal, « **AU NOM DE** « … » (décideur non membre de
+cette organisation) » et votre motif.
 
 ```sql
 select d.filename, o.name as sollicitee, v.decision,
@@ -290,80 +231,99 @@ select d.filename, o.name as sollicitee, v.decision,
   join organizations o on o.id = v.org_id
   join documents d on d.id = v.document_id
   left join profiles pr on pr.id = v.decided_by
- order by v.decided_at desc nulls last
- limit 10;
+ order by v.decided_at desc nulls last limit 10;
 ```
 
-**Attendu** : `hors_organisation = true` sur la vôtre.
+## A10. Configuration ▸ Email
 
-5. **Seul un compte `admin` doit pouvoir faire ça.** C'est ce que Bérengère
-   vérifie en B6 de son côté : elle doit voir la porte, sans pouvoir la
-   franchir sur un devis réel.
+1. **Administration ▸ Configuration ▸ Email**.
 
-## A8. Stockage — l'inventaire complet
+**Attendu** : le formulaire SMTP. Si un message vous demande d'appliquer
+la 0040, c'est qu'elle manque — ce n'est pas une panne.
 
-1. **Administration ▸ Stockage**.
+2. Renseignez serveur, port, expéditeur, et **l'adresse de
+   l'application** (sans elle, les emails annoncent qu'une décision
+   attend sans donner le lien).
+3. **Tester la connexion**.
 
-**Attendu** : les **trois** espaces — `documents`, `avatars`, `branding`
-— même vides. Avant la 0035 un espace sans fichier disparaissait
-purement de l'inventaire, ce qui est le pire défaut possible pour un
-écran d'inventaire.
+**Attendu** : le résultat s'affiche et reste **daté** à l'écran. Le test
+n'envoie **aucun message** — il ouvre la session, s'authentifie, et
+referme.
 
-2. Regardez la répartition par projet et la liste des **orphelins**.
+**Sans identifiants SMTP**, tout fonctionne en dégradé : les
+notifications restent visibles dans l'application. Dites-le-moi, ce n'est
+pas bloquant pour la recette.
 
-**Ne purgez rien aujourd'hui** : la suppression est définitive et sans
-retour. Dites-moi seulement combien d'orphelins sont listés.
+## A11. ⭐ Modifier la fiche projet et le montant voté
 
-## A9. Votre menu a survécu
+Nouveau : rien ne permettait de corriger un projet après sa création.
 
-Vous seul devez encore voir la section **Administration** complète :
-Utilisateurs, Accès & rôles, Stockage, Configuration.
+1. Sur un projet ▸ bouton **Modifier** (en haut).
+2. Changez la description → Enregistrer.
+3. Rouvrez et changez le **Montant voté**.
 
-Ouvrez les quatre. Aucune ne doit renvoyer vers le tableau de bord.
+**Attendu** : un avertissement apparaît **avant** l'enregistrement, et
+le Journal porte « MONTANT VOTÉ : ancien → nouveau ». « Projet modifié »
+ne suffirait pas devant un financeur qui demande pourquoi l'enveloppe a
+bougé.
 
-C'est le contrepoint exact de M1 et B1 : ce qu'elles ne doivent plus
-voir, vous devez continuer à le voir.
+4. Remettez la valeur d'origine.
 
-## A10. Le rapport IA compte encore ses phases
+## A12. Déposer la convention
 
-Un défaut silencieux nous a échappé une journée entière : le rapport se
-générait « sur 0 phase » sans la moindre erreur.
+Nouveau : la pièce fondatrice n'avait aucun point de dépôt.
 
-1. Sur chacun des **trois** projets ▸ **Rapport d'expert IA** ▸ **Générer**.
+1. Projet ▸ onglet **Documents** ▸ **Déposer une pièce**.
+2. Nature **Convention**, phase « Tout le projet » ▸ Déposez.
 
-**Attendu** : en en-tête, « Périmètre analysé : N phase(s) », **N > 0**
-partout.
+**Attendu** : la pièce apparaît à l'inventaire, rattachée au projet et à
+aucune tâche. Devis et factures ne sont **pas** proposés ici — ils
+restent sur leur ligne pour demeurer dans le circuit de validation.
 
-Si un projet affiche 0, ne cherchez pas plus loin, dites-le-moi : c'est
-la même famille de panne.
+## A13. Stockage et menu
+
+1. **Administration ▸ Stockage** : les **trois** espaces —
+   `documents`, `avatars`, `branding` — même vides.
+
+**Ne purgez rien.** Dites-moi seulement combien d'orphelins sont listés.
+
+2. Vous seul devez voir la section **Administration** complète.
+   Ouvrez les quatre écrans : aucun ne doit renvoyer au tableau de bord.
+
+## A14. Le rapport IA compte encore ses phases
+
+Deux pannes muettes ont déjà touché ce rapport.
+
+1. Sur chacun des **trois** projets ▸ **Rapport d'expert IA** ▸
+   **Générer**.
+
+**Attendu** : « Périmètre analysé : N phase(s) », **N > 0** partout.
+
+2. Vérifiez que la section décisions n'est pas vide si le projet en a.
+   La requête sous-jacente était fausse depuis l'origine — corrigée
+   cette semaine.
 
 ---
 
 ## Ordre conseillé
 
-**A1 → A2 → A2 bis → A3 → A6 bis, avant tout envoi.** Tant que les
-rattachements ne sont pas posés, les tests de Bérengère et Maria
-mesurent une donnée manquante, pas le logiciel ; et sans A6 bis, le
-devis de Maria partira vers une organisation où personne ne siège.
+**A1 → A2 → A3 → A7, avant tout envoi.** Puis leurs protocoles partent,
+et vous enchaînez A4 → A14 pendant qu'elles testent.
 
-Ensuite seulement : envoyez leurs protocoles, et enchaînez A4 → A10
-pendant qu'elles testent.
-
-La chaîne à trois se déroule dans cet ordre, et il n'est pas
-interchangeable :
+La chaîne à trois, dans cet ordre :
 
 | # | Qui | Test | Effet |
 |---|---|---|---|
-| 1 | Vous | A6 bis | une ligne financée par YCID est désignée |
+| 1 | Vous | A7 | une ligne financée par YCID est désignée |
 | 2 | Maria | M8a | dépôt du devis → « en attente », Engagé reste à 0 € |
 | 3 | Bérengère | B6 | validation → **Engagé passe à 300 €** |
 | 4 | Maria | M8b | facture, paiement, annulation |
-| 5 | Vous | A7 | le recours administrateur, sur une **autre** ligne |
+| 5 | Vous | A9 | le recours administrateur, sur une **autre** ligne |
 
 Si l'étape 3 ne fait pas bouger « Engagé », c'est le cœur du pilotage
 financier qui ne fonctionne pas — signalez-le avant tout le reste.
 
-## Ce que je veux en retour
+## Ce que j'attends
 
 Le numéro du test, ce que vous avez vu, et pour A1/A2 le **résultat brut
 des requêtes** — c'est là que se lisent les reprises ratées.

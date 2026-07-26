@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { DOC_TYPES, DOC_TYPE_LABELS, DOC_MOMENTS, GALLERY_URL_TTL, type DocType, type DocMoment } from '@/lib/documents'
+import { notifyPeople, membersOfOrgs } from '@/lib/notify-circuit'
 
 // ============================================================
 // PR 38a — Socle documentaire
@@ -105,19 +106,46 @@ export async function saveDocument(input: SaveDocumentInput): Promise<{ ok: bool
 // Retourne un message d'erreur, ou null si tout s'est bien passé.
 async function submitForValidation(documentId: string): Promise<string | null> {
   const supabase = await createClient()
-  // À qui adresser : règles du projet si configurées, sinon financeur de
-  // la ligne, sinon organisation porteuse (fonction SQL, migration 0030).
-  const { data: orgs, error } = await supabase.rpc('validation_orgs_for_document', { doc_id: documentId })
+  // La chaîne réelle (0041) : étape 1 l'organisation PORTEUSE du projet,
+  // étape 2 l'organisation COORDINATRICE du programme. Le financeur de la
+  // ligne n'intervient plus — le MEAE et le Département votent une
+  // enveloppe et attendent un compte rendu, pas une approbation ligne à
+  // ligne.
+  const { data: chain, error } = await supabase.rpc('validation_chain_for_document', { doc_id: documentId })
   if (error) return `Destinataires de validation introuvables : ${error.message}`
-  const orgIds = (orgs ?? []) as unknown as { validation_orgs_for_document: string }[] | string[]
-  const ids = (Array.isArray(orgIds) ? orgIds : []).map((o: unknown) =>
-    typeof o === 'string' ? o : (o as { validation_orgs_for_document: string }).validation_orgs_for_document,
-  ).filter(Boolean)
-  if (!ids.length) return "Aucune organisation à solliciter : renseignez le financeur de la ligne ou l'organisation porteuse du projet."
+  const steps = (chain ?? []) as { org_id: string; step: number }[]
+  if (!steps.length) {
+    return "Aucune organisation à solliciter : renseignez l'organisation porteuse du projet, ou l'organisation coordinatrice dans Administration ▸ Configuration."
+  }
 
   const { error: insErr } = await supabase.from('validations')
-    .insert(ids.map(org_id => ({ document_id: documentId, org_id, decision: 'en_attente' })))
+    .insert(steps.map(s => ({ document_id: documentId, org_id: s.org_id, decision: 'en_attente', step: s.step })))
   if (insErr) return `Mise en validation impossible : ${insErr.message}`
+
+  // On ne prévient que le PREMIER échelon. Alerter le coordinateur avant
+  // que le porteur ait signé lui ferait ouvrir un dossier sur lequel il
+  // ne peut rien faire — et le bruit finit par rendre les notifications
+  // inutiles.
+  const firstStep = Math.min(...steps.map(s => s.step))
+  const firstOrgs = steps.filter(s => s.step === firstStep).map(s => s.org_id)
+  const laterCount = steps.length - firstOrgs.length
+
+  const { data: doc } = await supabase.from('documents')
+    .select('filename, amount, project_id, projects:project_id(name)').eq('id', documentId).maybeSingle()
+  const project = Array.isArray(doc?.projects) ? doc?.projects[0] : doc?.projects
+  const montant = doc?.amount != null ? `${Math.round(doc.amount).toLocaleString('fr-FR')} €` : 'montant non renseigné'
+  await notifyPeople(await membersOfOrgs(firstOrgs), {
+    type: 'validation_attendue',
+    title: `Un devis attend votre décision — ${project?.name ?? 'projet'}`,
+    body: [
+      `Le devis « ${doc?.filename ?? 'pièce'} » (${montant}) a été soumis à votre organisation.`,
+      laterCount > 0
+        ? `Votre accord ouvrira la seconde étape du circuit ; le montant ne sera engagé qu'à l'issue de celle-ci.`
+        : `Tant qu'il n'est pas validé, ce montant n'est pas engagé au budget du projet.`,
+    ],
+    path: doc?.project_id ? `/projets/${doc.project_id}?tab=budget` : undefined,
+    linkLabel: 'Voir le devis',
+  })
   return null
 }
 
@@ -133,7 +161,7 @@ export async function decideValidation(input: {
   if (!['valide', 'refuse'].includes(input.decision)) return { ok: false, error: 'Décision invalide.' }
 
   const { data: v } = await supabase.from('validations')
-    .select('id, document_id, org_id, decision, organizations:org_id(name), documents:document_id(filename, project_id)')
+    .select('id, document_id, org_id, decision, step, organizations:org_id(name), documents:document_id(filename, project_id)')
     .eq('id', input.validationId).maybeSingle()
   if (!v) return { ok: false, error: 'Validation introuvable.' }
 
@@ -175,6 +203,60 @@ export async function decideValidation(input: {
   if (error) return { ok: false, error: `Décision refusée : ${error.message}` }
 
   const doc = Array.isArray(v.documents) ? v.documents[0] : v.documents
+  const v_step = (v as { step?: number }).step ?? 1
+
+  // Prévenir le déposant : c'est lui qui attend, et il n'a aujourd'hui
+  // aucun moyen de savoir qu'on a tranché sans rouvrir la ligne.
+  const { data: full } = await supabase.from('documents')
+    .select('uploaded_by, filename, project_id, projects:project_id(name), validations(decision, step, org_id)')
+    .eq('id', v.document_id).maybeSingle()
+  const allValidations = (full?.validations ?? []) as { decision: string; step: number; org_id: string }[]
+  const restants = allValidations.filter(x => x.decision === 'en_attente').length
+  const projet = Array.isArray(full?.projects) ? full?.projects[0] : full?.projects
+  await notifyPeople([full?.uploaded_by], {
+    type: 'validation_decidee',
+    title: input.decision === 'valide'
+      ? `Devis validé par ${orgName} — ${projet?.name ?? 'projet'}`
+      : `Devis refusé par ${orgName} — ${projet?.name ?? 'projet'}`,
+    body: [
+      `Votre devis « ${full?.filename ?? doc?.filename ?? 'pièce'} » a été ${input.decision === 'valide' ? 'validé' : 'refusé'} par ${orgName}.`,
+      input.comment?.trim() ? `Motif : ${input.comment.trim()}` : '',
+      input.decision === 'refuse'
+        ? `Un refus rejette le devis : le montant n'est pas engagé.`
+        : restants > 0
+          ? `Il reste ${restants} organisation${restants > 1 ? 's' : ''} à se prononcer avant que le montant soit engagé.`
+          : `Toutes les organisations sollicitées ont validé : le montant est désormais engagé.`,
+    ].filter(Boolean),
+    path: `/projets/${input.projectId}?tab=budget`,
+    linkLabel: 'Voir la ligne',
+  })
+
+  // Réveiller l'échelon suivant. C'est le pivot du circuit ordonné : le
+  // coordinateur n'est prévenu qu'au moment où il peut effectivement
+  // agir, c'est-à-dire quand le porteur a signé. Sans cela il faudrait
+  // qu'il surveille une file où rien ne le concerne encore.
+  if (input.decision === 'valide') {
+    const decided = allValidations.filter(v => v.step === v_step)
+    const stepDone = decided.length > 0 && decided.every(v => v.decision === 'valide')
+    if (stepDone) {
+      const nextSteps = allValidations.filter(v => v.step > v_step).map(v => v.step)
+      if (nextSteps.length) {
+        const next = Math.min(...nextSteps)
+        const nextOrgs = allValidations.filter(v => v.step === next).map(v => v.org_id)
+        await notifyPeople(await membersOfOrgs(nextOrgs), {
+          type: 'validation_attendue',
+          title: `À votre tour : un devis attend votre décision — ${projet?.name ?? 'projet'}`,
+          body: [
+            `Le devis « ${full?.filename ?? 'pièce'} » a été validé par ${orgName}.`,
+            `Il vous revient désormais de vous prononcer. Le montant sera engagé dès votre accord.`,
+          ],
+          path: `/projets/${input.projectId}?tab=budget`,
+          linkLabel: 'Examiner le devis',
+        })
+      }
+    }
+  }
+
   const { error: auditErr } = await supabase.from('audit_log').insert({
     project_id: input.projectId, entity: 'validation', entity_id: input.validationId,
     label: doc?.filename ?? null, action: 'modifie', user_id: user.id,

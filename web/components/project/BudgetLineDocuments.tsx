@@ -5,6 +5,7 @@ import { Paperclip, Upload, Trash2, Download, Check, X as XIcon } from "lucide-r
 import Modal, { ErrorMessage } from "@/components/ui/Modal"
 import { createClient } from "@/lib/supabase/client"
 import { BUDGET_DOC_TYPES, DOC_TYPE_LABELS, MAX_DOC_SIZE, buildStoragePath, type DocType } from "@/lib/documents"
+import { isEngagedDoc, pendingOrgCount } from "@/lib/budget"
 import { saveDocument, deleteDocument, getDocumentUrl, decideValidation, setDocumentPaid } from "@/app/(app)/projets/[id]/document-actions"
 
 // ============================================================
@@ -28,6 +29,12 @@ export interface LineValidation {
   // Membre de l'organisation sollicitée. Faux = décision par
   // procuration, qui exige confirmation explicite et motif.
   isMember: boolean
+  // Rang dans la chaîne (0041) : 1 le porteur, 2 le coordinateur.
+  step: number
+  // Un échelon antérieur n'a pas encore signé. La base le refuse aussi
+  // (policy « Decide validation ») ; l'écran ne doit donc pas proposer
+  // une action qui sera rejetée.
+  blocked: boolean
 }
 
 export interface LineDoc {
@@ -42,14 +49,10 @@ export interface LineDoc {
 
 const fmtEur = (n: number) => `${Math.round(n).toLocaleString("fr-FR")} €`
 
-// Un devis compte comme engagé dès qu'UNE organisation l'a validé, et
-// jamais s'il a été refusé : exiger l'unanimité bloquerait le suivi sur
-// une organisation qui ne répond pas.
-export function isEngaged(d: LineDoc): boolean {
-  if (d.type !== "devis") return false
-  if (d.validations.some(v => v.decision === "refuse")) return false
-  return d.validations.some(v => v.decision === "valide")
-}
+// La règle vit dans lib/budget.ts, qui alimente aussi les colonnes du
+// tableau et le rapport IA. Elle était recopiée ici — la divergence même
+// que ce module devait empêcher, relevée en relecture le 25/07.
+export const isEngaged = (d: LineDoc) => isEngagedDoc(d)
 
 export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste, docs, canManage }: {
   projectId: string; phaseId: string | null; lineId: string; poste: string
@@ -264,8 +267,22 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
                       <ul className="mt-2 space-y-1">
                         {d.validations.map(v => (
                           <li key={v.id} className="flex items-center gap-2 text-xs">
-                            <span style={{ color: "#66716B" }}>{v.orgName ?? "Organisation"}</span>
-                            {v.decision === "en_attente" ? (
+                            <span style={{ color: "#66716B" }}>
+                              {d.validations.length > 1 && (
+                                <span className="mr-1 px-1.5 py-0.5 rounded" style={{ background: "#EEF0EE", color: "#66716B" }}>
+                                  {v.step}
+                                </span>
+                              )}
+                              {v.orgName ?? "Organisation"}
+                            </span>
+                            {v.decision === "en_attente" && v.blocked ? (
+                              // Le rang existe pour être respecté : le
+                              // coordinateur entérine ce que le porteur a
+                              // engagé, il ne le précède pas.
+                              <span style={{ color: "#9AA39D" }}>
+                                en attente — son tour viendra après l&apos;étape {v.step - 1}
+                              </span>
+                            ) : v.decision === "en_attente" ? (
                               <>
                                 <span style={{ color: "#B4690E" }}>en attente</span>
                                 {/* Procuration : deuxième temps imposé, motif
@@ -350,6 +367,21 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
                           </li>
                         ))}
                       </ul>
+                    )}
+
+                    {/* L'unanimité doit se LIRE. « Pas engagé » n'explique
+                        rien ; « en attente de 2 organisations sur 3 » dit
+                        ce qui manque et à qui le demander. */}
+                    {d.type === "devis" && pendingOrgCount(d) > 0 && d.validations.length > 1 && (
+                      <p className="mt-1.5 text-xs" style={{ color: "#B4690E" }}>
+                        En attente de {pendingOrgCount(d)} organisation{pendingOrgCount(d) > 1 ? "s" : ""} sur {d.validations.length} :
+                        le montant ne sera engagé que lorsque toutes auront validé.
+                      </p>
+                    )}
+                    {d.type === "devis" && isEngagedDoc(d) && (
+                      <p className="mt-1.5 text-xs" style={{ color: "var(--brand-accent,#0E6B5C)" }}>
+                        Validé par {d.validations.length === 1 ? "l’organisation sollicitée" : `les ${d.validations.length} organisations sollicitées`} — montant engagé.
+                      </p>
                     )}
 
                     {/* Facture, reçu, justificatif : marquer payé */}

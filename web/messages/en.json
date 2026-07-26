@@ -12,7 +12,8 @@
     "access": "Access & roles",
     "storage": "Storage",
     "configuration": "Configuration",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "toValidate": "To validate"
   },
   "account": {
     "roles": "ROLES",

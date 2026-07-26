@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic'
 import Link from "next/link"
-import { Palette, Sparkles, Scale } from "lucide-react"
+import { Palette, Sparkles, Scale, Mail } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { isUserAdmin } from "@/lib/permissions"
@@ -9,10 +9,13 @@ import { getAiConfigPublic, AI_PROVIDERS } from "@/lib/ai-settings"
 import BrandForm from "@/components/admin/BrandForm"
 import AiForm from "@/components/admin/AiForm"
 import LegalForm from "@/components/admin/LegalForm"
+import EmailForm from "@/components/admin/EmailForm"
+import { getEmailSettings, getEmailTestStatus } from "@/lib/mailer"
 
 const SECTIONS = [
   { key: "marque", label: "Marque", Icon: Palette },
   { key: "ia", label: "Intelligence artificielle", Icon: Sparkles },
+  { key: "email", label: "Email", Icon: Mail },
   { key: "legal", label: "Mentions légales", Icon: Scale },
 ]
 
@@ -25,10 +28,13 @@ export default async function ConfigurationPage({ searchParams }: { searchParams
 
   const isAi = section === "ia"
   const isLegal = section === "legal"
-  const [settings, ai] = await Promise.all([
+  const isEmail = section === "email"
+  const [settings, ai, email] = await Promise.all([
     getPlatformSettings(),
     isAi ? getAiConfigPublic() : Promise.resolve(null),
+    isEmail ? getEmailSettings() : Promise.resolve(null),
   ])
+  const emailTest = isEmail ? await getEmailTestStatus() : null
 
   return (
     <div className="p-8 max-w-3xl mx-auto">
@@ -38,6 +44,8 @@ export default async function ConfigurationPage({ searchParams }: { searchParams
       <p className="text-sm mb-5" style={{ color: "#66716B" }}>
         {isAi
           ? "Choisissez le fournisseur d'intelligence artificielle utilisé par le rapport d'expert et la génération des contenus de communication."
+          : isEmail
+          ? "Serveur d'envoi des notifications : soumission d'un devis, décision de validation, tâche terminée. Rien n'est écrit en dur — tout se règle ici."
           : isLegal
           ? "Informations affichées sur les pages publiques Mentions légales et Politique de confidentialité. Obligatoires pour une plateforme portée par un financeur public."
           : "Personnalisez le nom, l'accroche, le logo et les couleurs de la plateforme. Les changements s'appliquent immédiatement à toute l'application."}
@@ -61,6 +69,26 @@ export default async function ConfigurationPage({ searchParams }: { searchParams
       </div>
 
       {isAi && ai ? <AiForm settings={ai} providers={AI_PROVIDERS} />
+        : isEmail ? (
+          email ? (
+            <EmailForm settings={{
+              enabled: email.enabled, host: email.host, port: email.port, secure: email.secure,
+              username: email.username,
+              // Le mot de passe ne franchit jamais la frontière serveur :
+              // seul le fait qu'il existe est transmis.
+              hasPassword: !!email.password,
+              from_name: email.from_name, from_email: email.from_email, site_url: email.site_url,
+              last_test_at: emailTest?.last_test_at ?? null,
+              last_test_ok: emailTest?.last_test_ok ?? null,
+              last_test_error: emailTest?.last_test_error ?? null,
+            }} />
+          ) : (
+            <div className="rounded-xl px-4 py-3 text-sm" style={{ background: "#F7EDDD", color: "#8A6A1F" }}>
+              Configuration email illisible. Appliquez la migration <code>0040_email_settings.sql</code>
+              {" "}dans le SQL Editor Supabase, et vérifiez que <code>SUPABASE_SERVICE_ROLE_KEY</code> est bien posée sur le serveur.
+            </div>
+          )
+        )
         : isLegal ? <LegalForm settings={settings} />
         : <BrandForm settings={settings} />}
     </div>

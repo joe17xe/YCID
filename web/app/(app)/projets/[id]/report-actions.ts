@@ -76,7 +76,11 @@ export async function generateExpertReport(projectId: string, instructions?: str
       supabase.from('indicators').select('id, name, kind, unit, baseline, target').eq('project_id', projectId),
       supabase.from('indicator_measures').select('indicator_id, period, value').order('period'),
       supabase.from('meetings').select('title, kind, date, minutes').eq('project_id', projectId).order('date', { ascending: false }).limit(10),
-      supabase.from('decisions').select('label, status, due_date').eq('project_id', projectId).limit(20),
+      // `text`, et non `label` : la colonne s'appelle ainsi depuis la
+      // 0001. La requête échouait donc en silence, `decisions` revenait
+      // nul, et le rapport annonçait un projet sans aucune décision —
+      // alors qu'on ordonne à l'IA de n'utiliser QUE les faits fournis.
+      supabase.from('decisions').select('text, status, due_date').eq('project_id', projectId).limit(20),
       supabase.from('project_members').select('role', { count: 'exact' }).eq('project_id', projectId),
     ])
     if (!project) return { ok: false, error: 'Projet introuvable.' }
