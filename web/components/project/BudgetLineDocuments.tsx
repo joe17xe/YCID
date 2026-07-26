@@ -73,13 +73,23 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
   const [pending, startTransition] = useTransition()
 
   const engaged = docs.filter(isEngaged).reduce((s, d) => s + (d.amount ?? 0), 0)
-  const paid = docs.filter(d => d.paid).reduce((s, d) => s + (d.amount ?? 0), 0)
+  // Même règle que lib/budget.ts, qui alimente les colonnes du tableau :
+  // un devis n'est jamais un paiement. Sans l'exclusion, l'en-tête du
+  // panneau et la colonne « Payé » de la même ligne pouvaient afficher
+  // deux chiffres différents.
+  const paid = docs.filter(d => d.paid && d.type !== "devis").reduce((s, d) => s + (d.amount ?? 0), 0)
 
   async function upload(e: React.FormEvent) {
     e.preventDefault()
     setError("")
     if (!file) { setError("Choisissez un fichier."); return }
     if (file.size > MAX_DOC_SIZE) { setError("Fichier trop lourd (10 Mo maximum)."); return }
+    // Le montant d'un devis n'est pas facultatif : c'est lui, et lui
+    // seul, qui deviendra l'engagé une fois la validation obtenue.
+    if (type === "devis" && !amount.trim()) {
+      setError("Indiquez le montant du devis : c'est ce montant qui sera engagé une fois le devis validé.")
+      return
+    }
     setBusy(true)
     const path = buildStoragePath(projectId, phaseId, file.name)
     const { error: upErr } = await supabase.storage.from("documents").upload(path, file)
@@ -93,6 +103,10 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
       await supabase.storage.from("documents").remove([path])
       setError(res.error ?? "Une erreur est survenue."); setBusy(false); return
     }
+    // Dépôt réussi mais circuit non amorcé : la pièce reste en place, et
+    // on le dit. Se taire ici laisserait croire que le devis est en
+    // attente de décision alors qu'il n'attend personne.
+    setError(res.warning ?? "")
     setBusy(false); setFile(null); setAmount("")
     router.refresh()
   }
@@ -222,6 +236,28 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
                         </button>
                       )}
                     </div>
+
+                    {/* Un devis sans montant est validable, et n'engagera
+                        pourtant rien : le circuit se déroule normalement
+                        pendant que le chiffre reste à zéro. Le dire ici
+                        évite de chercher l'erreur ailleurs. */}
+                    {d.type === "devis" && d.amount == null && (
+                      <p className="mt-2 text-xs px-2 py-1 rounded" style={{ background: "#F7EDDD", color: "#8A6A1F" }}>
+                        Montant non renseigné : même validé, ce devis n&apos;alimentera pas
+                        l&apos;engagé. Retirez-le et redéposez-le avec son montant.
+                      </p>
+                    )}
+
+                    {/* Devis jamais soumis : l'absence de validation ne
+                        doit pas se lire comme une pièce jointe ordinaire.
+                        Le cas survient si la ligne n'a ni financeur ni
+                        organisation porteuse à qui adresser la demande. */}
+                    {d.type === "devis" && d.validations.length === 0 && (
+                      <p className="mt-2 text-xs px-2 py-1 rounded" style={{ background: "#F6E7E5", color: "#A3342C" }}>
+                        Hors circuit : ce devis n&apos;a été soumis à aucune organisation.
+                        Renseignez le financeur de la ligne, puis redéposez-le.
+                      </p>
+                    )}
 
                     {/* Devis : état du circuit, une ligne par organisation sollicitée */}
                     {d.type === "devis" && d.validations.length > 0 && (

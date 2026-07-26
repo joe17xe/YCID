@@ -283,10 +283,15 @@ pas membre et deux boutons **« Valider à sa place… »**.
 4. Contrôle en base :
 
 ```sql
-select v.id, o.name as sollicitee, v.status,
+select d.filename, o.name as sollicitee, v.decision,
+       pr.full_name as decideur, v.comment,
        validation_decided_outside_org(v.id) as hors_organisation
-  from validations v join organizations o on o.id = v.org_id
- order by v.created_at desc limit 10;
+  from validations v
+  join organizations o on o.id = v.org_id
+  join documents d on d.id = v.document_id
+  left join profiles pr on pr.id = v.decided_by
+ order by v.decided_at desc nulls last
+ limit 10;
 ```
 
 **Attendu** : `hors_organisation = true` sur la vôtre.
