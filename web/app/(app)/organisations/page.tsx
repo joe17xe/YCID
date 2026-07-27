@@ -27,7 +27,7 @@ export default async function OrganisationsPage() {
 
       <div className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor: "#E3E6E2" }}>
         <div className="overflow-x-auto">
-        <table className="w-full text-sm" style={{ minWidth: 640 }}>
+        <table className="w-full text-sm table-cards tc-640">
           <thead>
             <tr style={{ background: "#F5F6F4", borderBottom: "1px solid #E3E6E2" }}>
               {["Nom", "Type", "Pays", "Email", "Statut"].map(h => (
@@ -41,15 +41,15 @@ export default async function OrganisationsPage() {
               const data: OrgData = { id: org.id, name: org.name, type: org.type, country: org.country, email: org.email ?? null, status: org.status }
               return (
                 <tr key={org.id} style={{ borderBottom: "1px solid #E3E6E2", background: i % 2 === 0 ? "#fff" : "#FAFAFA" }}>
-                  <td className="px-5 py-3 font-medium" style={{ color: "#17211D" }}>{org.name}</td>
-                  <td className="px-5 py-3">
+                  <td data-primary="" className="px-5 py-3 font-medium" style={{ color: "#17211D" }}>{org.name}</td>
+                  <td data-label="Type" className="px-5 py-3">
                     <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "#E8ECF5", color: "#3B5488" }}>
                       {ORG_TYPES[org.type] ?? org.type}
                     </span>
                   </td>
-                  <td className="px-5 py-3" style={{ color: "#66716B" }}>{org.country}</td>
-                  <td className="px-5 py-3" style={{ color: "#66716B" }}>{org.email ?? "—"}</td>
-                  <td className="px-5 py-3">
+                  <td data-label="Pays" className="px-5 py-3" style={{ color: "#66716B" }}>{org.country}</td>
+                  <td data-label="Email" className="px-5 py-3" style={{ color: "#66716B" }}>{org.email ?? "—"}</td>
+                  <td data-label="Statut" className="px-5 py-3">
                     <span className="text-xs px-2 py-0.5 rounded-full" style={{
                       background: org.status === "active" ? "var(--brand-accent-soft,#E4F0EC)" : "#EEF0EE",
                       color: org.status === "active" ? "var(--brand-accent,#0E6B5C)" : "#66716B",
@@ -58,7 +58,7 @@ export default async function OrganisationsPage() {
                     </span>
                   </td>
                   {canManage && (
-                    <td className="px-5 py-3">
+                    <td data-label="Actions" className="px-5 py-3">
                       <div className="flex items-center justify-end gap-1">
                         {org.email && <CreateUserButton email={org.email} orgName={org.name} />}
                         <OrgDialog org={data} />

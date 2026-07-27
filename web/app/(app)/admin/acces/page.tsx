@@ -22,7 +22,7 @@ export default async function AdminAccesPage() {
 
       <div className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor: "#E3E6E2" }}>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm" style={{ minWidth: 900 }}>
+          <table className="w-full text-sm table-cards tc-900">
             <thead>
               <tr style={{ background: "#F5F6F4", borderBottom: "1px solid #E3E6E2" }}>
                 <th className="text-left px-5 py-3 text-xs font-semibold" style={{ color: "#66716B" }}>Permission</th>
@@ -35,16 +35,16 @@ export default async function AdminAccesPage() {
             <tbody>
               {RBAC_MATRIX.map((p, i) => (
                 <tr key={p.key} style={{ borderBottom: "1px solid #E3E6E2", background: i % 2 === 0 ? "#fff" : "#FAFAFA" }}>
-                  <td className="px-5 py-3">
+                  <td data-primary="" className="px-5 py-3">
                     <div className="font-medium" style={{ color: "#17211D" }}>{p.label}</div>
                     <div className="text-xs font-mono mt-0.5" style={{ color: "#66716B" }}>{p.key}</div>
                     {p.note && <div className="text-xs mt-0.5" style={{ color: "#B4690E" }}>{p.note}</div>}
                   </td>
-                  <td className="text-center px-3 py-3">
+                  <td data-label="Admin YCID/LEY" className="text-center px-3 py-3">
                     {p.admin ? <Check size={16} className="inline" style={{ color: "var(--brand-accent,#0E6B5C)" }} /> : <span style={{ color: "#66716B" }}>—</span>}
                   </td>
                   {ROLE_COLUMNS.map(r => (
-                    <td key={r.key} className="text-center px-3 py-3">
+                    <td key={r.key} data-label={r.label} className="text-center px-3 py-3">
                       {p.roles.includes(r.key)
                         ? <Check size={16} className="inline" style={{ color: "var(--brand-accent,#0E6B5C)" }} />
                         : <span style={{ color: "#66716B" }}>—</span>}

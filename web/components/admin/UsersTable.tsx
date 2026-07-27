@@ -69,7 +69,7 @@ export default function UsersTable({ users }: { users: AdminUserRow[] }) {
         <span className="text-sm" style={{ color: "#66716B" }}>{filtered.length} / {users.length}</span>
       </div>
       <div className="overflow-x-auto">
-      <table className="w-full text-sm" style={{ minWidth: 720 }}>
+      <table className="w-full text-sm table-cards tc-760">
         <thead>
           <tr style={{ background: "#F5F6F4", borderBottom: "1px solid #E3E6E2" }}>
             <th className="text-left px-5 py-3 text-xs font-semibold" style={{ color: "#66716B" }}>NOM</th>
@@ -84,12 +84,12 @@ export default function UsersTable({ users }: { users: AdminUserRow[] }) {
             const r = PLATFORM_ROLES[u.platform_role] ?? PLATFORM_ROLES.user
             return (
               <tr key={u.id} style={{ borderBottom: "1px solid #E3E6E2", background: i % 2 === 0 ? "#fff" : "#FAFAFA" }}>
-                <td className="px-5 py-3 font-medium" style={{ color: "#17211D" }}>
+                <td data-primary="" className="px-5 py-3 font-medium" style={{ color: "#17211D" }}>
                   {u.full_name || "—"}
                   {u.isSelf && <span className="ml-2 text-xs px-1.5 py-0.5 rounded-full" style={{ background: "var(--brand-accent-soft,#E4F0EC)", color: "var(--brand-accent,#0E6B5C)" }}>Vous</span>}
                 </td>
-                <td className="px-5 py-3 font-mono text-xs" style={{ color: "#66716B" }}>{u.email}</td>
-                <td className="px-5 py-3">
+                <td data-label="Email" className="px-5 py-3 font-mono text-xs" style={{ color: "#66716B" }}>{u.email}</td>
+                <td data-label="Rôle et périmètre" className="px-5 py-3">
                   <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: r.bg, color: r.fg }}>{r.label}</span>
                   {/* Ce qui explique réellement le périmètre : les
                       organisations. Le rôle seul ne le dit plus. */}
@@ -102,12 +102,12 @@ export default function UsersTable({ users }: { users: AdminUserRow[] }) {
                     </span>
                   )}
                 </td>
-                <td className="px-5 py-3">
+                <td data-label="Statut" className="px-5 py-3">
                   <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: u.active ? "var(--brand-accent-soft,#E4F0EC)" : "#F6E7E5", color: u.active ? "var(--brand-accent,#0E6B5C)" : "#A3342C" }}>
                     {u.active ? "Actif" : "Inactif"}
                   </span>
                 </td>
-                <td className="px-5 py-3">
+                <td data-label="Actions" className="px-5 py-3">
                   <div className="flex items-center justify-end gap-2">
                     {u.canEdit ? (
                       <Link href={`/admin/utilisateurs/${u.id}/editer`} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-sm font-medium hover:bg-gray-50" style={{ borderColor: "#E3E6E2", color: "#66716B" }}>
@@ -125,7 +125,7 @@ export default function UsersTable({ users }: { users: AdminUserRow[] }) {
             )
           })}
           {!filtered.length && (
-            <tr><td colSpan={5} className="px-5 py-10 text-center text-sm" style={{ color: "#66716B" }}>Aucun utilisateur trouvé</td></tr>
+            <tr><td data-primary="" colSpan={5} className="px-5 py-10 text-center text-sm" style={{ color: "#66716B" }}>Aucun utilisateur trouvé</td></tr>
           )}
         </tbody>
       </table>

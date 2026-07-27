@@ -40,7 +40,7 @@ export default async function ImportPage() {
             <p className="text-xs mt-0.5" style={{ color: "#66716B" }}>20 derniers imports</p>
           </div>
           <div className="overflow-x-auto">
-          <table className="w-full text-sm" style={{ minWidth: 640 }}>
+          <table className="w-full text-sm table-cards tc-640">
             <thead>
               <tr style={{ background: "#F5F6F4", borderBottom: "1px solid #E3E6E2" }}>
                 {["Date", "Type", "Fichier", "Créées", "Ignorées", "Statut", "Par"].map(h => (
@@ -51,14 +51,14 @@ export default async function ImportPage() {
             <tbody>
               {(runs ?? []).map((r: any, i: number) => (
                 <tr key={r.id} style={{ borderBottom: "1px solid #E3E6E2", background: i % 2 === 0 ? "#fff" : "#FAFAFA" }}>
-                  <td className="px-4 py-2.5 text-xs" style={{ color: "#66716B" }}>
+                  <td data-primary="" className="px-4 py-2.5 text-xs" style={{ color: "#66716B" }}>
                     {new Date(r.at).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
                   </td>
-                  <td className="px-4 py-2.5" style={{ color: "#17211D" }}>{KIND_LABELS[r.kind] ?? r.kind}</td>
-                  <td className="px-4 py-2.5 text-xs font-mono" style={{ color: "#66716B" }}>{r.filename ?? "—"}</td>
-                  <td className="px-4 py-2.5 font-semibold" style={{ color: "var(--brand-accent,#0E6B5C)" }}>{r.created_count}</td>
-                  <td className="px-4 py-2.5" style={{ color: r.skipped_count > 0 ? "#B4690E" : "#66716B" }}>{r.skipped_count}</td>
-                  <td className="px-4 py-2.5">
+                  <td data-label="Type" className="px-4 py-2.5" style={{ color: "#17211D" }}>{KIND_LABELS[r.kind] ?? r.kind}</td>
+                  <td data-label="Fichier" className="px-4 py-2.5 text-xs font-mono" style={{ color: "#66716B" }}>{r.filename ?? "—"}</td>
+                  <td data-label="Créées" className="px-4 py-2.5 font-semibold" style={{ color: "var(--brand-accent,#0E6B5C)" }}>{r.created_count}</td>
+                  <td data-label="Ignorées" className="px-4 py-2.5" style={{ color: r.skipped_count > 0 ? "#B4690E" : "#66716B" }}>{r.skipped_count}</td>
+                  <td data-label="Statut" className="px-4 py-2.5">
                     <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{
                       background: r.status === "succes" ? "var(--brand-accent-soft,#E4F0EC)" : "#F6E7E5",
                       color: r.status === "succes" ? "var(--brand-accent,#0E6B5C)" : "#A3342C",
@@ -66,7 +66,7 @@ export default async function ImportPage() {
                       {r.status === "succes" ? "Succès" : "Échec"}
                     </span>
                   </td>
-                  <td className="px-4 py-2.5 text-xs" style={{ color: "#66716B" }}>{r.profiles?.full_name ?? "—"}</td>
+                  <td data-label="Par" className="px-4 py-2.5 text-xs" style={{ color: "#66716B" }}>{r.profiles?.full_name ?? "—"}</td>
                 </tr>
               ))}
             </tbody>

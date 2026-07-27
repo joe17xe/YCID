@@ -78,20 +78,20 @@ export default function StorageClient({ buckets, orphans, projects }: {
           <HardDrive size={16} aria-hidden="true" /> Par espace de stockage
         </h2>
         <div className="overflow-x-auto">
-        <table className="w-full text-sm" style={{ minWidth: 620 }}>
+        <table className="w-full text-sm table-cards tc-620">
           <tbody>
             {buckets.map((b, i) => (
               <tr key={b.bucket} style={{ borderTop: i ? "1px solid #E3E6E2" : undefined }}>
-                <td className="px-4 py-3" style={{ color: "#17211D" }}>
+                <td data-primary="" className="px-4 py-3" style={{ color: "#17211D" }}>
                   {BUCKET_LABELS[b.bucket] ?? b.bucket}
                   <span className="ml-2 text-xs font-mono" style={{ color: "#9AA39D" }}>{b.bucket}</span>
                 </td>
-                <td className="px-4 py-3 text-xs text-right" style={{ color: "#66716B" }}>{b.files} fichier{b.files > 1 ? "s" : ""}</td>
-                <td className="px-4 py-3 text-right font-semibold" style={{ color: "#17211D" }}>{fmtBytes(b.bytes)}</td>
+                <td data-label="Fichiers" className="px-4 py-3 text-xs text-right" style={{ color: "#66716B" }}>{b.files} fichier{b.files > 1 ? "s" : ""}</td>
+                <td data-label="Taille" className="px-4 py-3 text-right font-semibold" style={{ color: "#17211D" }}>{fmtBytes(b.bytes)}</td>
               </tr>
             ))}
             {buckets.length === 0 && (
-              <tr><td className="px-4 py-6 text-center text-sm" style={{ color: "#66716B" }}>Aucun fichier stocké.</td></tr>
+              <tr><td data-primary="" className="px-4 py-6 text-center text-sm" style={{ color: "#66716B" }}>Aucun fichier stocké.</td></tr>
             )}
           </tbody>
         </table>
@@ -104,13 +104,13 @@ export default function StorageClient({ buckets, orphans, projects }: {
             Par projet
           </h2>
           <div className="overflow-x-auto">
-          <table className="w-full text-sm" style={{ minWidth: 620 }}>
+          <table className="w-full text-sm table-cards tc-560">
             <tbody>
               {projects.map((p, i) => (
                 <tr key={p.projectId} style={{ borderTop: i ? "1px solid #E3E6E2" : undefined }}>
-                  <td className="px-4 py-3" style={{ color: "#17211D" }}>{p.projectName}</td>
-                  <td className="px-4 py-3 text-xs text-right" style={{ color: "#66716B" }}>{p.files} fichier{p.files > 1 ? "s" : ""}</td>
-                  <td className="px-4 py-3 text-right font-semibold" style={{ color: "#17211D" }}>{fmtBytes(p.bytes)}</td>
+                  <td data-primary="" className="px-4 py-3" style={{ color: "#17211D" }}>{p.projectName}</td>
+                  <td data-label="Fichiers" className="px-4 py-3 text-xs text-right" style={{ color: "#66716B" }}>{p.files} fichier{p.files > 1 ? "s" : ""}</td>
+                  <td data-label="Taille" className="px-4 py-3 text-right font-semibold" style={{ color: "#17211D" }}>{fmtBytes(p.bytes)}</td>
                 </tr>
               ))}
             </tbody>
