@@ -240,6 +240,22 @@ export async function updateEmailSettings(input: EmailInput): Promise<{ ok: bool
     const siteUrl = (input.siteUrl ?? '').trim().replace(/\/+$/, '')
     const port = Number(input.port)
 
+    // Le nom du serveur est un NOM DE MACHINE, pas un bloc de
+    // configuration. Contrôlé même envoi désactivé : le 27/07, tout le
+    // pavé « SMTP_HOST=… SMTP_PORT=… SMTP_PASS=… » a été collé dans ce
+    // champ. La base l'a accepté sans broncher, l'écran l'a réaffiché
+    // comme si de rien n'était, et il a fallu une requête SQL pour
+    // s'en apercevoir. Une valeur qu'aucun résolveur DNS ne peut
+    // traiter n'a pas à être enregistrée.
+    if (host && !/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i.test(host)) {
+      return {
+        ok: false,
+        error: host.includes('=') || /\s/.test(host)
+          ? 'Le champ « Serveur SMTP » n’attend que le nom du serveur, par exemple smtp.hostinger.com — pas le bloc de configuration complet. Le port, l’identifiant et le mot de passe ont chacun leur champ.'
+          : `« ${host} » n’est pas un nom de serveur valide.`,
+      }
+    }
+
     // Les contrôles ne s'appliquent qu'à l'envoi ACTIVÉ : on doit pouvoir
     // enregistrer une configuration partielle et l'activer plus tard.
     if (input.enabled) {
