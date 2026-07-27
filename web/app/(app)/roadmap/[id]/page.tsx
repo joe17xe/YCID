@@ -40,7 +40,7 @@ export default async function IdeaDetailPage({ params }: { params: Promise<{ id:
   }))
 
   return (
-    <div className="p-8 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-8 max-w-5xl mx-auto">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <Link href="/roadmap" className="inline-flex items-center gap-1 text-sm" style={{ color: "#66716B" }}>
           <ChevronLeft size={16} /> Retour à la roadmap

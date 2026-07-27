@@ -22,7 +22,7 @@ export default async function StoragePage() {
   const res = await loadStorage()
 
   return (
-    <div className="p-8 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-8 max-w-5xl mx-auto">
       <h1 className="text-2xl font-bold mb-1" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>
         Stockage
       </h1>

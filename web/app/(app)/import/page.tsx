@@ -22,7 +22,7 @@ export default async function ImportPage() {
   ])
 
   return (
-    <div className="p-8 max-w-4xl mx-auto">
+    <div className="p-4 sm:p-8 max-w-4xl mx-auto">
       <div className="mb-8">
         <h1 className="text-2xl font-bold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>Import CSV</h1>
         <p className="mt-1 text-sm" style={{ color: "#66716B" }}>

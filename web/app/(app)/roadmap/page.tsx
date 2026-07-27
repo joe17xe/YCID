@@ -18,7 +18,7 @@ export default async function RoadmapPage({ searchParams }: { searchParams: Prom
   if (tab === "deploiements") {
     const activity = await getDevActivity()
     return (
-      <div className="p-8 max-w-6xl mx-auto">
+      <div className="p-4 sm:p-8 max-w-6xl mx-auto">
         <RoadmapHeader tab={tab} />
         <DeploymentsBoard activity={activity} />
       </div>
@@ -57,7 +57,7 @@ export default async function RoadmapPage({ searchParams }: { searchParams: Prom
   }))
 
   return (
-    <div className="p-8 max-w-6xl mx-auto">
+    <div className="p-4 sm:p-8 max-w-6xl mx-auto">
       <RoadmapHeader tab={tab} action={<IdeaDialog />} />
       <RoadmapList ideas={cards} />
     </div>

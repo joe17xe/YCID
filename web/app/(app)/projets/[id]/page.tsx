@@ -14,6 +14,7 @@ import TaskDocuments from "@/components/project/TaskDocuments"
 import DeleteTaskButton from "@/components/tasks/DeleteTaskButton"
 import BudgetLineDocuments from "@/components/project/BudgetLineDocuments"
 import ProjectPulse from "@/components/project/ProjectPulse"
+import { StatTile } from "@/components/ui/StatTile"
 import NextSteps, { daysUntil, type StepTask } from "@/components/project/NextSteps"
 import PhasePhotos, { type PhasePhoto } from "@/components/project/PhasePhotos"
 import DocumentsPanel, { type ProjectDoc } from "@/components/project/DocumentsPanel"
@@ -29,7 +30,7 @@ import CommPanel, { type Campaign } from "@/components/project/CommPanel"
 import PublicPageDialog from "@/components/project/PublicPageDialog"
 import ProjectEditDialog from "@/components/project/ProjectEditDialog"
 import ProjectDocUpload from "@/components/project/ProjectDocUpload"
-import { ChevronLeft, User, CalendarDays } from "lucide-react"
+import { ChevronLeft, User, CalendarDays, MapPin } from "lucide-react"
 
 function Badge({ label, fg, bg }: { label: string; fg: string; bg: string }) {
   return <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ color: fg, background: bg }}>{label}</span>
@@ -368,7 +369,12 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
             <p className="text-sm line-clamp-2 sm:line-clamp-none" style={{ color: "#66716B" }}>{project.description}</p>
           )}
           <div className="text-xs mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1" style={{ color: "#66716B" }}>
-            {project.country && <span>📍 {project.country}{project.zone ? ` — ${project.zone}` : ""}</span>}
+            {project.country && (
+              <span className="inline-flex items-center gap-1">
+                <MapPin size={12} aria-hidden="true" />
+                {project.country}{project.zone ? ` — ${project.zone}` : ""}
+              </span>
+            )}
             {project.start_date && <span>{fmtDate(project.start_date)} → {fmtDate(project.end_date)}</span>}
             {project.budget != null && (
               <span>Montant voté <strong style={{ color: "#17211D" }}>{fmtEur(project.budget)}</strong></span>
@@ -783,21 +789,41 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
               Déplacer du budget d&apos;une ligne à l&apos;autre est normal ; le total, lui, correspond à un financement voté.
             </div>
           )}
-          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
-            {[
-              { label: "Voté", value: fmtEur(voted), color: "#17211D" },
-              { label: "Prévu (hors valorisation)", value: fmtEur(projectFin.planned), color: "var(--brand-accent,#0E6B5C)" },
-              { label: "Engagé (devis validés)", value: fmtEur(projectFin.engaged), color: "#3B5488" },
-              { label: "Payé", value: fmtEur(projectFin.paid), color: "var(--brand-accent,#0E6B5C)" },
-              { label: "Reste à engager", value: fmtEur(projectFin.remainingToCommit), color: "#66716B" },
-              { label: "Valorisations", value: fmtEur(totalValorisation), color: "#8A6A1F" },
-            ].map(({ label, value, color }) => (
-              <div key={label} className="bg-white rounded-2xl border p-4" style={{ borderColor: "#E3E6E2" }}>
-                <div className="text-lg font-bold" style={{ fontFamily: "var(--font-sora)", color }}>{value}</div>
-                <div className="text-xs mt-1" style={{ color: "#66716B" }}>{label}</div>
+          {/* Six tuiles de même poids visuel où « Voté » et « Payé » se
+              valaient, alors que la seule question du COPIL est l'écart
+              entre ce qui est voté et ce qui est consommé. Anatomie
+              partagée (StatTile), et surtout : TOUTES les jauges sont
+              rapportées à la même base — le montant voté quand il
+              existe. La rangée devient une phrase : voté, dont tant de
+              prévu, dont tant d'engagé, dont tant de payé. */}
+          {(() => {
+            const budgetBase = voted && voted > 0 ? voted : projectFin.planned
+            const pctOf = (n: number) => budgetBase > 0 ? Math.round((n / budgetBase) * 100) : 0
+            return (
+              <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2 mb-6">
+                <StatTile label="Voté" mark="#17211D"
+                  value={voted != null ? fmtEur(voted) : "—"}
+                  sub={voted != null ? "l'enveloppe de référence" : "aucun montant voté saisi"} />
+                <StatTile label="Prévu (hors valorisation)" mark="var(--brand-accent,#0E6B5C)"
+                  value={fmtEur(projectFin.planned)}
+                  meter={{ pct: pctOf(projectFin.planned), fill: "var(--brand-accent,#0E6B5C)", track: "var(--brand-accent-soft,#E4F0EC)" }}
+                  sub={voted != null ? `${pctOf(projectFin.planned)} % du voté réparti` : "réparti sur les lignes"} />
+                <StatTile label="Engagé (devis validés)" mark="#3B5488"
+                  value={fmtEur(projectFin.engaged)}
+                  meter={{ pct: pctOf(projectFin.engaged), fill: "#3B5488", track: "#E8ECF5" }}
+                  sub={`${pctOf(projectFin.engaged)} % de ${fmtEur(budgetBase)}`} />
+                <StatTile label="Payé" mark="var(--brand-accent,#0E6B5C)"
+                  value={fmtEur(projectFin.paid)}
+                  meter={{ pct: pctOf(projectFin.paid), fill: "var(--brand-accent,#0E6B5C)", track: "var(--brand-accent-soft,#E4F0EC)" }}
+                  sub={`reste ${fmtEur(Math.max(0, projectFin.engaged - projectFin.paid))} à régler`} />
+                <StatTile label="Reste à engager" mark="#66716B"
+                  value={fmtEur(projectFin.remainingToCommit)} />
+                <StatTile label="Valorisations" mark="#8A6A1F"
+                  value={fmtEur(totalValorisation)}
+                  sub="apports en nature — hors enveloppe" />
               </div>
-            ))}
-          </div>
+            )
+          })()}
           {/* Consommation du projet : engagé et payé rapportés au prévu.
               Deux barres superposées plutôt que deux pourcentages : on
               voit d'un coup l'écart entre commander et régler. */}

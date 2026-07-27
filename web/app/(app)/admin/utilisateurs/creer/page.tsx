@@ -19,7 +19,7 @@ export default async function CreerUtilisateurPage() {
   const canCreateAdmin = (me?.platform_role ?? "admin") === "admin"
 
   return (
-    <div className="p-8 max-w-3xl mx-auto">
+    <div className="p-4 sm:p-8 max-w-3xl mx-auto">
       <Link href="/admin/utilisateurs" className="inline-flex items-center gap-1 text-sm mb-6" style={{ color: "#66716B" }}>
         <ChevronLeft size={16} /> Retour à la liste
       </Link>
