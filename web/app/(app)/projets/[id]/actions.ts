@@ -5,9 +5,9 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { adminClient } from '@/lib/supabase/admin'
 import { adminCreateUser } from '@/lib/supabase/auth-admin'
-import { canEditCompletedTasks, canManagePhases, canManageTasks, canManageBudget, canManageMeetings, isUserAdmin } from '@/lib/permissions'
+import { canEditCompletedTasks, canManagePhases, canManageMembers, canManageAuditors, canManageTasks, canManageBudget, canManageMeetings, isUserAdmin } from '@/lib/permissions'
 import { notifyUser } from '@/lib/notify'
-import { ASSIGNABLE_ROLES } from '@/lib/rbac'
+import { ASSIGNABLE_ROLES, isAuditorSeat } from '@/lib/rbac'
 import { notifyPeople, projectLeads } from '@/lib/notify-circuit'
 import type { TaskStatus } from '@/lib/types'
 
@@ -622,8 +622,14 @@ export async function addProjectMember(input: { projectId: string; userId: strin
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: 'Non authentifié.' }
-  if (!(await canManagePhases(supabase, user.id, input.projectId))) {
-    return { ok: false, error: 'Gestion des membres réservée au chef de projet et aux admins.' }
+  if (!(await canManageMembers(supabase, user.id, input.projectId))) {
+    return { ok: false, error: 'Gestion des membres réservée au responsable projet et aux admins.' }
+  }
+  // Le contrôlé ne choisit pas son contrôleur (0047). La base le refuse
+  // aussi : ce contrôle-ci ne fait que remplacer une erreur Postgres
+  // brute par une phrase qui dit pourquoi.
+  if (isAuditorSeat(input.role) && !(await canManageAuditors(supabase, user.id))) {
+    return { ok: false, error: 'Nommer un auditeur est réservé à l’administrateur : le contrôlé ne choisit pas son contrôleur.' }
   }
   if (!input.userId) return { ok: false, error: 'Choisissez un utilisateur.' }
   if (!MEMBER_ROLES.includes(input.role)) return { ok: false, error: 'Rôle invalide.' }
@@ -669,8 +675,11 @@ export async function createProjectUser(input: {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { ok: false, error: 'Non authentifié.' }
-    if (!(await canManagePhases(supabase, user.id, input.projectId))) {
-      return { ok: false, error: 'Invitation réservée au chef de projet et aux admins.' }
+    if (!(await canManageMembers(supabase, user.id, input.projectId))) {
+      return { ok: false, error: 'Invitation réservée au responsable projet et aux admins.' }
+    }
+    if (isAuditorSeat(input.role) && !(await canManageAuditors(supabase, user.id))) {
+      return { ok: false, error: 'Nommer un auditeur est réservé à l’administrateur : le contrôlé ne choisit pas son contrôleur.' }
     }
     const fullName = (input.fullName ?? '').trim()
     if (!fullName) return { ok: false, error: 'Le nom complet est obligatoire.' }
@@ -726,8 +735,18 @@ export async function removeProjectMember(input: { projectId: string; userId: st
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: 'Non authentifié.' }
-  if (!(await canManagePhases(supabase, user.id, input.projectId))) {
-    return { ok: false, error: 'Gestion des membres réservée au chef de projet et aux admins.' }
+  if (!(await canManageMembers(supabase, user.id, input.projectId))) {
+    return { ok: false, error: 'Gestion des membres réservée au responsable projet et aux admins.' }
+  }
+  // Retirer l'auditeur de son propre projet, c'est retirer le contrôle
+  // (0047). Le geste reste possible — un auditeur peut changer — mais il
+  // remonte à l'administrateur.
+  {
+    const { data: target } = await supabase.from('project_members')
+      .select('role').eq('project_id', input.projectId).eq('user_id', input.userId).maybeSingle()
+    if (isAuditorSeat(target?.role) && !(await canManageAuditors(supabase, user.id))) {
+      return { ok: false, error: 'Retirer un auditeur est réservé à l’administrateur : le contrôlé ne choisit pas son contrôleur.' }
+    }
   }
   // Garde-fou : ne pas retirer le dernier chef de projet
   const { data: chefs } = await supabase.from('project_members')
@@ -935,7 +954,7 @@ export async function updateProjectMemberRole(input: { projectId: string; userId
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: 'Non authentifié.' }
-  if (!(await canManagePhases(supabase, user.id, input.projectId))) {
+  if (!(await canManageMembers(supabase, user.id, input.projectId))) {
     return { ok: false, error: 'Gestion des membres réservée au responsable projet et aux admins.' }
   }
   if (!MEMBER_ROLES.includes(input.role)) return { ok: false, error: 'Rôle invalide.' }
@@ -944,6 +963,14 @@ export async function updateProjectMemberRole(input: { projectId: string; userId
     .select('role').eq('project_id', input.projectId).eq('user_id', input.userId).maybeSingle()
   if (!current) return { ok: false, error: 'Ce membre ne fait pas partie du projet.' }
   if (current.role === input.role) return { ok: true }
+
+  // Les deux sens comptent (0047) : rétrograder un auditeur le fait
+  // disparaître du contrôle, en promouvoir un le fait apparaître. Un
+  // seul des deux gardes laisserait la moitié de la porte ouverte.
+  if ((isAuditorSeat(current.role) || isAuditorSeat(input.role))
+      && !(await canManageAuditors(supabase, user.id))) {
+    return { ok: false, error: 'Le siège d’auditeur est réservé à l’administrateur : le contrôlé ne choisit pas son contrôleur.' }
+  }
 
   // Même garde-fou que le retrait : rétrograder le dernier responsable
   // laisserait le projet sans personne pour le piloter. Le contournement

@@ -4,7 +4,7 @@ import { redirect, notFound } from "next/navigation"
 import Link from "next/link"
 import { PROJECT_STATUS, PROJECT_ROLES, ACCESS_ROLES, TASK_STATUS, REVIEW_STATES, fmtEur, fmtDate, LINE_STATUS, LINE_CATEGORIES, IND_KINDS, DECISION_STATUS, MEETING_KINDS } from "@/lib/constants"
 import { canEditCompletedTasks, getProjectRole } from "@/lib/permissions"
-import { can } from "@/lib/rbac"
+import { can, isAuditorSeat } from "@/lib/rbac"
 import { TAB_HELP } from "@/lib/help-content"
 import EditCompletedTaskDialog from "@/components/tasks/EditCompletedTaskDialog"
 import PhaseDialog from "@/components/tasks/PhaseDialog"
@@ -124,6 +124,12 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
   // affichait une version qui avait fini par diverger.
   const myRole = await getProjectRole(supabase, user.id, id)
   const canPhases = canEditCompleted || can(myRole, "phases.manage")
+  // Séparé de `phases.manage` le 27/07 : décider qui a accès au projet
+  // n'est pas le même pouvoir que créer une phase.
+  const canMembers = canEditCompleted || can(myRole, "membres.manage")
+  // Le siège d'auditeur ne relève d'aucun rôle projet (0047) : le
+  // contrôlé ne choisit pas son contrôleur.
+  const canAuditorSeat = isPlatformAdmin
   const canTasks = canEditCompleted || can(myRole, "taches.manage")
   const canBudget = canEditCompleted || can(myRole, "budget.manage")
   const canMeetings = canPhases
@@ -378,10 +384,10 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
           <div className="bg-white rounded-2xl border p-6" style={{ borderColor: "#E3E6E2" }}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-semibold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>Membres ({(project.project_members ?? []).length})</h2>
-              {canPhases && (
+              {canMembers && (
                 <span className="flex items-center gap-1.5">
-                  <InviteUserDialog projectId={id} />
-                  <MemberDialog projectId={id} candidates={memberCandidates} />
+                  <InviteUserDialog projectId={id} canAuditor={canAuditorSeat} />
+                  <MemberDialog projectId={id} candidates={memberCandidates} canAuditor={canAuditorSeat} />
                 </span>
               )}
             </div>
@@ -399,10 +405,18 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                           retirer puis rajouter la personne — ce qui effaçait
                           son historique d'appartenance — et, pour un
                           responsable, en nommer un second d'abord. */}
-                      {canPhases
-                        ? <MemberRoleSelect projectId={id} userId={pm.user_id} name={pm.profiles?.full_name ?? ""} role={pm.role} />
+                      {/* Un auditeur ne se modifie ni ne se retire depuis
+                          le projet, sauf par un administrateur : c'est
+                          le contrôle du projet, pas un membre comme un
+                          autre (0047). Le rôle reste lisible par tous —
+                          masquer QUI contrôle serait le contraire du
+                          but. */}
+                      {canMembers && (!isAuditorSeat(pm.role) || canAuditorSeat)
+                        ? <MemberRoleSelect projectId={id} userId={pm.user_id} name={pm.profiles?.full_name ?? ""} role={pm.role} canAuditor={canAuditorSeat} />
                         : <Badge label={r.short ?? r.label} fg={r.fg} bg={r.bg} />}
-                      {canPhases && <RemoveMemberButton projectId={id} userId={pm.user_id} name={pm.profiles?.full_name ?? ""} />}
+                      {canMembers && (!isAuditorSeat(pm.role) || canAuditorSeat) && (
+                        <RemoveMemberButton projectId={id} userId={pm.user_id} name={pm.profiles?.full_name ?? ""} />
+                      )}
                     </div>
                   </div>
                 )
