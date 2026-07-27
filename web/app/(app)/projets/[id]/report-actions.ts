@@ -72,7 +72,7 @@ export async function generateExpertReport(projectId: string, instructions?: str
       // modèle ne peut structurellement pas rapprocher une ligne de sa
       // phase ni des tâches qu'elle finance, donc pas commenter le
       // moindre écart.
-      supabase.from('budget_lines').select('id, poste, category, year, planned_amount, is_valorisation, status, phase_id, funder:funder_org_id(name), allocations:budget_line_tasks(task_id, amount), documents(type, amount, paid, validations(decision))').eq('project_id', projectId),
+      supabase.from('budget_lines').select('id, poste, category, year, planned_amount, is_valorisation, status, phase_id, funder:funder_org_id(name), owner:owner_org_id(name), allocations:budget_line_tasks(task_id, amount), documents(type, amount, paid, validations(decision))').eq('project_id', projectId),
       supabase.from('indicators').select('id, name, kind, unit, baseline, target').eq('project_id', projectId),
       supabase.from('indicator_measures').select('indicator_id, period, value').order('period'),
       supabase.from('meetings').select('title, kind, date, minutes').eq('project_id', projectId).order('date', { ascending: false }).limit(10),
@@ -169,6 +169,35 @@ export async function generateExpertReport(projectId: string, instructions?: str
         }
         return [...acc.values()].sort((a, b) => b.prevu - a.prevu)
       })(),
+      // Contributions en nature. Le digest les ignorait complètement :
+      // l'enveloppe est « hors valorisation », et les lignes ne portaient
+      // qu'un drapeau. Le rapport ne pouvait donc PAS dire « X € apportés
+      // en nature, soit Y % du projet » — alors que c'est une part du
+      // cofinancement, et souvent la plus visible de l'engagement du
+      // territoire.
+      //
+      // `justifiee` compte : une valorisation sans pièce reste
+      // déclarative, et le MEAE exige des feuilles d'émargement pour le
+      // bénévolat.
+      valorisations: (() => {
+        const lignes = (budget ?? []).filter(l => l.is_valorisation)
+        const total = lignes.reduce((s2, l) => s2 + Number(l.planned_amount ?? 0), 0)
+        const coutTotal = projectFin.planned + total
+        return {
+          total_valorise: total,
+          cout_total_projet_monetaire_plus_nature: coutTotal,
+          part_en_nature_pourcent: coutTotal > 0 ? Math.round((total / coutTotal) * 100) : 0,
+          nb_lignes: lignes.length,
+          nb_lignes_sans_piece: lignes.filter(l => (l.documents ?? []).length === 0).length,
+          detail: lignes.map((l: any) => ({
+            poste: l.poste,
+            contributeur: (Array.isArray(l.owner) ? l.owner[0]?.name : l.owner?.name) ?? 'non renseigné',
+            montant: l.planned_amount,
+            statut: l.status,
+            justifiee: (l.documents ?? []).length > 0,
+          })),
+        }
+      })(),
       organisations: (orgs ?? []).map(o => ({ role: o.role, org: o.organizations })),
       nb_membres: (members ?? []).length,
       phases: (phases ?? []).map(p => ({
@@ -233,6 +262,7 @@ RÈGLES ABSOLUES :
 - Distingue ce qui est DÉCLARÉ de ce qui est PROUVÉ : une tâche à 100 % sans pièce justificative (« terminee_sans_justificatif ») est un avancement déclaratif, à signaler comme tel. Une phase sans photo « avant » ni « après » ne documente pas sa réalisation.
 - Distingue les TROIS montants et ne les confonds jamais : « prévu » est ce qui est budgété, « engagé » ce que des devis validés ont réservé, « payé » ce qui est effectivement réglé. Un projet SOUS-consommé est une alerte de pilotage au même titre qu'un dépassement : commente le sens de l'écart, pas seulement son ampleur.
 - L'enveloppe correspond à un financement voté : sa répartition entre lignes peut bouger, son total non. Signale tout « ecart_au_vote » non nul.
+- Traite les CONTRIBUTIONS EN NATURE (« valorisations ») dans la section budgétaire : bénévolat, locaux et matériel prêtés font partie du cofinancement, pas du décor. Cite le coût total du projet (monétaire + nature) et la part apportée en nature. Signale comme un RISQUE toute contribution sans pièce justificative (« justifiee: false ») : elle reste déclarative et un financeur peut la refuser au contrôle.
 - Dans la section budgétaire, restitue OBLIGATOIREMENT la répartition « par_financeur » : ce rapport sert de compte rendu aux financeurs, qui ont voté une enveloppe et attendent de savoir ce qu'elle est devenue. Pour chacun, indique prévu, engagé, payé, et commente son taux de consommation. Une ligne « Non affecté » signale un montant rattaché à aucun financeur : signale-la comme une donnée manquante, pas comme un financeur.
 - N'écris AUCUNE consigne, instruction ni commentaire de méthode dans le document.
 - Markdown sobre : titres de niveau 2, listes à puces, gras pour les alertes. Pas d'italique.
@@ -248,6 +278,7 @@ Ne commence pas par un titre de niveau 1 : il est ajouté par l'application.`
 
     const consigne = (instructions ?? '').trim().slice(0, 2000)
     const result = await chatComplete({
+      usageContext: { feature: 'rapport', projectId },
       system,
       user: [
         consigne ? `Consignes du chef de projet / de l'expert local, à respecter en priorité :\n${consigne}\n` : '',

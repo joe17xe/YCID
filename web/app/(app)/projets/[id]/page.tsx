@@ -218,6 +218,40 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
     // financeur.
     .sort((a, b) => a.key === NO_FUNDER ? 1 : b.key === NO_FUNDER ? -1 : b.fin.planned - a.fin.planned)
 
+  // ------------------------------------------------------------
+  // Contributions en nature
+  // ------------------------------------------------------------
+  // La valorisation n'est pas un détail comptable : pour le MEAE elle
+  // fait partie du COFINANCEMENT. Du bénévolat et des locaux prêtés
+  // sont un apport réel du territoire, et souvent la part la plus
+  // visible de l'engagement associatif.
+  //
+  // Elle est exclue des montants monétaires — on ne peut ni l'engager
+  // ni la payer — mais l'exclure de partout revenait à la rendre
+  // invisible : elle n'avait qu'une tuile et un badge.
+  //
+  // Regroupée par organisation CONTRIBUTRICE (`owner_org_id`), pas par
+  // financeur : personne ne finance une valorisation, quelqu'un
+  // l'apporte.
+  const valoLines = (budgetLines ?? []).filter((l: any) => l.is_valorisation)
+  const valoByOrg = new Map<string, { name: string; amount: number; lines: number; justified: number }>()
+  for (const l of valoLines as any[]) {
+    const key = l.owner_org_id ?? '__sans__'
+    const name = l.owner?.name ?? 'Contributeur non renseigné'
+    const row = valoByOrg.get(key) ?? { name, amount: 0, lines: 0, justified: 0 }
+    row.amount += Number(l.planned_amount ?? 0)
+    row.lines += 1
+    // Une valorisation sans pièce est DÉCLARATIVE. Le MEAE exige des
+    // feuilles d'émargement pour valoriser du bénévolat : compter les
+    // lignes justifiées est donc une information de conformité, pas un
+    // raffinement.
+    if ((l.documents ?? []).length > 0) row.justified += 1
+    valoByOrg.set(key, row)
+  }
+  const valoRows = [...valoByOrg.entries()]
+    .map(([key, v]) => ({ key, ...v }))
+    .sort((a, b) => a.key === '__sans__' ? 1 : b.key === '__sans__' ? -1 : b.amount - a.amount)
+
   const totalValorisation = (budgetLines ?? []).filter((l: any) => l.is_valorisation)
     .reduce((s: number, l: any) => s + (l.planned_amount ?? 0), 0)
   // Le montant VOTÉ est la référence : la répartition entre lignes peut
@@ -668,6 +702,75 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
               </div>
             </div>
           )}
+
+          {/* Contributions en nature. Elles ne sont ni engagées ni
+              payées — elles sont APPORTÉES. Leur donner un tableau à
+              part, plutôt qu'une tuile, c'est reconnaître qu'elles font
+              partie du cofinancement et non du reliquat. */}
+          {valoRows.length > 0 && (() => {
+            const coutTotal = projectFin.planned + totalValorisation
+            const partNature = coutTotal > 0 ? Math.round((totalValorisation / coutTotal) * 100) : 0
+            const nonJustifiees = valoLines.length - valoRows.reduce((s, r) => s + r.justified, 0)
+            return (
+              <div className="bg-white rounded-2xl border overflow-hidden mb-6" style={{ borderColor: "#E3E6E2" }}>
+                <div className="px-4 py-3" style={{ borderBottom: "1px solid #E3E6E2" }}>
+                  <h3 className="text-sm font-semibold" style={{ color: "#17211D" }}>Contributions en nature</h3>
+                  {/* Le coût total du projet — monétaire + nature — n'était
+                      affiché nulle part. C'est pourtant le chiffre que lit
+                      un financeur : ce que le projet représente réellement. */}
+                  <p className="text-xs mt-0.5" style={{ color: "#66716B" }}>
+                    Coût total du projet <strong style={{ color: "#17211D" }}>{fmtEur(coutTotal)}</strong> —
+                    dont <strong style={{ color: "#8A6A1F" }}>{fmtEur(totalValorisation)}</strong> apportés
+                    en nature, soit <strong style={{ color: "#8A6A1F" }}>{partNature} %</strong>.
+                    Bénévolat, locaux et matériel prêtés : ils ne se paient pas, mais ils comptent
+                    dans le cofinancement.
+                  </p>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr style={{ background: "#F5F6F4", borderBottom: "1px solid #E3E6E2" }}>
+                        {["Organisation contributrice", "Montant valorisé", "Part du coût total", "Lignes", "Justifiées"].map(h => (
+                          <th key={h} className="text-left px-4 py-2.5 text-xs font-semibold" style={{ color: "#66716B" }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {valoRows.map(r => {
+                        const part = coutTotal > 0 ? Math.round((r.amount / coutTotal) * 100) : 0
+                        const orphan = r.key === "__sans__"
+                        return (
+                          <tr key={r.key} style={{ borderBottom: "1px solid #F0F2F0" }}>
+                            <td className="px-4 py-3" style={{ color: orphan ? "#B4690E" : "#17211D" }}>{r.name}</td>
+                            <td className="px-4 py-3 font-semibold" style={{ color: "#8A6A1F" }}>{fmtEur(r.amount)}</td>
+                            <td className="px-4 py-3 text-xs" style={{ color: "#66716B" }}>{part} %</td>
+                            <td className="px-4 py-3 text-xs" style={{ color: "#66716B" }}>{r.lines}</td>
+                            <td className="px-4 py-3 text-xs"
+                              style={{ color: r.justified === r.lines ? "var(--brand-accent,#0E6B5C)" : "#B4690E" }}>
+                              {r.justified} / {r.lines}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                {/* Une valorisation sans pièce est DÉCLARATIVE. Le MEAE
+                    exige des feuilles d'émargement pour valoriser du
+                    bénévolat : le signaler ici évite de le découvrir au
+                    contrôle. */}
+                {nonJustifiees > 0 && (
+                  <div className="px-4 py-3 text-xs" style={{ background: "#F7EDDD", color: "#8A6A1F", borderTop: "1px solid #E3E6E2" }}>
+                    <strong>{nonJustifiees} contribution{nonJustifiees > 1 ? "s" : ""} sans pièce justificative.</strong>{" "}
+                    Une valorisation non documentée reste déclarative : un financeur peut la
+                    refuser au moment du contrôle. Déposez les feuilles d&apos;émargement,
+                    conventions de mise à disposition ou attestations sur la ligne concernée,
+                    par l&apos;icône trombone.
+                  </div>
+                )}
+              </div>
+            )
+          })()}
 
           <div className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor: "#E3E6E2" }}>
             <table className="w-full text-sm">

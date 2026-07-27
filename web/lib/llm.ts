@@ -1,4 +1,5 @@
 import { getAiConfig } from '@/lib/ai-settings'
+import { recordAiUsage } from '@/lib/ai-usage'
 
 // ============================================================
 // Fondation LLM — client compatible API OpenAI (chat/completions)
@@ -68,6 +69,11 @@ interface ChatOptions {
   maxTokens?: number
   json?: boolean      // demande une réponse JSON stricte au fournisseur
   attempts?: number   // tentatives totales (défaut 2)
+  // Comptabilisation (0043). Renseigné ici plutôt que dans chaque
+  // appelant : la génération des contenus de communication appelait
+  // l'IA sans rien enregistrer, et personne ne s'en était aperçu. Un
+  // compteur qu'on peut oublier de brancher n'est pas un compteur.
+  usageContext?: { feature: string; projectId?: string | null }
 }
 
 async function callOnce(opts: ChatOptions, config: { apiKey: string; baseUrl: string; model: string }): Promise<LlmResult> {
@@ -148,9 +154,19 @@ export async function chatComplete(opts: ChatOptions): Promise<LlmResult> {
   const model = config.model || DEFAULT_MODEL
   const attempts = Math.max(1, opts.attempts ?? 2)
 
+  const feature = opts.usageContext?.feature ?? 'inconnu'
   let last: LlmResult = { ok: false, error: 'Aucune tentative effectuée.' }
   for (let i = 0; i < attempts; i++) {
     last = await callOnce(opts, { apiKey: config.apiKey, baseUrl, model })
+    // CHAQUE tentative est comptée, réussie ou non : un appel qui
+    // échoue a déjà consommé ses jetons d'entrée, et deux tentatives
+    // coûtent deux fois. Ne compter que le succès sous-estimerait la
+    // facture d'autant plus que le service fonctionne mal.
+    await recordAiUsage({
+      feature, projectId: opts.usageContext?.projectId ?? null,
+      model: last.model ?? model, usage: last.usage,
+      ok: last.ok, truncated: !!last.truncated,
+    })
     if (last.ok) return last
     // On ne réessaie que ce qui a une chance d'aboutir
     const retryable = last.finishReason === 'retry' || last.finishReason === 'length' || last.error === 'Réponse IA vide.'

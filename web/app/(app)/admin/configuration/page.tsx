@@ -11,6 +11,8 @@ import AiForm from "@/components/admin/AiForm"
 import LegalForm from "@/components/admin/LegalForm"
 import EmailForm from "@/components/admin/EmailForm"
 import ValidationForm from "@/components/admin/ValidationForm"
+import AiUsagePanel from "@/components/admin/AiUsagePanel"
+import { getAiUsageSummary } from "@/lib/ai-usage"
 import { getEmailSettings, getEmailTestStatus } from "@/lib/mailer"
 
 const SECTIONS = [
@@ -38,6 +40,10 @@ export default async function ConfigurationPage({ searchParams }: { searchParams
     isEmail ? getEmailSettings() : Promise.resolve(null),
   ])
   const emailTest = isEmail ? await getEmailTestStatus() : null
+  // La consommation s'affiche SOUS la configuration du fournisseur :
+  // c'est le même sujet, et la séparer inviterait à ne jamais la
+  // regarder.
+  const aiUsage = isAi ? await getAiUsageSummary() : null
 
   // Réglages du circuit + aperçu projet par projet : un réglage dont on
   // ne voit pas l'effet se règle à l'aveugle.
@@ -95,7 +101,18 @@ export default async function ConfigurationPage({ searchParams }: { searchParams
         })}
       </div>
 
-      {isAi && ai ? <AiForm settings={ai} providers={AI_PROVIDERS} />
+      {isAi && ai ? (
+          <div className="space-y-6">
+            <AiForm settings={ai} providers={AI_PROVIDERS} />
+            {aiUsage
+              ? <AiUsagePanel usage={aiUsage} />
+              : (
+                <div className="rounded-xl px-4 py-3 text-sm" style={{ background: "#F7EDDD", color: "#8A6A1F" }}>
+                  Suivi de consommation indisponible. Appliquez la migration <code>0043_ai_usage.sql</code>.
+                </div>
+              )}
+          </div>
+        )
         : isValidation ? (
           validation
             ? <ValidationForm settings={validation.settings} organizations={validation.organizations} projects={validation.projects} />
