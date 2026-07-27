@@ -8,6 +8,8 @@ import { redirect } from "next/navigation"
 import { isUserAdmin } from "@/lib/permissions"
 import { getPlatformSettings } from "@/lib/settings"
 import { ACCESS_ROLES } from "@/lib/constants"
+import WelcomeTour from "@/components/onboarding/WelcomeTour"
+import { buildTourSteps, type TourStep } from "@/lib/tour"
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -21,6 +23,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   let email = ""
   let avatarUrl: string | null = null
   let roles: HeaderRole[] = []
+  // Visite guidée : construite UNIQUEMENT tant qu'elle n'a pas été vue —
+  // le cas nominal (visite vue) ne coûte aucune requête de plus.
+  let tourSteps: TourStep[] | null = null
 
   if (user) {
     const [{ data: profile }, { data: memberRoles }, admin] = await Promise.all([
@@ -37,6 +42,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     name = profile?.full_name ?? ""
     email = profile?.email ?? user.email ?? ""
     avatarUrl = profile?.avatar_url ?? null
+    if (profile && !profile.tour_seen_at) {
+      tourSteps = await buildTourSteps(supabase, user.id)
+    }
     roles = (memberRoles ?? []).map((m: { role: string; projects: { name: string } | { name: string }[] | null }) => {
       const project = Array.isArray(m.projects) ? m.projects[0] : m.projects
       return {
@@ -56,6 +64,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           name={name} email={email} avatarUrl={avatarUrl} />
         <Header name={name} email={email} avatarUrl={avatarUrl} roles={roles} isAdmin={showAdmin} />
         <main id="contenu-principal" tabIndex={-1} className="flex-1">{children}</main>
+        {/* Première connexion : la visite s'ouvre d'elle-même, une fois,
+            quelle que soit la page d'atterrissage. */}
+        {user && tourSteps && <WelcomeTour userId={user.id} steps={tourSteps} mode="auto" />}
         <Footer brandName={settings.brandName} />
       </div>
     </div>
