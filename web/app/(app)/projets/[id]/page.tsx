@@ -772,8 +772,13 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
             )
           })()}
 
-          <div className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor: "#E3E6E2" }}>
-            <table className="w-full text-sm">
+          {/* Le tableau des lignes n'avait AUCUN défilement horizontal :
+              sur téléphone il débordait de la page, et la colonne
+              « Prévu » — qui porte l'accès aux pièces — devenait
+              inatteignable. Constaté en recette : un devis ne pouvait pas
+              être déposé depuis un mobile. */}
+          <div className="bg-white rounded-2xl border overflow-x-auto" style={{ borderColor: "#E3E6E2" }}>
+            <table className="w-full text-sm" style={{ minWidth: 760 }}>
               <thead>
                 <tr style={{ background: "#F5F6F4", borderBottom: "1px solid #E3E6E2" }}>
                   {["Poste", "Tâche financée", "Catégorie", "Financeur", "Année", "Prévu", "Engagé", "Payé", "Statut"].map(h => (

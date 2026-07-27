@@ -189,12 +189,20 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
 
   return (
     <>
+      {/* Un trombone gris de 11 pixels, sans libellé, pour l'action la
+          plus structurante du module financier : personne ne le trouvait,
+          pas même l'auteur du projet. C'est ICI que se déposent devis et
+          factures — le dire coûte deux mots. */}
       <button type="button" onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1 text-xs whitespace-nowrap"
-        style={{ color: docs.length ? "#66716B" : "#9AA39D" }}
-        title={`Pièces justificatives de « ${poste} »`}>
-        <Paperclip size={11} aria-hidden="true" />
-        {docs.length}
+        className="inline-flex items-center gap-1 text-xs whitespace-nowrap px-2 py-1 rounded-lg border"
+        style={{
+          borderColor: "#E3E6E2",
+          color: docs.length ? "var(--brand-accent,#0E6B5C)" : "#66716B",
+          background: docs.length ? "var(--brand-accent-soft,#E4F0EC)" : "#FFFFFF",
+        }}
+        title={`Devis, factures et justificatifs de « ${poste} »`}>
+        <Paperclip size={12} aria-hidden="true" />
+        <span className="font-medium">Pièces{docs.length > 0 ? ` (${docs.length})` : ""}</span>
         {engaged > 0 && <span style={{ color: "#3B5488" }}> · eng. {fmtEur(engaged)}</span>}
         {paid > 0 && <span style={{ color: "var(--brand-accent,#0E6B5C)" }}> · payé {fmtEur(paid)}</span>}
       </button>
