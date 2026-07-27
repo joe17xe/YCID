@@ -198,13 +198,29 @@ export async function decideValidation(input: {
     }
   }
 
-  const { error } = await supabase.from('validations').update({
+  // `.eq('decision', 'en_attente')` ferme la fenêtre entre la lecture
+  // ci-dessus et cette écriture : deux personnes qui tranchent à trois
+  // secondes d'écart, et la seconde écrasait la première — y compris un
+  // refus par une validation.
+  //
+  // `.select()` n'est pas décoratif : un UPDATE qu'une policy RLS écarte
+  // ne remonte AUCUNE erreur, il met à jour zéro ligne et répond
+  // « succès ». Sans compter les lignes revenues, l'écran affichait
+  // « validé » sur une décision que la base venait de refuser — la panne
+  // muette, celle qui se découvre en réunion devant un financeur.
+  const { data: updated, error } = await supabase.from('validations').update({
     decision: input.decision,
     decided_by: user.id,
     decided_at: new Date().toISOString(),
     comment: input.comment?.trim() || null,
-  }).eq('id', input.validationId)
+  }).eq('id', input.validationId).eq('decision', 'en_attente').select('id')
   if (error) return { ok: false, error: `Décision refusée : ${error.message}` }
+  if (!updated?.length) {
+    return {
+      ok: false,
+      error: `Décision non enregistrée : la base l'a écartée. Soit quelqu'un vient de trancher (rafraîchissez la page), soit l'échelon précédent n'a pas encore validé.`,
+    }
+  }
 
   const doc = Array.isArray(v.documents) ? v.documents[0] : v.documents
   const v_step = (v as { step?: number }).step ?? 1
