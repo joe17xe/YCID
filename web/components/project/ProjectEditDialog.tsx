@@ -29,9 +29,13 @@ export interface ProjectEditable {
   end_date: string | null
   status: string
   budget: number | null
+  lead_org_id: string | null
 }
 
-export default function ProjectEditDialog({ project }: { project: ProjectEditable }) {
+export default function ProjectEditDialog({ project, organizations }: {
+  project: ProjectEditable
+  organizations: { id: string; name: string }[]
+}) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [error, setError] = useState("")
@@ -46,7 +50,10 @@ export default function ProjectEditDialog({ project }: { project: ProjectEditabl
     end_date: project.end_date ?? "",
     status: project.status ?? "en_preparation",
     budget: project.budget != null ? String(project.budget) : "",
+    lead_org_id: project.lead_org_id ?? "",
   })
+
+  const leadChanged = form.lead_org_id !== (project.lead_org_id ?? "")
 
   const budgetChanged = (form.budget.trim() === "" ? null : Number(form.budget)) !== (project.budget ?? null)
 
@@ -115,6 +122,31 @@ export default function ProjectEditDialog({ project }: { project: ProjectEditabl
                 <input id="pe-end" type="date" value={form.end_date} onChange={e => setForm({ ...form, end_date: e.target.value })}
                   className={inputCls} style={border} />
               </div>
+            </div>
+
+            {/* L'organisation porteuse décide du PREMIER échelon de
+                validation. Elle se figeait à la création : le jour où le
+                portage change — un contact de mairie enfin désigné — rien
+                ne permettait de le corriger. */}
+            <div className="pt-2 border-t" style={border}>
+              <label htmlFor="pe-lead" className={label} style={{ color: "#17211D" }}>Organisation porteuse *</label>
+              <select id="pe-lead" required value={form.lead_org_id}
+                onChange={e => setForm({ ...form, lead_org_id: e.target.value })}
+                className={inputCls} style={border}>
+                <option value="">Choisir…</option>
+                {organizations.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+              </select>
+              <p className="text-xs mt-1" style={{ color: "#66716B" }}>
+                Première étape du circuit de validation : c&apos;est elle qui approuve les devis
+                avant l&apos;organisation coordinatrice.
+              </p>
+              {leadChanged && (
+                <p className="text-xs mt-2 rounded-lg px-3 py-2" style={{ background: "#F7EDDD", color: "#8A6A1F" }}>
+                  Vous changez l&apos;organisation porteuse : les prochains devis partiront
+                  vers elle. L&apos;ancienne reste rattachée au projet comme partenaire, et le
+                  changement est inscrit au Journal.
+                </p>
+              )}
             </div>
 
             <div className="pt-2 border-t" style={border}>

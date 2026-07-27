@@ -824,6 +824,10 @@ export interface ProjectEditInput {
   end_date: string
   status: string
   budget: string
+  // L'organisation porteuse décide du PREMIER échelon de validation
+  // (0041). Elle se figeait à la création : impossible de la corriger le
+  // jour où le portage change.
+  lead_org_id: string
 }
 
 const PROJECT_STATUSES = ['en_preparation', 'en_cours', 'suspendu', 'termine']
@@ -849,10 +853,15 @@ export async function updateProject(input: ProjectEditInput): Promise<{ ok: bool
   }
 
   const { data: before } = await supabase.from('projects')
-    .select('name, budget').eq('id', input.projectId).maybeSingle()
+    .select('name, budget, lead_org_id').eq('id', input.projectId).maybeSingle()
   if (!before) return { ok: false, error: 'Projet introuvable.' }
 
+  const leadOrgId = (input.lead_org_id ?? '').trim() || null
+  if (!leadOrgId) return { ok: false, error: "L'organisation porteuse est obligatoire : c'est elle qui valide en premier." }
+  const leadChanged = (before.lead_org_id ?? null) !== leadOrgId
+
   const { error } = await supabase.from('projects').update({
+    lead_org_id: leadOrgId,
     name,
     description: input.description?.trim() || null,
     country: input.country?.trim() || null,
@@ -869,14 +878,44 @@ export async function updateProject(input: ProjectEditInput): Promise<{ ok: bool
   // trace nommément, avec l'ancienne et la nouvelle valeur. « Projet
   // modifié » ne suffirait pas six mois plus tard devant un financeur
   // qui demande pourquoi l'enveloppe a bougé.
+  // Changer le porteur change QUI valide en premier. Le rôle « porteur »
+  // de project_organizations doit suivre, sans quoi l'écran et la chaîne
+  // de validation désigneraient deux organisations différentes — une
+  // divergence silencieuse, qui enverrait le devis au mauvais endroit.
+  let leadNote = ''
+  if (leadChanged) {
+    if (before.lead_org_id) {
+      // L'ancienne porteuse reste rattachée au projet, mais redevient
+      // partenaire : la retirer perdrait son historique.
+      await supabase.from('project_organizations')
+        .update({ role: 'partenaire' })
+        .eq('project_id', input.projectId).eq('org_id', before.lead_org_id).eq('role', 'porteur')
+    }
+    // Clé composite (project_id, org_id) : cette table n'a pas d'`id`.
+    // L'upsert sur la clé primaire couvre les deux cas — l'organisation
+    // était déjà rattachée au projet, ou elle ne l'était pas.
+    const { error: poErr } = await supabase.from('project_organizations')
+      .upsert({ project_id: input.projectId, org_id: leadOrgId, role: 'porteur' },
+              { onConflict: 'project_id,org_id' })
+    if (poErr) {
+      return { ok: false, error: `Le projet est modifié, mais le rôle « porteur » n'a pas suivi : ${poErr.message}. Signalez-le — l'écran et le circuit de validation désigneraient deux organisations différentes.` }
+    }
+    const { data: orgs } = await supabase.from('organizations')
+      .select('id, name').in('id', [before.lead_org_id, leadOrgId].filter(Boolean) as string[])
+    const nameOf = (id: string | null) => orgs?.find(o => o.id === id)?.name ?? 'non renseignée'
+    leadNote = ` — ORGANISATION PORTEUSE : ${nameOf(before.lead_org_id)} → ${nameOf(leadOrgId)} (change le premier échelon de validation)`
+  }
+
   const eur = (n: number | null) => n == null ? 'non renseigné' : `${Math.round(n).toLocaleString('fr-FR')} €`
   const budgetChanged = (before.budget ?? null) !== budget
   const { error: auditErr } = await supabase.from('audit_log').insert({
     project_id: input.projectId, entity: 'project', entity_id: input.projectId,
     label: name, action: 'modifie', user_id: user.id,
-    comment: budgetChanged
-      ? `Fiche projet modifiée — MONTANT VOTÉ : ${eur(before.budget)} → ${eur(budget)}`
-      : 'Fiche projet modifiée',
+    comment: [
+      'Fiche projet modifiée',
+      budgetChanged ? ` — MONTANT VOTÉ : ${eur(before.budget)} → ${eur(budget)}` : '',
+      leadNote,
+    ].join(''),
   })
   if (auditErr) console.error('[audit] trace NON enregistrée:', auditErr.message)
 
