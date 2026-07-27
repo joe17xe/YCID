@@ -18,6 +18,7 @@ export interface EmailPublic {
   hasPassword: boolean
   from_name: string
   from_email: string | null
+  reply_to: string | null
   site_url: string | null
   last_test_at: string | null
   last_test_ok: boolean | null
@@ -38,6 +39,7 @@ export default function EmailForm({ settings }: { settings: EmailPublic }) {
     password: "",
     fromName: settings.from_name ?? "Solid'Pilot",
     fromEmail: settings.from_email ?? "",
+    replyTo: settings.reply_to ?? "",
     siteUrl: settings.site_url ?? "",
   })
 
@@ -127,6 +129,17 @@ export default function EmailForm({ settings }: { settings: EmailPublic }) {
           <input id="from-email" type="email" value={form.fromEmail} onChange={e => setForm({ ...form, fromEmail: e.target.value })}
             placeholder="solidpilot@ycid.fr" className={inputCls} style={border} />
         </div>
+      </div>
+
+      <div>
+        <label htmlFor="reply-to" className={label} style={{ color: "#66716B" }}>ADRESSE DE RÉPONSE</label>
+        <input id="reply-to" type="email" value={form.replyTo} onChange={e => setForm({ ...form, replyTo: e.target.value })}
+          placeholder="cem.notif@exemple.fr" className={inputCls} style={border} />
+        <p className="text-xs mt-1" style={{ color: "#66716B" }}>
+          Où arrivent les réponses. Vide = l&apos;adresse d&apos;expédition. Si celle-ci
+          n&apos;est relevée par personne, les réponses se perdent sans que leur auteur
+          le sache.
+        </p>
       </div>
 
       <div>

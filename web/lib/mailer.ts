@@ -26,6 +26,7 @@ export interface EmailSettings {
   password: string | null
   from_name: string
   from_email: string | null
+  reply_to: string | null
   site_url: string | null
 }
 
@@ -41,7 +42,7 @@ export async function getEmailSettings(): Promise<EmailSettings | null> {
   const db = adminDb()
   if (!db) return null
   const { data } = await db.from('email_settings')
-    .select('enabled, host, port, secure, username, password, from_name, from_email, site_url')
+    .select('enabled, host, port, secure, username, password, from_name, from_email, reply_to, site_url')
     .eq('id', true).maybeSingle()
   return (data as EmailSettings | null) ?? null
 }
@@ -82,6 +83,10 @@ export async function sendMail(mail: Mail): Promise<string | null> {
     if (!isUsable(s)) return 'Envoi désactivé ou incomplet — aucun email envoyé.'
     await transportFor(s).sendMail({
       from: `"${s.from_name}" <${s.from_email}>`,
+      // L'expéditeur est souvent une boîte de service que personne ne
+      // relève. Sans adresse de réponse, répondre à une notification
+      // revient à écrire dans le vide — et l'auteur croit avoir répondu.
+      replyTo: s.reply_to || s.from_email || undefined,
       to: mail.to,
       subject: mail.subject,
       text: mail.text,
