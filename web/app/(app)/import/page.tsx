@@ -39,7 +39,8 @@ export default async function ImportPage() {
             <h2 className="font-semibold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>Journal des imports</h2>
             <p className="text-xs mt-0.5" style={{ color: "#66716B" }}>20 derniers imports</p>
           </div>
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm" style={{ minWidth: 640 }}>
             <thead>
               <tr style={{ background: "#F5F6F4", borderBottom: "1px solid #E3E6E2" }}>
                 {["Date", "Type", "Fichier", "Créées", "Ignorées", "Statut", "Par"].map(h => (
@@ -70,6 +71,7 @@ export default async function ImportPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

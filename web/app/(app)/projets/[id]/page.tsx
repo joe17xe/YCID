@@ -327,12 +327,19 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-6 border-b" style={{ borderColor: "#E3E6E2" }}>
+      {/* Huit onglets à `px-4` font près de 900 pixels de large. Sur un
+          téléphone de 390, ce n'est pas la barre qui débordait : c'est
+          la PAGE ENTIÈRE qui glissait sous le doigt, emportant les
+          cartes, les tableaux et les boutons avec elle — d'où
+          l'impression, juste, que « le display n'est pas au format
+          mobile ». La barre défile désormais pour son propre compte ;
+          le reste de la page cesse de bouger. */}
+      <div className="flex gap-1 mb-6 border-b overflow-x-auto" style={{ borderColor: "#E3E6E2", scrollbarWidth: "none" }}>
         {TABS.map(({ key, label }) => (
           <Link
             key={key}
             href={`/projets/${id}?tab=${key}`}
-            className="px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px"
+            className="px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px whitespace-nowrap flex-shrink-0"
             style={{
               borderColor: tab === key ? "var(--brand-accent,#0E6B5C)" : "transparent",
               color: tab === key ? "var(--brand-accent,#0E6B5C)" : "#66716B",
@@ -682,7 +689,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                 </p>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm" style={{ minWidth: 560 }}>
                   <thead>
                     <tr style={{ background: "#F5F6F4", borderBottom: "1px solid #E3E6E2" }}>
                       {["Financeur", "Prévu", "Engagé", "Payé", "Reste à engager", "Consommation"].map(h => (
@@ -757,7 +764,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                   </p>
                 </div>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-sm" style={{ minWidth: 560 }}>
                     <thead>
                       <tr style={{ background: "#F5F6F4", borderBottom: "1px solid #E3E6E2" }}>
                         {["Organisation contributrice", "Montant valorisé", "Part du coût total", "Lignes", "Justifiées"].map(h => (

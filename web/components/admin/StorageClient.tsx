@@ -77,7 +77,8 @@ export default function StorageClient({ buckets, orphans, projects }: {
         <h2 className="px-4 py-3 font-semibold border-b flex items-center gap-2" style={{ ...border, fontFamily: "var(--font-sora)", color: "#17211D" }}>
           <HardDrive size={16} aria-hidden="true" /> Par espace de stockage
         </h2>
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full text-sm" style={{ minWidth: 620 }}>
           <tbody>
             {buckets.map((b, i) => (
               <tr key={b.bucket} style={{ borderTop: i ? "1px solid #E3E6E2" : undefined }}>
@@ -94,6 +95,7 @@ export default function StorageClient({ buckets, orphans, projects }: {
             )}
           </tbody>
         </table>
+        </div>
       </section>
 
       {projects.length > 0 && (
@@ -101,7 +103,8 @@ export default function StorageClient({ buckets, orphans, projects }: {
           <h2 className="px-4 py-3 font-semibold border-b" style={{ ...border, fontFamily: "var(--font-sora)", color: "#17211D" }}>
             Par projet
           </h2>
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm" style={{ minWidth: 620 }}>
             <tbody>
               {projects.map((p, i) => (
                 <tr key={p.projectId} style={{ borderTop: i ? "1px solid #E3E6E2" : undefined }}>
@@ -112,6 +115,7 @@ export default function StorageClient({ buckets, orphans, projects }: {
               ))}
             </tbody>
           </table>
+          </div>
         </section>
       )}
 

@@ -201,7 +201,7 @@ export default function DocumentsPanel({ projectId, projectName, docs, canManage
 
       <div className="bg-white rounded-2xl border overflow-hidden" style={border}>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm" style={{ minWidth: 620 }}>
             <thead>
               <tr style={{ background: "#F5F6F4", borderBottom: "1px solid #E3E6E2" }}>
                 {["Pièce", "Nature", "Rattachement", "Montant", "Déposé", "Par", ""].map(h => (
