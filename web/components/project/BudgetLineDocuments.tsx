@@ -87,6 +87,24 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
   // deux chiffres différents.
   const paid = docs.filter(d => d.paid && d.type !== "devis").reduce((s, d) => s + (d.amount ?? 0), 0)
 
+  // ------------------------------------------------------------
+  // Ce qui attend une décision, VISIBLE depuis le tableau
+  // ------------------------------------------------------------
+  // « Rien ne montre qu'il y a un devis à valider, je dois cliquer sur
+  // toutes les lignes avec pièce » (27/07). Le bouton disait combien de
+  // pièces existaient — jamais qu'une décision était attendue, ni de
+  // qui. Sur un budget de vingt lignes, cela revient à ouvrir vingt
+  // panneaux pour en trouver un.
+  //
+  // Deux signaux distincts, parce que ce ne sont pas deux informations
+  // de même nature : ce que J'AI à décider est une action ; ce qu'un
+  // AUTRE doit décider est un état d'avancement.
+  const mineToDecide = docs.reduce((n, d) =>
+    n + (d.validations ?? []).filter(v => v.decision === "en_attente" && v.canDecide && !v.blocked).length, 0)
+  const othersPending = docs.reduce((n, d) =>
+    n + (d.validations ?? []).filter(v => v.decision === "en_attente" && !(v.canDecide && !v.blocked)).length, 0)
+  const refused = docs.some(d => (d.validations ?? []).some(v => v.decision === "refuse"))
+
   async function upload(e: React.FormEvent) {
     e.preventDefault()
     setError("")
@@ -217,6 +235,31 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
         {engaged > 0 && <span style={{ color: "#3B5488" }}> · eng. {fmtEur(engaged)}</span>}
         {paid > 0 && <span style={{ color: "var(--brand-accent,#0E6B5C)" }}> · payé {fmtEur(paid)}</span>}
       </button>
+
+      {/* Pastilles d'état, hors du bouton : elles doivent se lire sans
+          cliquer, et se distinguer du décompte de pièces. */}
+      {mineToDecide > 0 && (
+        <button type="button" onClick={() => setOpen(true)}
+          className="ml-1 inline-flex items-center gap-1 text-xs whitespace-nowrap px-2 py-1 rounded-lg font-semibold text-white"
+          style={{ background: "#B4690E" }}
+          title="Une décision vous est demandée sur cette ligne">
+          <Check size={12} aria-hidden="true" />
+          {mineToDecide > 1 ? `${mineToDecide} à valider` : "À valider"}
+        </button>
+      )}
+      {mineToDecide === 0 && othersPending > 0 && (
+        <span className="ml-1 inline-flex items-center text-xs whitespace-nowrap px-2 py-1 rounded-lg"
+          style={{ background: "#F7EDDD", color: "#8A6A1F" }}
+          title="Une décision est attendue, mais elle ne vous revient pas">
+          En attente
+        </span>
+      )}
+      {refused && (
+        <span className="ml-1 inline-flex items-center text-xs whitespace-nowrap px-2 py-1 rounded-lg"
+          style={{ background: "#FBEAEA", color: "#A02020" }}>
+          Refusé
+        </span>
+      )}
 
       {open && (
         <Modal open onClose={() => !busy && setOpen(false)} title={`Pièces — ${poste}`} busy={busy} maxWidth="max-w-2xl">
@@ -461,8 +504,14 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
                     s'affichait à tort sur Facture ou Reçu. */}
                 {type === "devis" ? (
                   <p className="text-xs" style={{ color: "#66716B" }}>
-                    Un devis part automatiquement en validation auprès du financeur de la ligne,
-                    ou de l&apos;organisation porteuse à défaut.
+                    {/* Texte hérité de la 0031, faux depuis la 0041 : le
+                        financeur ne route plus rien. Décrire un circuit
+                        que la base n'applique plus, c'est apprendre au
+                        déposant à attendre une décision de la mauvaise
+                        organisation. */}
+                    Un devis part automatiquement en validation : d&apos;abord l&apos;organisation
+                    porteuse du projet, puis l&apos;organisation coordinatrice. Le montant n&apos;est
+                    engagé que lorsque les deux ont validé.
                   </p>
                 ) : (
                   <p className="text-xs" style={{ color: "#66716B" }}>
