@@ -1,5 +1,25 @@
 # Recette — les trois chemins jamais éprouvés
 
+> ## Résultat — 27/07/2026 : les trois sont parcourus
+>
+> | Chemin | État | Ce qu'il a fallu corriger d'abord |
+> |---|---|---|
+> | Envoi d'un email réel | **OK** | Le champ « Serveur SMTP » contenait le pavé de configuration collé en entier, et l'envoi était désactivé. Aucun des deux ne se voyait à l'écran : le test de connexion authentifie sans écrire, et rien ne gardait trace des envois réels (0046) |
+> | Chaîne à deux échelons (LEY puis YCID) | **OK** | La policy « Decide validation » interrogeait `validations` dans son propre corps — récursion infinie. **Aucune décision n'était possible, à aucun échelon**, depuis la 0041 (0045) |
+> | Compteur de consommation IA | **OK** | — |
+> | Siège d'auditeur verrouillé, vu du compte chef de projet | **OK** | Ajouté le jour même (0047) après constat : un chef de projet pouvait retirer les auditeurs de son propre projet |
+>
+> Les trois défauts avaient un point commun : **ils ne se voyaient pas à
+> la lecture du code**. Ils se voyaient au clic. C'est pourquoi ce
+> document existe, et pourquoi trois garde-fous automatiques en sont
+> sortis — `check-policies` (une policy ne lit pas sa propre table),
+> `check-mobile` (rien ne sort du cadre du téléphone), et le contrôle du
+> siège d'auditeur dans `check-rbac`.
+>
+> **La procédure ci-dessous reste valable comme script de
+> non-régression** : elle se rejoue à chaque évolution du circuit, de la
+> configuration email ou du modèle de rôles.
+
 Cette session ne rejoue pas la recette précédente. Elle vise **ce qui
 existe dans le code et n'a jamais tourné en conditions réelles** :
 
@@ -57,6 +77,26 @@ select
   (select count(*) from pg_proc where proname='validation_chain_for_document')   as fn_chaine,
   (select count(*) from pg_proc where proname='storage_stats')                   as fn_stockage;
 ```
+
+Puis les quatre migrations livrées le 27/07, qui corrigent ce que cette
+recette a mis au jour. Les quatre compteurs doivent valoir `1`, et le
+cinquième `3` :
+
+```sql
+select
+  (select count(*) from pg_proc where proname='validation_step_is_open')          as fn_0045_ordre,
+  (select count(*) from information_schema.columns
+    where table_name='email_settings' and column_name='last_send_at')             as c_0046_envois,
+  (select count(*) from pg_policies
+    where tablename='project_members' and policyname like 'Auditor seat%')        as p_0047_auditeur,
+  (select count(*) from pg_policies
+    where tablename='project_members' and policyname like 'Auditor seat%'
+      and permissive = 'RESTRICTIVE')                                             as p_0047_restrictives;
+```
+
+`p_0047_auditeur` et `p_0047_restrictives` doivent valoir **3 tous les
+deux**. Une policy qui serait revenue à `PERMISSIVE` annulerait la règle
+en silence — en ouvrant une voie au lieu d'en fermer une.
 
 **Si un compteur vaut 0**, appliquez la migration correspondante avant de
 continuer. Les étapes qui suivent la supposent en place.
