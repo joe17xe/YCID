@@ -11,16 +11,22 @@
 // budgétaire — corrigé la veille — donnait le change pendant que la
 // barre d'onglets, elle, poussait la page à 900 pixels.
 //
-// Le remède tient en deux règles, et elles vont ensemble :
-//   · un conteneur `overflow-x-auto` autour du tableau ;
-//   · une largeur minimale sur le tableau, sinon les colonnes se
-//     compriment jusqu'à l'illisible plutôt que de déclencher le
-//     défilement.
+// Arbitrage du 27/07, après essai au téléphone : « ça ne doit jamais
+// sortir du cadre du téléphone, il faut arranger chaque tâche autrement
+// même si on défile longuement sur la page ». Un tableau qui défile
+// latéralement sort du cadre — il est lisible, pas consultable : pour
+// lire une ligne il faut la balayer, et l'on perd l'en-tête en route.
 //
-// La classe `table-cards` vaut largeur minimale : elle la porte en CSS
-// (globals.css) plutôt qu'en style inline, précisément pour qu'une
-// requête média puisse la lever et transformer les lignes en cartes.
-// Une largeur inline l'emporterait sur la requête média.
+// Deux règles, désormais sans exception :
+//   · un conteneur `overflow-x-auto` — filet de sécurité pour les
+//     écrans intermédiaires, entre 640 px et la largeur du tableau ;
+//   · la classe `table-cards`, qui bascule les lignes en blocs sous
+//     640 px. Elle porte aussi la largeur minimale, en CSS et non en
+//     style inline : une valeur inline l'emporterait sur la requête
+//     média et empêcherait justement la bascule.
+//
+// Un `minWidth` inline n'est plus accepté : c'était le défilement
+// latéral, c'est-à-dire ce qu'on vient d'écarter.
 //
 //   node scripts/check-mobile.mjs
 //
@@ -59,13 +65,10 @@ for (const file of walk(ROOT)) {
       failures.push(`${rel}:${i + 1} — <table> sans conteneur défilant. `
         + `Sur téléphone, c'est la page entière qui glisse. `
         + `Enveloppez dans <div className="overflow-x-auto">.`)
-    } else if (!/minWidth|min-w-\[|table-cards/.test(lines[i])) {
-      // Le conteneur seul ne suffit pas : sans largeur minimale, le
-      // navigateur comprime les colonnes au lieu de faire défiler, et
-      // l'on obtient six colonnes de trois caractères.
-      failures.push(`${rel}:${i + 1} — <table> dans un conteneur défilant mais sans largeur minimale. `
-        + `Les colonnes se comprimeront au lieu de déclencher le défilement. `
-        + `Ajoutez style={{ minWidth: … }}.`)
+    } else if (!/table-cards/.test(lines[i])) {
+      failures.push(`${rel}:${i + 1} — <table> sans la classe « table-cards ». `
+        + `Il défilera latéralement sur téléphone au lieu de se replier en cartes. `
+        + `Ajoutez className="… table-cards tc-640" et un data-label sur chaque <td>.`)
     }
   }
 }
@@ -77,4 +80,4 @@ if (failures.length) {
   console.error('')
   process.exit(1)
 }
-console.log('✓ Chaque tableau défile pour son propre compte.')
+console.log('✓ Aucun tableau ne défile latéralement sur téléphone.')

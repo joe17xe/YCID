@@ -172,7 +172,7 @@ export default function ImportClient({ canImport }: { canImport: boolean }) {
 
           <div className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor: "#E3E6E2" }}>
             <div className="overflow-x-auto">
-              <table className="w-full text-xs" style={{ minWidth: 640 }}>
+              <table className="w-full text-xs table-cards tc-640">
                 <thead>
                   <tr style={{ background: "#F5F6F4", borderBottom: "1px solid #E3E6E2" }}>
                     {Object.keys(rows[0] ?? {}).map(h => (
@@ -183,8 +183,11 @@ export default function ImportClient({ canImport }: { canImport: boolean }) {
                 <tbody>
                   {rows.slice(0, 20).map((row, i) => (
                     <tr key={i} style={{ borderBottom: "1px solid #E3E6E2", background: i % 2 === 0 ? "#fff" : "#FAFAFA" }}>
-                      {Object.values(row).map((v, j) => (
-                        <td key={j} className="px-4 py-2" style={{ color: "#17211D" }}>{String(v)}</td>
+                      {/* Les colonnes viennent du fichier : l'intitulé de
+                          la carte aussi. Une prévisualisation d'import
+                          sans nom de colonne ne prévisualise rien. */}
+                      {Object.entries(row).map(([k, v], j) => (
+                        <td key={j} data-label={k} className="px-4 py-2" style={{ color: "#17211D" }}>{String(v)}</td>
                       ))}
                     </tr>
                   ))}

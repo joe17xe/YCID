@@ -61,7 +61,7 @@ export default function BulkImportForm({ canCreateAdmin }: { canCreateAdmin: boo
             </p>
           )}
           <div className="overflow-x-auto">
-            <table className="w-full text-sm" style={{ minWidth: 620 }}>
+            <table className="w-full text-sm table-cards tc-560">
               <thead>
                 <tr style={{ background: "#F5F6F4" }}>
                   {["Nom", "Email", "État", "Mot de passe temporaire"].map(h => (
@@ -72,9 +72,9 @@ export default function BulkImportForm({ canCreateAdmin }: { canCreateAdmin: boo
               <tbody>
                 {lines.map(l => (
                   <tr key={l.email} style={{ borderTop: "1px solid #E3E6E2" }}>
-                    <td className="px-3 py-2" style={{ color: "#17211D" }}>{l.fullName}</td>
-                    <td className="px-3 py-2 font-mono text-xs" style={{ color: "#66716B" }}>{l.email}</td>
-                    <td className="px-3 py-2">
+                    <td data-primary="" className="px-3 py-2" style={{ color: "#17211D" }}>{l.fullName}</td>
+                    <td data-label="Email" className="px-3 py-2 font-mono text-xs" style={{ color: "#66716B" }}>{l.email}</td>
+                    <td data-label="État" className="px-3 py-2">
                       <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={
                         l.status === "cree" ? { background: "var(--brand-accent-soft,#E4F0EC)", color: "var(--brand-accent,#0E6B5C)" }
                         : l.status === "existe" ? { background: "#EEF0EE", color: "#66716B" }
@@ -84,7 +84,7 @@ export default function BulkImportForm({ canCreateAdmin }: { canCreateAdmin: boo
                       </span>
                       {l.error && <div className="text-xs mt-1" style={{ color: "#A3342C" }}>{l.error}</div>}
                     </td>
-                    <td className="px-3 py-2 font-mono text-xs" style={{ color: "#17211D" }}>{l.password ?? "—"}</td>
+                    <td data-label="Mot de passe temporaire" className="px-3 py-2 font-mono text-xs" style={{ color: "#17211D" }}>{l.password ?? "—"}</td>
                   </tr>
                 ))}
               </tbody>

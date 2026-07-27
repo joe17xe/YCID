@@ -201,7 +201,7 @@ export default function DocumentsPanel({ projectId, projectName, docs, canManage
 
       <div className="bg-white rounded-2xl border overflow-hidden" style={border}>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm" style={{ minWidth: 620 }}>
+          <table className="w-full text-sm table-cards tc-640">
             <thead>
               <tr style={{ background: "#F5F6F4", borderBottom: "1px solid #E3E6E2" }}>
                 {["Pièce", "Nature", "Rattachement", "Montant", "Déposé", "Par", ""].map(h => (
@@ -212,31 +212,31 @@ export default function DocumentsPanel({ projectId, projectName, docs, canManage
             <tbody>
               {filtered.map((d, i) => (
                 <tr key={d.id} style={{ borderBottom: "1px solid #E3E6E2", background: i % 2 === 0 ? "#fff" : "#FAFAFA" }}>
-                  <td className="px-4 py-3">
+                  <td data-primary="" className="px-4 py-3">
                     <button type="button" onClick={() => download(d.id)}
                       className="inline-flex items-center gap-1 underline decoration-dotted text-left"
                       style={{ color: "#17211D" }}>
                       <Download size={12} aria-hidden="true" /> {d.filename}
                     </button>
                   </td>
-                  <td className="px-4 py-3 text-xs" style={{ color: "#66716B" }}>
+                  <td data-label="Nature" className="px-4 py-3 text-xs" style={{ color: "#66716B" }}>
                     {DOC_TYPE_LABELS[d.type] ?? d.type}
                     {d.moment && <span> · {DOC_MOMENT_LABELS[d.moment]}</span>}
                   </td>
-                  <td className="px-4 py-3 text-xs" style={{ color: "#66716B" }}>
+                  <td data-label="Rattachement" className="px-4 py-3 text-xs" style={{ color: "#66716B" }}>
                     {d.taskTitle ? <>Tâche : {d.taskTitle}</>
                       : d.lineposte ? <>Ligne : {d.lineposte}</>
                       : d.phaseName ? <>Phase : {d.phaseName}</>
                       : <span style={{ color: "#9AA39D" }}>Projet</span>}
                     {d.phaseName && (d.taskTitle || d.lineposte) && <div style={{ color: "#9AA39D" }}>{d.phaseName}</div>}
                   </td>
-                  <td className="px-4 py-3 text-xs" style={{ color: "#17211D" }}>
+                  <td data-label="Montant" className="px-4 py-3 text-xs" style={{ color: "#17211D" }}>
                     {d.amount != null ? fmtEur(d.amount) : "—"}
                     {d.paid && <span className="ml-1" style={{ color: "var(--brand-accent,#0E6B5C)" }}>payé</span>}
                   </td>
-                  <td className="px-4 py-3 text-xs" style={{ color: "#66716B" }}>{fmtDate(d.uploadedAt)}</td>
-                  <td className="px-4 py-3 text-xs" style={{ color: "#66716B" }}>{d.uploaderName ?? "—"}</td>
-                  <td className="px-4 py-3">
+                  <td data-label="Déposé" className="px-4 py-3 text-xs" style={{ color: "#66716B" }}>{fmtDate(d.uploadedAt)}</td>
+                  <td data-label="Par" className="px-4 py-3 text-xs" style={{ color: "#66716B" }}>{d.uploaderName ?? "—"}</td>
+                  <td data-label="Action" className="px-4 py-3">
                     {canManage && (
                       <button type="button" onClick={() => remove(d)} disabled={pending}
                         className="p-1 rounded hover:bg-gray-100" aria-label={`Supprimer ${d.filename}`}>

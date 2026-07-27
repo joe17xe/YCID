@@ -67,7 +67,7 @@ export default async function PilotagePage() {
         {/* Sous 640 px chaque ligne devient un bloc (voir globals.css) :
             lire un projet en balayant l'écran de gauche à droite, en
             perdant l'en-tête en route, n'est pas lire. */}
-        <table className="w-full text-sm table-cards table-cards-640">
+        <table className="w-full text-sm table-cards tc-640">
           <thead>
             <tr style={{ background: "#F5F6F4", borderBottom: "1px solid #E3E6E2" }}>
               {["Projet", "Statut", "Avancement", "Montant voté", "Tâches en retard"].map(h => (

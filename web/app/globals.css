@@ -144,10 +144,17 @@ html[data-motion="reduced"] *::after {
    Usage : classe `table-cards` sur le <table>, et `data-label` sur
    chaque <td>. La largeur minimale vit ici et non en style inline,
    sans quoi elle l'emporterait sur la requête média. */
-.table-cards { min-width: 760px; }
+.table-cards { min-width: 720px; }
+/* Largeur minimale sur écran, par tableau. Trois valeurs suffisent :
+   au-delà, c'est le nombre de colonnes qu'il faut revoir. */
+.tc-560 { min-width: 560px; }
+.tc-640 { min-width: 640px; }
+.tc-760 { min-width: 760px; }
+.tc-900 { min-width: 900px; }
 
 @media (max-width: 639px) {
-  .table-cards { min-width: 0; display: block; }
+  .table-cards, .tc-560, .tc-640, .tc-760, .tc-900 { min-width: 0; }
+  .table-cards { display: block; }
   .table-cards thead { display: none; }
   .table-cards tbody { display: block; }
 
@@ -177,6 +184,10 @@ html[data-motion="reduced"] *::after {
   }
   /* L'intitulé de colonne, repris à gauche de la valeur. Sans lui, une
      carte n'est qu'une pile de nombres sans nom. */
+  /* Une adresse email ou un nom de fichier sans espace élargirait la
+     carte au-delà de l'écran : la coupure prime sur l'esthétique. */
+  .table-cards td, .table-cards th { overflow-wrap: anywhere; }
+
   .table-cards td[data-label]::before {
     content: attr(data-label);
     color: #66716B;
@@ -217,8 +228,3 @@ html[data-motion="reduced"] *::after {
   .table-cards td:empty,
   .table-cards tr[data-group] td:empty { display: none; }
 }
-
-/* Le Pilotage a cinq colonnes, pas neuf : sa largeur minimale diffère.
-   La bascule en cartes, elle, est la même. */
-.table-cards-640 { min-width: 640px; }
-@media (max-width: 639px) { .table-cards-640 { min-width: 0; } }

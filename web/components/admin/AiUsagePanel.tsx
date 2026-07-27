@@ -100,7 +100,7 @@ export default function AiUsagePanel({ usage }: { usage: AiUsageSummary }) {
 
         {usage.byFeature.length > 0 && (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm" style={{ minWidth: 620 }}>
+            <table className="w-full text-sm table-cards tc-560">
               <thead>
                 <tr style={{ background: "#F5F6F4", borderBottom: "1px solid #E3E6E2" }}>
                   {["Fonction", "Appels", "Jetons", "Coût estimé"].map(h => (
@@ -111,10 +111,10 @@ export default function AiUsagePanel({ usage }: { usage: AiUsageSummary }) {
               <tbody>
                 {usage.byFeature.map(f => (
                   <tr key={f.feature} style={{ borderBottom: "1px solid #F0F2F0" }}>
-                    <td className="px-3 py-2" style={{ color: "#17211D" }}>{f.feature}</td>
-                    <td className="px-3 py-2 text-xs" style={{ color: "#66716B" }}>{f.calls}</td>
-                    <td className="px-3 py-2 text-xs" style={{ color: "#66716B" }}>{fmtNum(f.total)}</td>
-                    <td className="px-3 py-2 text-xs" style={{ color: "#66716B" }}>{usage.configured ? fmtCost(f.cost) : "—"}</td>
+                    <td data-primary="" className="px-3 py-2" style={{ color: "#17211D" }}>{f.feature}</td>
+                    <td data-label="Appels" className="px-3 py-2 text-xs" style={{ color: "#66716B" }}>{f.calls}</td>
+                    <td data-label="Jetons" className="px-3 py-2 text-xs" style={{ color: "#66716B" }}>{fmtNum(f.total)}</td>
+                    <td data-label="Coût estimé" className="px-3 py-2 text-xs" style={{ color: "#66716B" }}>{usage.configured ? fmtCost(f.cost) : "—"}</td>
                   </tr>
                 ))}
               </tbody>
