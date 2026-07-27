@@ -138,9 +138,11 @@ export function BudgetLineDialog({ projectId, orgs, phases, tasks = [], line, pr
           <Pencil size={13} style={{ color: "#66716B" }} aria-hidden="true" />
         </button>
       ) : triggerLabel ? (
-        <button onClick={() => d.setOpen(true)} className="flex items-center gap-1 text-xs font-medium"
-          style={{ color: "var(--brand-accent,#0E6B5C)" }}>
-          <Plus size={12} aria-hidden="true" /> {triggerLabel}
+        <button onClick={() => d.setOpen(true)}
+          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border bg-white text-xs font-medium"
+          style={{ borderColor: "#E3E6E2", color: "var(--brand-accent,#0E6B5C)" }}
+          title="Créer une ligne budgétaire rattachée à cette tâche">
+          <Plus size={11} aria-hidden="true" /> {triggerLabel}
         </button>
       ) : (
         <button onClick={() => d.setOpen(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold" style={{ background: "var(--brand-accent,#0E6B5C)" }}>

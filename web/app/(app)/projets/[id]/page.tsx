@@ -29,7 +29,7 @@ import CommPanel, { type Campaign } from "@/components/project/CommPanel"
 import PublicPageDialog from "@/components/project/PublicPageDialog"
 import ProjectEditDialog from "@/components/project/ProjectEditDialog"
 import ProjectDocUpload from "@/components/project/ProjectDocUpload"
-import { ChevronLeft } from "lucide-react"
+import { ChevronLeft, User, CalendarDays } from "lucide-react"
 
 function Badge({ label, fg, bg }: { label: string; fg: string; bg: string }) {
   return <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ color: fg, background: bg }}>{label}</span>
@@ -37,7 +37,10 @@ function Badge({ label, fg, bg }: { label: string; fg: string; bg: string }) {
 
 function ProgressBar({ value }: { value: number }) {
   return (
-    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "#E3E6E2" }}>
+    // La piste est une marche CLAIRE de la même gamme que le
+    // remplissage, pas un gris neutre : l'état se lit sur toute la
+    // barre, pas seulement sur la partie remplie.
+    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--brand-accent-soft,#E4F0EC)" }}>
       <div className="h-full rounded-full" style={{ width: `${value}%`, background: "var(--brand-accent,#0E6B5C)" }} />
     </div>
   )
@@ -311,19 +314,22 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
     { id: "__hors_phase__", name: "Hors phase", lines: linesByPhase.get("__hors_phase__") ?? [] },
   ].filter(g => g.lines.length)
 
-  const TABS = [
+  // Le compteur est une DONNÉE, pas un morceau de libellé : « Tâches
+  // (7) » tapé dans la chaîne se lisait comme du texte. Séparé, il
+  // devient un badge dans la pastille.
+  const TABS: { key: string; label: string; count?: number }[] = [
     { key: "apercu", label: "Aperçu" },
-    { key: "taches", label: `Tâches (${allTasks.length})` },
+    { key: "taches", label: "Tâches", count: allTasks.length },
     { key: "budget", label: "Budget" },
-    { key: "documents", label: `Documents${projectDocs.length ? ` (${projectDocs.length})` : ""}` },
+    { key: "documents", label: "Documents", count: projectDocs.length || undefined },
     { key: "impact", label: "Impact" },
     { key: "copil", label: "COPIL" },
-    { key: "comm", label: `Communication${campaigns.length ? ` (${campaigns.length})` : ""}` },
+    { key: "comm", label: "Communication", count: campaigns.length || undefined },
     { key: "audit", label: "Journal" },
   ]
 
   return (
-    <div className="p-8 max-w-6xl mx-auto">
+    <div className="p-4 sm:p-8 max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <Link href="/projets" className="inline-flex items-center gap-1 text-sm" style={{ color: "#66716B" }}>
           <ChevronLeft size={16} /> Projets
@@ -386,34 +392,43 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
         myDecisions={myDecisions}
         nextDeadline={nextDeadline}
       />
-      <div className="mb-6"><ProgressBar value={projectProgress} /></div>
 
-      {/* Tabs */}
-      {/* Huit onglets à `px-4` font près de 900 pixels de large. Sur un
-          téléphone de 390, ce n'est pas la barre qui débordait : c'est
-          la PAGE ENTIÈRE qui glissait sous le doigt, emportant les
-          cartes, les tableaux et les boutons avec elle.
-          Premier correctif : la faire défiler pour son propre compte.
-          Insuffisant — un onglet hors écran est un onglet qu'on ne sait
-          pas exister, et le geste de balayage entre en concurrence avec
-          celui de la page. Elle passe donc à la ligne : deux ou trois
-          rangées sur un téléphone, une seule sur un écran. Rien ne sort
-          du cadre, rien ne se découvre par hasard. */}
-      <div className="flex flex-wrap gap-1 mb-6 border-b" style={{ borderColor: "#E3E6E2" }}>
-        {TABS.map(({ key, label }) => (
-          <Link
-            key={key}
-            href={`/projets/${id}?tab=${key}`}
-            className="px-3 sm:px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px whitespace-nowrap"
-            style={{
-              borderColor: tab === key ? "var(--brand-accent,#0E6B5C)" : "transparent",
-              color: tab === key ? "var(--brand-accent,#0E6B5C)" : "#66716B",
-              fontFamily: "var(--font-inter)",
-            }}
-          >
-            {label}
-          </Link>
-        ))}
+
+      {/* Onglets en pastilles pleines — le même langage que la roadmap
+          et l'écran de configuration, pour que l'application converge
+          sur UN idiome d'onglets au lieu de deux. La version
+          soulignée, passée à la ligne le matin même, laissait trois
+          rangées de texte clairsemé où seul un filet de deux pixels
+          distinguait l'onglet actif : « du texte avec des chiffres »,
+          pas des boutons. Ici chaque onglet est une pastille, l'actif
+          est blanc sur fond gris, et le compteur est un badge. */}
+      <div className="flex flex-wrap items-center gap-1 p-1 rounded-2xl mb-6" style={{ background: "#EEF0EE" }}>
+        {TABS.map(({ key, label, count }) => {
+          const active = tab === key
+          return (
+            <Link
+              key={key}
+              href={`/projets/${id}?tab=${key}`}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap"
+              style={{
+                background: active ? "#FFFFFF" : "transparent",
+                color: active ? "var(--brand-accent,#0E6B5C)" : "#66716B",
+                boxShadow: active ? "0 1px 2px rgba(23,33,29,0.06)" : "none",
+                fontFamily: "var(--font-inter)",
+              }}
+            >
+              {label}
+              {count != null && count > 0 && (
+                <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full leading-none"
+                  style={active
+                    ? { background: "var(--brand-accent-soft,#E4F0EC)", color: "var(--brand-accent,#0E6B5C)" }
+                    : { background: "#E3E6E2", color: "#66716B" }}>
+                  {count}
+                </span>
+              )}
+            </Link>
+          )
+        })}
         {TAB_HELP[tab] && (
           <span className="ml-auto self-center">
             <HelpDialog title={TAB_HELP[tab].title} excerpt={TAB_HELP[tab].excerpt} anchor={TAB_HELP[tab].anchor} />
@@ -549,8 +564,14 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
             return (
               <div key={ph.id} className="bg-white rounded-2xl border" style={{ borderColor: "#E3E6E2" }}>
                 <div className="p-4 border-b" style={{ borderColor: "#E3E6E2" }}>
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
+                  {/* L'ancien en-tête empilait « 3 tâches / 26 600 € /
+                      0 % pondéré / + Tâche » en colonne à droite du
+                      titre : sur téléphone, une tour de chiffres sans
+                      libellés. Le titre prend la largeur, l'action reste
+                      en haut à droite, et les chiffres deviennent des
+                      pastilles nommées qui passent à la ligne. */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
                       <h3 className="font-semibold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>{ph.name}</h3>
                       {canPhases && (
                         <PhaseDialog projectId={id} phase={{
@@ -559,27 +580,36 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                         }} />
                       )}
                     </div>
-                    <div className="flex items-center gap-3 text-sm flex-wrap justify-end" style={{ color: "#66716B" }}>
-                      <span>{phaseTasks.length} tâche{phaseTasks.length > 1 ? "s" : ""}</span>
-                      {/* Preuve de réalisation (PR 38e) : compte agrégé,
-                          pour qu'on n'ait pas à déplier chaque tâche. */}
-                      {(() => {
-                        const n = phaseTasks.filter((t: any) => t.status === "terminee" && !(t.documents ?? []).length).length
-                        return n > 0 ? (
-                          <span className="px-1.5 py-0.5 rounded text-xs" style={{ background: "#F7EDDD", color: "#8A6A1F" }}
-                            title="Tâches déclarées terminées sans aucune pièce justificative">
-                            {n} sans justificatif
-                          </span>
-                        ) : null
-                      })()}
-                      {phaseLinesTotal > 0 && <span title="Somme des lignes budgétaires de la phase">{fmtEur(phaseLinesTotal)}</span>}
-                      <span title={weighted
+                    {canTasks && <span className="flex-shrink-0"><TaskDialog phaseId={ph.id} members={memberOptions} /></span>}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5 mt-2 text-xs">
+                    <span className="px-2 py-1 rounded-lg" style={{ background: "#F5F6F4", color: "#66716B" }}>
+                      {phaseTasks.length} tâche{phaseTasks.length > 1 ? "s" : ""}
+                    </span>
+                    {phaseLinesTotal > 0 && (
+                      <span className="px-2 py-1 rounded-lg" style={{ background: "#F5F6F4", color: "#66716B" }}
+                        title="Somme des lignes budgétaires de la phase">
+                        {fmtEur(phaseLinesTotal)}
+                      </span>
+                    )}
+                    <span className="px-2 py-1 rounded-lg font-medium"
+                      style={{ background: "var(--brand-accent-soft,#E4F0EC)", color: "var(--brand-accent,#0E6B5C)" }}
+                      title={weighted
                         ? "Moyenne pondérée par le budget des tâches, avec un poids plancher de 2 % du budget de la phase : une tâche à 0 € compte tout de même, la phase ne peut donc pas afficher 100 % tant qu'elle n'est pas faite."
                         : "Moyenne des tâches, à parts égales — la phase n'a pas encore de budget réparti."}>
-                        {phProg}%{weighted && <span className="text-xs"> pondéré</span>}
-                      </span>
-                      {canTasks && <TaskDialog phaseId={ph.id} members={memberOptions} />}
-                    </div>
+                      {phProg} %{weighted ? " pondéré" : ""}
+                    </span>
+                    {/* Preuve de réalisation (PR 38e) : compte agrégé,
+                        pour qu'on n'ait pas à déplier chaque tâche. */}
+                    {(() => {
+                      const n = phaseTasks.filter((t: any) => t.status === "terminee" && !(t.documents ?? []).length).length
+                      return n > 0 ? (
+                        <span className="px-2 py-1 rounded-lg" style={{ background: "#F7EDDD", color: "#8A6A1F" }}
+                          title="Tâches déclarées terminées sans aucune pièce justificative">
+                          {n} sans justificatif
+                        </span>
+                      ) : null
+                    })()}
                   </div>
                   {/* Plus d'écart possible ici depuis la PR 39 : le budget
                       d'une phase EST la somme de ses lignes. On montre
@@ -600,87 +630,104 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                     const rv = t.review ? (REVIEW_STATES[t.review] ?? null) : null
                     return (
                       <div key={t.id} className="p-4 hover:bg-gray-50">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1">
-                            <div className="text-sm font-medium" style={{ color: "#17211D" }}>{t.title}</div>
-                            {t.description && <div className="text-xs mt-0.5" style={{ color: "#66716B" }}>{t.description}</div>}
-                            <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mt-1 text-xs" style={{ color: "#66716B" }}>
-                              {/* Une tâche sans nom en face est une tâche
-                                  que personne ne fera. Le blanc ne le
-                                  disait pas ; le mot, si. */}
-                              {t.profiles?.full_name
-                                ? <span>👤 {t.profiles.full_name}</span>
-                                : t.status !== "terminee" && <span style={{ color: "#B4690E" }}>👤 sans responsable</span>}
-                              {t.end_date && (() => {
-                                const d = daysUntil(t.end_date, todayISO)
-                                const late = t.status !== "terminee" && d < 0
-                                return (
-                                  <span style={late ? { color: "#A3342C", fontWeight: 600 } : undefined}>
-                                    📅 {fmtDate(t.end_date)}{late ? ` · ${Math.abs(d)} j de retard` : ""}
-                                  </span>
-                                )
-                              })()}
-                              {/* Le compteur « 📎 N doc » existait depuis
-                                  l'origine mais restait à 0 : rien ne
-                                  permettait de déposer une pièce (PR 38a). */}
-                              <TaskDocuments projectId={id} phaseId={ph.id} taskId={t.id}
-                                canUpload={canTasks} taskDone={t.status === "terminee"}
-                                docs={[...(t.documents ?? [])]
-                                  .sort((a: any, b: any) => String(b.uploaded_at).localeCompare(String(a.uploaded_at)))
-                                  .map((d: any) => ({
-                                    id: d.id, filename: d.filename, type: d.type, uploaded_at: d.uploaded_at,
-                                  }))} />
-                              {/* Toute tâche porte un budget, 0 € compris :
-                                  « sans budget » ressemblait à une donnée
-                                  manquante alors que 0 € est une décision. */}
-                              <span
-                                title={taskBudget(t.id) > 0
-                                  ? "Somme affectée à cette tâche par les lignes budgétaires"
-                                  : "Aucune ligne budgétaire n'est affectée à cette tâche"}
-                                style={{ color: taskBudget(t.id) > 0 ? "var(--brand-accent,#0E6B5C)" : "#9AA39D" }}>
-                                💶 {fmtEur(taskBudget(t.id))}
-                              </span>
-                              {/* Sens inverse de la création croisée : la
-                                  tâche existe, son financement reste à
-                                  saisir. Le dialogue s'ouvre déjà rattaché. */}
-                              {canBudget && (
-                                <BudgetLineDialog projectId={id} orgs={orgOptions} phases={phaseOptions} tasks={taskOptions}
-                                  preset={{ phase_id: ph.id, task_id: t.id }} triggerLabel="ligne budgétaire" />
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex flex-col items-end gap-1">
-                            <div className="flex items-center gap-1">
-                              {canTasks && t.status !== "terminee" && (
-                                <>
-                                  <TaskDialog phaseId={ph.id} members={memberOptions} task={{
-                                    id: t.id, title: t.title, description: t.description ?? null,
-                                    assignee_id: t.assignee_id ?? null, start_date: t.start_date ?? null,
-                                    end_date: t.end_date ?? null, status: t.status, progress: t.progress,
-                                  }} />
-                                  {/* Aucun moyen de supprimer une tâche n'existait :
-                                      deux clics sur « Créer la tâche » suffisaient à
-                                      en laisser une en double, définitivement. */}
-                                  <DeleteTaskButton taskId={t.id} projectId={id} title={t.title}
-                                    budget={taskBudget(t.id)} docCount={(t.documents ?? []).length} />
-                                </>
-                              )}
+                        {/* Le statut vivait dans une colonne fixe à
+                            droite : elle comprimait la date sur trois
+                            lignes et faisait flotter « À faire » hors de
+                            la carte. Une tâche se lit désormais de haut
+                            en bas — titre et statut, description, puis
+                            les faits en pastilles qui passent à la ligne
+                            au lieu de se compresser. Les emoji (👤 📅 💶)
+                            cèdent la place aux icônes : rendu identique
+                            partout, taille contrôlée. */}
+                        <div className="flex items-start gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center flex-wrap gap-x-2 gap-y-1">
+                              <span className="text-sm font-medium" style={{ color: "#17211D" }}>{t.title}</span>
                               <Badge label={ts.label} fg={ts.fg} bg={ts.bg} />
+                              {rv && <Badge label={rv.label} fg={rv.fg} bg={rv.bg} />}
                             </div>
-                            {rv && <Badge label={rv.label} fg={rv.fg} bg={rv.bg} />}
+                            {t.description && <div className="text-xs mt-0.5 line-clamp-2" style={{ color: "#66716B" }}>{t.description}</div>}
+                          </div>
+                          <div className="flex items-center gap-1 flex-shrink-0">
                             {t.status === "terminee" && canEditCompleted && (
                               <EditCompletedTaskDialog task={{
-                                id: t.id,
-                                title: t.title,
-                                description: t.description ?? null,
-                                status: t.status,
-                                progress: t.progress,
-                                start_date: t.start_date ?? null,
-                                end_date: t.end_date ?? null,
+                                id: t.id, title: t.title, description: t.description ?? null,
+                                status: t.status, progress: t.progress,
+                                start_date: t.start_date ?? null, end_date: t.end_date ?? null,
                                 comment: t.comment ?? null,
                               }} />
                             )}
+                            {canTasks && t.status !== "terminee" && (
+                              <>
+                                <TaskDialog phaseId={ph.id} members={memberOptions} task={{
+                                  id: t.id, title: t.title, description: t.description ?? null,
+                                  assignee_id: t.assignee_id ?? null, start_date: t.start_date ?? null,
+                                  end_date: t.end_date ?? null, status: t.status, progress: t.progress,
+                                }} />
+                                {/* Aucun moyen de supprimer une tâche n'existait :
+                                    deux clics sur « Créer la tâche » suffisaient à
+                                    en laisser une en double, définitivement. */}
+                                <DeleteTaskButton taskId={t.id} projectId={id} title={t.title}
+                                  budget={taskBudget(t.id)} docCount={(t.documents ?? []).length} />
+                              </>
+                            )}
                           </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1.5 mt-2 text-xs">
+                          {/* Une tâche sans nom en face est une tâche que
+                              personne ne fera. Le blanc ne le disait pas ;
+                              la pastille orange, si. */}
+                          {t.profiles?.full_name
+                            ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg" style={{ background: "#F5F6F4", color: "#66716B" }}>
+                                <User size={11} aria-hidden="true" /> {t.profiles.full_name}
+                              </span>
+                            )
+                            : t.status !== "terminee" && (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg" style={{ background: "#F7EDDD", color: "#8A6A1F" }}>
+                                <User size={11} aria-hidden="true" /> sans responsable
+                              </span>
+                            )}
+                          {t.end_date && (() => {
+                            const d = daysUntil(t.end_date, todayISO)
+                            const late = t.status !== "terminee" && d < 0
+                            return (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg"
+                                style={late
+                                  ? { background: "#FBEAEA", color: "#A3342C", fontWeight: 600 }
+                                  : { background: "#F5F6F4", color: "#66716B" }}>
+                                <CalendarDays size={11} aria-hidden="true" />
+                                {fmtDate(t.end_date)}{late ? ` · ${Math.abs(d)} j de retard` : ""}
+                              </span>
+                            )
+                          })()}
+                          {/* Le compteur « N doc » existait depuis
+                              l'origine mais restait à 0 : rien ne
+                              permettait de déposer une pièce (PR 38a). */}
+                          <TaskDocuments projectId={id} phaseId={ph.id} taskId={t.id}
+                            canUpload={canTasks} taskDone={t.status === "terminee"}
+                            docs={[...(t.documents ?? [])]
+                              .sort((a: any, b: any) => String(b.uploaded_at).localeCompare(String(a.uploaded_at)))
+                              .map((d: any) => ({
+                                id: d.id, filename: d.filename, type: d.type, uploaded_at: d.uploaded_at,
+                              }))} />
+                          {/* Toute tâche porte un budget, 0 € compris :
+                              « sans budget » ressemblait à une donnée
+                              manquante alors que 0 € est une décision. */}
+                          <span className="px-2 py-1 rounded-lg"
+                            title={taskBudget(t.id) > 0
+                              ? "Somme affectée à cette tâche par les lignes budgétaires"
+                              : "Aucune ligne budgétaire n'est affectée à cette tâche"}
+                            style={{ background: "#F5F6F4", color: taskBudget(t.id) > 0 ? "var(--brand-accent,#0E6B5C)" : "#9AA39D", fontWeight: taskBudget(t.id) > 0 ? 600 : 400 }}>
+                            {fmtEur(taskBudget(t.id))}
+                          </span>
+                          {/* Sens inverse de la création croisée : la
+                              tâche existe, son financement reste à
+                              saisir. Le dialogue s'ouvre déjà rattaché. */}
+                          {canBudget && (
+                            <BudgetLineDialog projectId={id} orgs={orgOptions} phases={phaseOptions} tasks={taskOptions}
+                              preset={{ phase_id: ph.id, task_id: t.id }} triggerLabel="ligne" />
+                          )}
                         </div>
                         <div className="mt-2 flex items-center gap-3">
                           <div className="flex-1"><ProgressBar value={t.progress} /></div>

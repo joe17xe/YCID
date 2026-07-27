@@ -85,10 +85,14 @@ export default function TaskDocuments({ projectId, phaseId, taskId, docs, canUpl
 
   return (
     <>
-      <span className="inline-flex items-center gap-2">
+      {/* Deux pastilles, deux natures : le compte de pièces est une
+          DONNÉE (fond calme), le dépôt est une ACTION (bord + accent).
+          Les libellés nus en couleur se confondaient avec le texte
+          alentour — « du texte avec des chiffres », pas des boutons. */}
+      <span className="inline-flex items-center gap-1.5">
         <button type="button" onClick={() => setExpanded(v => !v)}
-          className="inline-flex items-center gap-1"
-          style={{ color: docs.length ? "#66716B" : "#9AA39D" }}
+          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg"
+          style={{ background: "#F5F6F4", color: docs.length ? "#66716B" : "#9AA39D" }}
           aria-expanded={expanded}
           title={docs.length ? "Afficher les pièces jointes" : "Aucune pièce jointe"}>
           <Paperclip size={11} aria-hidden="true" />
@@ -96,13 +100,13 @@ export default function TaskDocuments({ projectId, phaseId, taskId, docs, canUpl
         </button>
         {canUpload && (
           <button type="button" onClick={() => setOpen(true)}
-            className="inline-flex items-center gap-1 font-medium"
-            style={{ color: "var(--brand-accent,#0E6B5C)" }}>
+            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border bg-white font-medium"
+            style={{ borderColor: "#E3E6E2", color: "var(--brand-accent,#0E6B5C)" }}>
             <Plus size={11} aria-hidden="true" /> pièce
           </button>
         )}
         {taskDone && docs.length === 0 && (
-          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded"
+          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg"
             style={{ background: "#F7EDDD", color: "#8A6A1F" }}
             title="Tâche déclarée terminée sans pièce justificative : l'avancement est déclaratif.">
             <AlertTriangle size={10} aria-hidden="true" /> sans justificatif
