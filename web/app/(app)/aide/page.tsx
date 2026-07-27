@@ -25,7 +25,7 @@ export default async function AidePage() {
   const FLOW = ["brouillon", "soumis", "en_revue", "valide"]
 
   return (
-    <div className="p-8 max-w-3xl mx-auto">
+    <div className="p-4 sm:p-8 max-w-3xl mx-auto">
       <div className="mb-8">
         <h1 className="text-2xl font-bold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>Aide et prise en main</h1>
         <p className="mt-1 text-sm leading-relaxed" style={{ color: "#66716B" }}>{HELP_INTRO}</p>

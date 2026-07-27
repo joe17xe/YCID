@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import { PROJECT_STATUS, TASK_STATUS, fmtDate } from "@/lib/constants"
+import { AlertTriangle, CalendarClock } from "lucide-react"
+import { StatTile, AlertStatTile } from "@/components/ui/StatTile"
 
 const PERIODS: Record<string, { label: string; days: number | null }> = {
   semaine: { label: "Semaine", days: 7 },
@@ -52,7 +54,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   }
 
   return (
-    <div className="p-8 max-w-6xl mx-auto">
+    <div className="p-4 sm:p-8 max-w-6xl mx-auto">
       <div className="mb-8">
         <h1 className="text-2xl font-bold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>
           Bonjour{profile?.full_name ? `, ${profile.full_name.split(" ")[0]}` : ""} 👋
@@ -84,20 +86,28 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       </div>
 
       {/* KPI cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-        {[
-          { label: "Projets actifs", value: (projects ?? []).filter((p: any) => p.status === "en_cours").length, color: "var(--brand-accent,#0E6B5C)", bg: "var(--brand-accent-soft,#E4F0EC)" },
-          { label: "Tâches en cours", value: allTasks.filter((t: any) => t.status === "en_cours").length, color: "#3B5488", bg: "#E8ECF5" },
-          { label: "Tâches en retard", value: lateTasks.length, color: "#A3342C", bg: "#F6E7E5" },
-          { label: `Échéances (${period.label.toLowerCase()})`, value: dueSoon.length, color: "#B4690E", bg: "#F7EDDD" },
-          { label: "Décisions en retard", value: lateDecisions.length, color: "#6B4A8C", bg: "#F0E9F5" },
-        ].map(({ label, value, color, bg }) => (
-          <div key={label} className="bg-white rounded-2xl p-5 border" style={{ borderColor: "#E3E6E2" }}>
-            <div className="text-3xl font-bold mb-1" style={{ fontFamily: "var(--font-sora)", color }}>{value}</div>
-            <div className="text-sm" style={{ color: "#66716B", fontFamily: "var(--font-inter)" }}>{label}</div>
-            <div className="mt-2 h-1 rounded-full" style={{ background: bg }} />
-          </div>
-        ))}
+      {/* Même anatomie de tuile que le pouls d'un projet (StatTile) :
+          un chiffre se lit pareil partout. Un écran de veille garde sa
+          grille STABLE — les alertes à zéro ne disparaissent pas, elles
+          s'éteignent en tuile neutre : la place reste, la couleur ne
+          crie que quand il y a quelque chose à crier. */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 mb-8">
+        <StatTile label="Projets actifs" mark="var(--brand-accent,#0E6B5C)"
+          value={(projects ?? []).filter((p: any) => p.status === "en_cours").length} />
+        <StatTile label="Tâches en cours" mark="#3B5488"
+          value={allTasks.filter((t: any) => t.status === "en_cours").length} />
+        {lateTasks.length > 0
+          ? <AlertStatTile tone="danger" icon={<AlertTriangle size={13} aria-hidden="true" />}
+              label="Tâches en retard" value={lateTasks.length} sub="échéance dépassée" />
+          : <StatTile label="Tâches en retard" mark="#9AA39D" value={0} sub="rien ne glisse" />}
+        {dueSoon.length > 0
+          ? <AlertStatTile tone="warning" icon={<CalendarClock size={13} aria-hidden="true" />}
+              label={`Échéances (${period.label.toLowerCase()})`} value={dueSoon.length} sub="à tenir sur la période" />
+          : <StatTile label={`Échéances (${period.label.toLowerCase()})`} mark="#9AA39D" value={0} />}
+        {lateDecisions.length > 0
+          ? <AlertStatTile tone="danger" icon={<AlertTriangle size={13} aria-hidden="true" />}
+              label="Décisions en retard" value={lateDecisions.length} sub="COPIL à relancer" />
+          : <StatTile label="Décisions en retard" mark="#9AA39D" value={0} />}
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6">

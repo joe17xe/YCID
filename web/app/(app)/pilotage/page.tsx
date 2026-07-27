@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { PROJECT_STATUS, fmtEur } from "@/lib/constants"
 import Link from "next/link"
+import { AlertTriangle, CalendarClock, MapPin } from "lucide-react"
+import { StatTile, AlertStatTile } from "@/components/ui/StatTile"
 
 export default async function PilotagePage() {
   const supabase = await createClient()
@@ -34,25 +36,29 @@ export default async function PilotagePage() {
   const countryGroups = [...byCountry.entries()].sort((a, b) => a[0].localeCompare(b[0], "fr"))
 
   return (
-    <div className="p-8 max-w-6xl mx-auto">
+    <div className="p-4 sm:p-8 max-w-6xl mx-auto">
       <div className="mb-8">
         <h1 className="text-2xl font-bold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>Pilotage — Portefeuille</h1>
         <p className="mt-1 text-sm" style={{ color: "#66716B" }}>{(projects ?? []).length} projets · {(projects ?? []).filter((p: any) => p.status === "en_cours").length} en cours</p>
       </div>
 
       {/* KPI globaux */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {[
-          { label: "Budget total portefeuille", value: fmtEur(totalBudget), color: "var(--brand-accent,#0E6B5C)", bg: "var(--brand-accent-soft,#E4F0EC)" },
-          { label: "Projets en cours", value: (projects ?? []).filter((p: any) => p.status === "en_cours").length, color: "#3B5488", bg: "#E8ECF5" },
-          { label: "Décisions ouvertes", value: (decisions ?? []).length, color: "#B4690E", bg: "#F7EDDD" },
-          { label: "Décisions en retard", value: overdueDecisions.length, color: "#A3342C", bg: "#F6E7E5" },
-        ].map(({ label, value, color, bg }) => (
-          <div key={label} className="bg-white rounded-2xl border p-5" style={{ borderColor: "#E3E6E2" }}>
-            <div className="text-2xl font-bold mb-1" style={{ fontFamily: "var(--font-sora)", color }}>{value}</div>
-            <div className="text-xs" style={{ color: "#66716B" }}>{label}</div>
-          </div>
-        ))}
+      {/* Anatomie partagée (StatTile) : un chiffre se lit pareil sur
+          l'accueil, un projet et ici. Grille stable — l'alerte à zéro
+          s'éteint en tuile neutre au lieu de disparaître. */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-8">
+        <StatTile label="Budget total portefeuille" mark="var(--brand-accent,#0E6B5C)" value={fmtEur(totalBudget)}
+          sub="somme des montants votés" />
+        <StatTile label="Projets en cours" mark="#3B5488"
+          value={(projects ?? []).filter((p: any) => p.status === "en_cours").length} />
+        {(decisions ?? []).length > 0
+          ? <AlertStatTile tone="warning" icon={<CalendarClock size={13} aria-hidden="true" />}
+              label="Décisions ouvertes" value={(decisions ?? []).length} sub="en attente d'une suite" />
+          : <StatTile label="Décisions ouvertes" mark="#9AA39D" value={0} />}
+        {overdueDecisions.length > 0
+          ? <AlertStatTile tone="danger" icon={<AlertTriangle size={13} aria-hidden="true" />}
+              label="Décisions en retard" value={overdueDecisions.length} sub="échéance dépassée" />
+          : <StatTile label="Décisions en retard" mark="#9AA39D" value={0} sub="rien ne glisse" />}
       </div>
 
       {/* Tableau projets */}
@@ -79,7 +85,8 @@ export default async function PilotagePage() {
             {countryGroups.map(([country, group]) => [
               <tr key={`g-${country}`} data-group="" style={{ background: "#FAFBFA", borderBottom: "1px solid #E3E6E2" }}>
                 <td className="px-5 py-2.5 font-semibold" style={{ color: "#17211D" }}>
-                  📍 {country} <span className="text-xs font-normal" style={{ color: "#66716B" }}>· {group.length} projet{group.length > 1 ? "s" : ""}</span>
+                  <MapPin size={13} className="inline -mt-0.5 mr-1" aria-hidden="true" />
+                  {country} <span className="text-xs font-normal" style={{ color: "#66716B" }}>· {group.length} projet{group.length > 1 ? "s" : ""}</span>
                 </td>
                 <td />
                 <td data-label="Avancement moyen" className="px-5 py-2.5 text-xs" style={{ color: "#66716B" }}>

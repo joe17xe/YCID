@@ -74,7 +74,7 @@ export default async function PublicProjectPage({ params }: { params: Promise<{ 
             {project.programme && <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "#F0E9F5", color: "#6B4A8C" }}>{project.programme}</span>}
           </div>
           <div className="text-sm mb-3" style={{ color: "#66716B" }}>
-            {project.country && <>📍 {project.country}{project.zone ? ` — ${project.zone}` : ""} · </>}
+            {project.country && <>{project.country}{project.zone ? ` — ${project.zone}` : ""} · </>}
             {project.start_date && <>{fmtDate(project.start_date)} → {fmtDate(project.end_date)}</>}
           </div>
           {project.description && <p className="text-sm mb-5" style={{ color: "#3A423E" }}>{project.description}</p>}

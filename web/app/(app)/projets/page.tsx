@@ -4,7 +4,7 @@ import { redirect } from "next/navigation"
 import Link from "next/link"
 import { PROJECT_STATUS, fmtEur, fmtDate } from "@/lib/constants"
 import { canCreateProjects } from "@/lib/permissions"
-import { Plus } from "lucide-react"
+import {Plus, MapPin} from "lucide-react"
 
 export default async function ProjetsPage() {
   const supabase = await createClient()
@@ -26,7 +26,7 @@ export default async function ProjetsPage() {
   }
 
   return (
-    <div className="p-8 max-w-6xl mx-auto">
+    <div className="p-4 sm:p-8 max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>Projets</h1>
@@ -77,7 +77,7 @@ export default async function ProjetsPage() {
 
               <div className="flex items-center justify-between text-xs" style={{ color: "#66716B", fontFamily: "var(--font-inter)" }}>
                 <div className="flex items-center gap-3">
-                  {p.country && <span>📍 {p.country}</span>}
+                  {p.country && <span className="inline-flex items-center gap-1"><MapPin size={12} aria-hidden="true" />{p.country}</span>}
                   {taskCount > 0 && <span>{taskCount} tâche{taskCount > 1 ? "s" : ""}</span>}
                 </div>
                 {p.budget && <span className="font-medium">{fmtEur(p.budget)}</span>}

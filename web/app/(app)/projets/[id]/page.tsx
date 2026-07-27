@@ -13,6 +13,9 @@ import { BudgetLineDialog, CreateTaskFromLineButton, IndicatorDialog, MeasureDia
 import TaskDocuments from "@/components/project/TaskDocuments"
 import DeleteTaskButton from "@/components/tasks/DeleteTaskButton"
 import BudgetLineDocuments from "@/components/project/BudgetLineDocuments"
+import ProjectPulse from "@/components/project/ProjectPulse"
+import { StatTile } from "@/components/ui/StatTile"
+import NextSteps, { daysUntil, type StepTask } from "@/components/project/NextSteps"
 import PhasePhotos, { type PhasePhoto } from "@/components/project/PhasePhotos"
 import DocumentsPanel, { type ProjectDoc } from "@/components/project/DocumentsPanel"
 import { GALLERY_URL_TTL, type DocMoment } from "@/lib/documents"
@@ -27,7 +30,7 @@ import CommPanel, { type Campaign } from "@/components/project/CommPanel"
 import PublicPageDialog from "@/components/project/PublicPageDialog"
 import ProjectEditDialog from "@/components/project/ProjectEditDialog"
 import ProjectDocUpload from "@/components/project/ProjectDocUpload"
-import { ChevronLeft } from "lucide-react"
+import { ChevronLeft, User, CalendarDays, MapPin } from "lucide-react"
 
 function Badge({ label, fg, bg }: { label: string; fg: string; bg: string }) {
   return <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ color: fg, background: bg }}>{label}</span>
@@ -35,7 +38,10 @@ function Badge({ label, fg, bg }: { label: string; fg: string; bg: string }) {
 
 function ProgressBar({ value }: { value: number }) {
   return (
-    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "#E3E6E2" }}>
+    // La piste est une marche CLAIRE de la même gamme que le
+    // remplissage, pas un gris neutre : l'état se lit sur toute la
+    // barre, pas seulement sur la partie remplie.
+    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--brand-accent-soft,#E4F0EC)" }}>
       <div className="h-full rounded-full" style={{ width: `${value}%`, background: "var(--brand-accent,#0E6B5C)" }} />
     </div>
   )
@@ -264,6 +270,42 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
   // bouger librement, l'enveloppe non (règle YCID du 25/07/2026).
   const voted = project.budget ?? null
   const envelopeGap = voted != null ? gap(projectFin.planned, voted) : null
+
+  // ---- Le pouls du projet, et ce qui vient ensuite -----------------
+  // « Pas de KPI, pas de vue globale, pas de prochaines étapes, pas de
+  // propriétaire » (27/07). Tout existait dans la base ; rien n'était
+  // remonté en tête. Ces trois calculs alimentent ProjectPulse et
+  // NextSteps — la page n'en fabrique pas la mise en forme, elle fournit
+  // les faits.
+  const todayISO = new Date().toISOString().slice(0, 10)
+  const steps: StepTask[] = (phases ?? []).flatMap((ph: any) =>
+    (ph.tasks ?? []).map((t: any) => ({
+      id: t.id, title: t.title, phaseName: ph.name,
+      ownerName: t.profiles?.full_name ?? null,
+      ownerIsMe: t.assignee_id === user.id,
+      endDate: t.end_date ?? null, status: t.status, progress: t.progress ?? 0,
+    })))
+  const openSteps = steps.filter(t => t.status !== "terminee")
+  const lateTasks = openSteps.filter(t => t.endDate && daysUntil(t.endDate, todayISO) < 0).length
+  const nextDated = openSteps
+    .filter(t => t.endDate)
+    .sort((a, b) => String(a.endDate).localeCompare(String(b.endDate)))[0]
+  const nextDeadline = nextDated
+    ? { title: nextDated.title, date: nextDated.endDate!, days: daysUntil(nextDated.endDate!, todayISO) }
+    : null
+
+  // Décisions ACTIONNABLES seulement : un échelon dont le tour n'est pas
+  // venu n'est pas une tâche, c'est une attente. Le compter gonflerait
+  // le chiffre sans donner de travail.
+  const myDecisions = (budgetLines ?? []).reduce((n: number, l: any) =>
+    n + (l.documents ?? []).reduce((m: number, d: any) => {
+      const all = d.validations ?? []
+      return m + all.filter((v: any) =>
+        v.decision === 'en_attente'
+        && (myOrgIds.has(v.org_id) || isPlatformAdmin)
+        && !all.some((o: any) => (o.step ?? 1) < (v.step ?? 1) && o.decision !== 'valide')
+      ).length
+    }, 0), 0)
   // Le budget d'une tâche existe toujours : à défaut d'affectation, 0 €.
   const taskBudget = (taskId: string) => plannedByTask.get(taskId) ?? 0
   // Regroupement du tableau budgétaire : phases dans l'ordre du projet,
@@ -273,19 +315,22 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
     { id: "__hors_phase__", name: "Hors phase", lines: linesByPhase.get("__hors_phase__") ?? [] },
   ].filter(g => g.lines.length)
 
-  const TABS = [
+  // Le compteur est une DONNÉE, pas un morceau de libellé : « Tâches
+  // (7) » tapé dans la chaîne se lisait comme du texte. Séparé, il
+  // devient un badge dans la pastille.
+  const TABS: { key: string; label: string; count?: number }[] = [
     { key: "apercu", label: "Aperçu" },
-    { key: "taches", label: `Tâches (${allTasks.length})` },
+    { key: "taches", label: "Tâches", count: allTasks.length },
     { key: "budget", label: "Budget" },
-    { key: "documents", label: `Documents${projectDocs.length ? ` (${projectDocs.length})` : ""}` },
+    { key: "documents", label: "Documents", count: projectDocs.length || undefined },
     { key: "impact", label: "Impact" },
     { key: "copil", label: "COPIL" },
-    { key: "comm", label: `Communication${campaigns.length ? ` (${campaigns.length})` : ""}` },
+    { key: "comm", label: "Communication", count: campaigns.length || undefined },
     { key: "audit", label: "Journal" },
   ]
 
   return (
-    <div className="p-8 max-w-6xl mx-auto">
+    <div className="p-4 sm:p-8 max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <Link href="/projets" className="inline-flex items-center gap-1 text-sm" style={{ color: "#66716B" }}>
           <ChevronLeft size={16} /> Projets
@@ -307,57 +352,89 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
         </div>
       </div>
 
-      <div className="flex flex-wrap items-start gap-4 mb-6">
-        <div className="flex-1">
-          <div className="flex items-center gap-3 mb-1">
-            <h1 className="text-2xl font-bold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>{project.name}</h1>
+      {/* Sur un téléphone, cet en-tête occupait un écran entier avant
+          le premier chiffre : titre sur trois lignes en 24 px,
+          description en entier, et un « 48 650 € » flottant sans
+          étiquette — on ne savait pas s'il s'agissait du voté, du prévu
+          ou du dépensé. Le titre rétrécit, la description se limite à
+          deux lignes, et le montant dit ce qu'il est. */}
+      <div className="flex flex-wrap items-start gap-x-4 gap-y-2 mb-4">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap mb-1">
+            <h1 className="text-xl sm:text-2xl font-bold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>{project.name}</h1>
             <Badge label={s.label} fg={s.fg} bg={s.bg} />
             {project.programme && <Badge label={project.programme} fg="#6B4A8C" bg="#F0E9F5" />}
           </div>
-          {project.description && <p className="text-sm" style={{ color: "#66716B" }}>{project.description}</p>}
-        </div>
-        <div className="text-right text-sm" style={{ color: "#66716B" }}>
-          {project.country && <div>📍 {project.country}{project.zone ? ` — ${project.zone}` : ""}</div>}
-          {project.start_date && <div>{fmtDate(project.start_date)} → {fmtDate(project.end_date)}</div>}
-          {project.budget && <div className="font-semibold" style={{ color: "#17211D" }}>{fmtEur(project.budget)}</div>}
+          {project.description && (
+            <p className="text-sm line-clamp-2 sm:line-clamp-none" style={{ color: "#66716B" }}>{project.description}</p>
+          )}
+          <div className="text-xs mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1" style={{ color: "#66716B" }}>
+            {project.country && (
+              <span className="inline-flex items-center gap-1">
+                <MapPin size={12} aria-hidden="true" />
+                {project.country}{project.zone ? ` — ${project.zone}` : ""}
+              </span>
+            )}
+            {project.start_date && <span>{fmtDate(project.start_date)} → {fmtDate(project.end_date)}</span>}
+            {project.budget != null && (
+              <span>Montant voté <strong style={{ color: "#17211D" }}>{fmtEur(project.budget)}</strong></span>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Progress global */}
-      <div className="bg-white rounded-2xl border p-5 mb-6" style={{ borderColor: "#E3E6E2" }}>
-        <div className="flex justify-between text-sm mb-2" style={{ color: "#66716B" }}>
-          <span>Avancement global</span>
-          <span className="font-semibold" style={{ color: "#17211D" }}>{projectProgress}%</span>
-        </div>
-        <ProgressBar value={projectProgress} />
-      </div>
+      {/* Le pouls du projet. Remplace la barre « Avancement global »,
+          qui occupait toute la largeur pour un seul chiffre — lequel ne
+          disait ni si l'argent suivait, ni si quelque chose glissait, ni
+          si une décision attendait quelqu'un. */}
+      <ProjectPulse
+        progress={projectProgress}
+        voted={voted}
+        planned={projectFin.planned}
+        engaged={projectFin.engaged}
+        paid={projectFin.paid}
+        lateTasks={lateTasks}
+        openTasks={openSteps.length}
+        myDecisions={myDecisions}
+        nextDeadline={nextDeadline}
+      />
 
-      {/* Tabs */}
-      {/* Huit onglets à `px-4` font près de 900 pixels de large. Sur un
-          téléphone de 390, ce n'est pas la barre qui débordait : c'est
-          la PAGE ENTIÈRE qui glissait sous le doigt, emportant les
-          cartes, les tableaux et les boutons avec elle.
-          Premier correctif : la faire défiler pour son propre compte.
-          Insuffisant — un onglet hors écran est un onglet qu'on ne sait
-          pas exister, et le geste de balayage entre en concurrence avec
-          celui de la page. Elle passe donc à la ligne : deux ou trois
-          rangées sur un téléphone, une seule sur un écran. Rien ne sort
-          du cadre, rien ne se découvre par hasard. */}
-      <div className="flex flex-wrap gap-1 mb-6 border-b" style={{ borderColor: "#E3E6E2" }}>
-        {TABS.map(({ key, label }) => (
-          <Link
-            key={key}
-            href={`/projets/${id}?tab=${key}`}
-            className="px-3 sm:px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px whitespace-nowrap"
-            style={{
-              borderColor: tab === key ? "var(--brand-accent,#0E6B5C)" : "transparent",
-              color: tab === key ? "var(--brand-accent,#0E6B5C)" : "#66716B",
-              fontFamily: "var(--font-inter)",
-            }}
-          >
-            {label}
-          </Link>
-        ))}
+
+      {/* Onglets en pastilles pleines — le même langage que la roadmap
+          et l'écran de configuration, pour que l'application converge
+          sur UN idiome d'onglets au lieu de deux. La version
+          soulignée, passée à la ligne le matin même, laissait trois
+          rangées de texte clairsemé où seul un filet de deux pixels
+          distinguait l'onglet actif : « du texte avec des chiffres »,
+          pas des boutons. Ici chaque onglet est une pastille, l'actif
+          est blanc sur fond gris, et le compteur est un badge. */}
+      <div className="flex flex-wrap items-center gap-1 p-1 rounded-2xl mb-6" style={{ background: "#EEF0EE" }}>
+        {TABS.map(({ key, label, count }) => {
+          const active = tab === key
+          return (
+            <Link
+              key={key}
+              href={`/projets/${id}?tab=${key}`}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap"
+              style={{
+                background: active ? "#FFFFFF" : "transparent",
+                color: active ? "var(--brand-accent,#0E6B5C)" : "#66716B",
+                boxShadow: active ? "0 1px 2px rgba(23,33,29,0.06)" : "none",
+                fontFamily: "var(--font-inter)",
+              }}
+            >
+              {label}
+              {count != null && count > 0 && (
+                <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full leading-none"
+                  style={active
+                    ? { background: "var(--brand-accent-soft,#E4F0EC)", color: "var(--brand-accent,#0E6B5C)" }
+                    : { background: "#E3E6E2", color: "#66716B" }}>
+                  {count}
+                </span>
+              )}
+            </Link>
+          )
+        })}
         {TAB_HELP[tab] && (
           <span className="ml-auto self-center">
             <HelpDialog title={TAB_HELP[tab].title} excerpt={TAB_HELP[tab].excerpt} anchor={TAB_HELP[tab].anchor} />
@@ -367,6 +444,12 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
 
       {/* ===== APERÇU ===== */}
       {tab === "apercu" && (
+        <div className="space-y-6">
+        {/* Ce qui vient d'abord, ce qui vient ensuite. L'aperçu ouvrait
+            sur « Organisations (6) » : la donnée la plus stable du
+            projet, celle qui ne demande aucune action, en position la
+            plus visible. Les prochaines étapes passent devant. */}
+        <NextSteps tasks={steps} today={todayISO} projectId={id} />
         <div className="grid lg:grid-cols-2 gap-6">
           {/* Organisations */}
           <div className="bg-white rounded-2xl border p-6" style={{ borderColor: "#E3E6E2" }}>
@@ -432,6 +515,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
             </div>
           </div>
         </div>
+        </div>
       )}
 
       {/* ===== TÂCHES ===== */}
@@ -442,6 +526,12 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
               <PhaseDialog projectId={id} />
             </div>
           )}
+          {/* Le découpage par phase répond à « comment le projet est
+              organisé ». Il ne répond pas à « qu'est-ce qui glisse » :
+              il fallait déplier chaque phase et comparer les dates de
+              tête. Cette liste traverse les phases et donne l'ordre dans
+              lequel les ouvrir. */}
+          <NextSteps tasks={steps} today={todayISO} projectId={id} limit={8} />
           {(phases ?? []).map((ph: any) => {
             const phaseTasks = ph.tasks ?? []
             // Avancement pondéré par le budget, avec PLANCHER À 2 %
@@ -480,8 +570,14 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
             return (
               <div key={ph.id} className="bg-white rounded-2xl border" style={{ borderColor: "#E3E6E2" }}>
                 <div className="p-4 border-b" style={{ borderColor: "#E3E6E2" }}>
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
+                  {/* L'ancien en-tête empilait « 3 tâches / 26 600 € /
+                      0 % pondéré / + Tâche » en colonne à droite du
+                      titre : sur téléphone, une tour de chiffres sans
+                      libellés. Le titre prend la largeur, l'action reste
+                      en haut à droite, et les chiffres deviennent des
+                      pastilles nommées qui passent à la ligne. */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
                       <h3 className="font-semibold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>{ph.name}</h3>
                       {canPhases && (
                         <PhaseDialog projectId={id} phase={{
@@ -490,27 +586,36 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                         }} />
                       )}
                     </div>
-                    <div className="flex items-center gap-3 text-sm flex-wrap justify-end" style={{ color: "#66716B" }}>
-                      <span>{phaseTasks.length} tâche{phaseTasks.length > 1 ? "s" : ""}</span>
-                      {/* Preuve de réalisation (PR 38e) : compte agrégé,
-                          pour qu'on n'ait pas à déplier chaque tâche. */}
-                      {(() => {
-                        const n = phaseTasks.filter((t: any) => t.status === "terminee" && !(t.documents ?? []).length).length
-                        return n > 0 ? (
-                          <span className="px-1.5 py-0.5 rounded text-xs" style={{ background: "#F7EDDD", color: "#8A6A1F" }}
-                            title="Tâches déclarées terminées sans aucune pièce justificative">
-                            {n} sans justificatif
-                          </span>
-                        ) : null
-                      })()}
-                      {phaseLinesTotal > 0 && <span title="Somme des lignes budgétaires de la phase">{fmtEur(phaseLinesTotal)}</span>}
-                      <span title={weighted
+                    {canTasks && <span className="flex-shrink-0"><TaskDialog phaseId={ph.id} members={memberOptions} /></span>}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5 mt-2 text-xs">
+                    <span className="px-2 py-1 rounded-lg" style={{ background: "#F5F6F4", color: "#66716B" }}>
+                      {phaseTasks.length} tâche{phaseTasks.length > 1 ? "s" : ""}
+                    </span>
+                    {phaseLinesTotal > 0 && (
+                      <span className="px-2 py-1 rounded-lg" style={{ background: "#F5F6F4", color: "#66716B" }}
+                        title="Somme des lignes budgétaires de la phase">
+                        {fmtEur(phaseLinesTotal)}
+                      </span>
+                    )}
+                    <span className="px-2 py-1 rounded-lg font-medium"
+                      style={{ background: "var(--brand-accent-soft,#E4F0EC)", color: "var(--brand-accent,#0E6B5C)" }}
+                      title={weighted
                         ? "Moyenne pondérée par le budget des tâches, avec un poids plancher de 2 % du budget de la phase : une tâche à 0 € compte tout de même, la phase ne peut donc pas afficher 100 % tant qu'elle n'est pas faite."
                         : "Moyenne des tâches, à parts égales — la phase n'a pas encore de budget réparti."}>
-                        {phProg}%{weighted && <span className="text-xs"> pondéré</span>}
-                      </span>
-                      {canTasks && <TaskDialog phaseId={ph.id} members={memberOptions} />}
-                    </div>
+                      {phProg} %{weighted ? " pondéré" : ""}
+                    </span>
+                    {/* Preuve de réalisation (PR 38e) : compte agrégé,
+                        pour qu'on n'ait pas à déplier chaque tâche. */}
+                    {(() => {
+                      const n = phaseTasks.filter((t: any) => t.status === "terminee" && !(t.documents ?? []).length).length
+                      return n > 0 ? (
+                        <span className="px-2 py-1 rounded-lg" style={{ background: "#F7EDDD", color: "#8A6A1F" }}
+                          title="Tâches déclarées terminées sans aucune pièce justificative">
+                          {n} sans justificatif
+                        </span>
+                      ) : null
+                    })()}
                   </div>
                   {/* Plus d'écart possible ici depuis la PR 39 : le budget
                       d'une phase EST la somme de ses lignes. On montre
@@ -531,74 +636,104 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                     const rv = t.review ? (REVIEW_STATES[t.review] ?? null) : null
                     return (
                       <div key={t.id} className="p-4 hover:bg-gray-50">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1">
-                            <div className="text-sm font-medium" style={{ color: "#17211D" }}>{t.title}</div>
-                            {t.description && <div className="text-xs mt-0.5" style={{ color: "#66716B" }}>{t.description}</div>}
-                            <div className="flex items-center gap-3 mt-1 text-xs" style={{ color: "#66716B" }}>
-                              {t.profiles?.full_name && <span>👤 {t.profiles.full_name}</span>}
-                              {t.end_date && <span>📅 {fmtDate(t.end_date)}</span>}
-                              {/* Le compteur « 📎 N doc » existait depuis
-                                  l'origine mais restait à 0 : rien ne
-                                  permettait de déposer une pièce (PR 38a). */}
-                              <TaskDocuments projectId={id} phaseId={ph.id} taskId={t.id}
-                                canUpload={canTasks} taskDone={t.status === "terminee"}
-                                docs={[...(t.documents ?? [])]
-                                  .sort((a: any, b: any) => String(b.uploaded_at).localeCompare(String(a.uploaded_at)))
-                                  .map((d: any) => ({
-                                    id: d.id, filename: d.filename, type: d.type, uploaded_at: d.uploaded_at,
-                                  }))} />
-                              {/* Toute tâche porte un budget, 0 € compris :
-                                  « sans budget » ressemblait à une donnée
-                                  manquante alors que 0 € est une décision. */}
-                              <span
-                                title={taskBudget(t.id) > 0
-                                  ? "Somme affectée à cette tâche par les lignes budgétaires"
-                                  : "Aucune ligne budgétaire n'est affectée à cette tâche"}
-                                style={{ color: taskBudget(t.id) > 0 ? "var(--brand-accent,#0E6B5C)" : "#9AA39D" }}>
-                                💶 {fmtEur(taskBudget(t.id))}
-                              </span>
-                              {/* Sens inverse de la création croisée : la
-                                  tâche existe, son financement reste à
-                                  saisir. Le dialogue s'ouvre déjà rattaché. */}
-                              {canBudget && (
-                                <BudgetLineDialog projectId={id} orgs={orgOptions} phases={phaseOptions} tasks={taskOptions}
-                                  preset={{ phase_id: ph.id, task_id: t.id }} triggerLabel="ligne budgétaire" />
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex flex-col items-end gap-1">
-                            <div className="flex items-center gap-1">
-                              {canTasks && t.status !== "terminee" && (
-                                <>
-                                  <TaskDialog phaseId={ph.id} members={memberOptions} task={{
-                                    id: t.id, title: t.title, description: t.description ?? null,
-                                    assignee_id: t.assignee_id ?? null, start_date: t.start_date ?? null,
-                                    end_date: t.end_date ?? null, status: t.status, progress: t.progress,
-                                  }} />
-                                  {/* Aucun moyen de supprimer une tâche n'existait :
-                                      deux clics sur « Créer la tâche » suffisaient à
-                                      en laisser une en double, définitivement. */}
-                                  <DeleteTaskButton taskId={t.id} projectId={id} title={t.title}
-                                    budget={taskBudget(t.id)} docCount={(t.documents ?? []).length} />
-                                </>
-                              )}
+                        {/* Le statut vivait dans une colonne fixe à
+                            droite : elle comprimait la date sur trois
+                            lignes et faisait flotter « À faire » hors de
+                            la carte. Une tâche se lit désormais de haut
+                            en bas — titre et statut, description, puis
+                            les faits en pastilles qui passent à la ligne
+                            au lieu de se compresser. Les emoji (👤 📅 💶)
+                            cèdent la place aux icônes : rendu identique
+                            partout, taille contrôlée. */}
+                        <div className="flex items-start gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center flex-wrap gap-x-2 gap-y-1">
+                              <span className="text-sm font-medium" style={{ color: "#17211D" }}>{t.title}</span>
                               <Badge label={ts.label} fg={ts.fg} bg={ts.bg} />
+                              {rv && <Badge label={rv.label} fg={rv.fg} bg={rv.bg} />}
                             </div>
-                            {rv && <Badge label={rv.label} fg={rv.fg} bg={rv.bg} />}
+                            {t.description && <div className="text-xs mt-0.5 line-clamp-2" style={{ color: "#66716B" }}>{t.description}</div>}
+                          </div>
+                          <div className="flex items-center gap-1 flex-shrink-0">
                             {t.status === "terminee" && canEditCompleted && (
                               <EditCompletedTaskDialog task={{
-                                id: t.id,
-                                title: t.title,
-                                description: t.description ?? null,
-                                status: t.status,
-                                progress: t.progress,
-                                start_date: t.start_date ?? null,
-                                end_date: t.end_date ?? null,
+                                id: t.id, title: t.title, description: t.description ?? null,
+                                status: t.status, progress: t.progress,
+                                start_date: t.start_date ?? null, end_date: t.end_date ?? null,
                                 comment: t.comment ?? null,
                               }} />
                             )}
+                            {canTasks && t.status !== "terminee" && (
+                              <>
+                                <TaskDialog phaseId={ph.id} members={memberOptions} task={{
+                                  id: t.id, title: t.title, description: t.description ?? null,
+                                  assignee_id: t.assignee_id ?? null, start_date: t.start_date ?? null,
+                                  end_date: t.end_date ?? null, status: t.status, progress: t.progress,
+                                }} />
+                                {/* Aucun moyen de supprimer une tâche n'existait :
+                                    deux clics sur « Créer la tâche » suffisaient à
+                                    en laisser une en double, définitivement. */}
+                                <DeleteTaskButton taskId={t.id} projectId={id} title={t.title}
+                                  budget={taskBudget(t.id)} docCount={(t.documents ?? []).length} />
+                              </>
+                            )}
                           </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1.5 mt-2 text-xs">
+                          {/* Une tâche sans nom en face est une tâche que
+                              personne ne fera. Le blanc ne le disait pas ;
+                              la pastille orange, si. */}
+                          {t.profiles?.full_name
+                            ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg" style={{ background: "#F5F6F4", color: "#66716B" }}>
+                                <User size={11} aria-hidden="true" /> {t.profiles.full_name}
+                              </span>
+                            )
+                            : t.status !== "terminee" && (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg" style={{ background: "#F7EDDD", color: "#8A6A1F" }}>
+                                <User size={11} aria-hidden="true" /> sans responsable
+                              </span>
+                            )}
+                          {t.end_date && (() => {
+                            const d = daysUntil(t.end_date, todayISO)
+                            const late = t.status !== "terminee" && d < 0
+                            return (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg"
+                                style={late
+                                  ? { background: "#FBEAEA", color: "#A3342C", fontWeight: 600 }
+                                  : { background: "#F5F6F4", color: "#66716B" }}>
+                                <CalendarDays size={11} aria-hidden="true" />
+                                {fmtDate(t.end_date)}{late ? ` · ${Math.abs(d)} j de retard` : ""}
+                              </span>
+                            )
+                          })()}
+                          {/* Le compteur « N doc » existait depuis
+                              l'origine mais restait à 0 : rien ne
+                              permettait de déposer une pièce (PR 38a). */}
+                          <TaskDocuments projectId={id} phaseId={ph.id} taskId={t.id}
+                            canUpload={canTasks} taskDone={t.status === "terminee"}
+                            docs={[...(t.documents ?? [])]
+                              .sort((a: any, b: any) => String(b.uploaded_at).localeCompare(String(a.uploaded_at)))
+                              .map((d: any) => ({
+                                id: d.id, filename: d.filename, type: d.type, uploaded_at: d.uploaded_at,
+                              }))} />
+                          {/* Toute tâche porte un budget, 0 € compris :
+                              « sans budget » ressemblait à une donnée
+                              manquante alors que 0 € est une décision. */}
+                          <span className="px-2 py-1 rounded-lg"
+                            title={taskBudget(t.id) > 0
+                              ? "Somme affectée à cette tâche par les lignes budgétaires"
+                              : "Aucune ligne budgétaire n'est affectée à cette tâche"}
+                            style={{ background: "#F5F6F4", color: taskBudget(t.id) > 0 ? "var(--brand-accent,#0E6B5C)" : "#9AA39D", fontWeight: taskBudget(t.id) > 0 ? 600 : 400 }}>
+                            {fmtEur(taskBudget(t.id))}
+                          </span>
+                          {/* Sens inverse de la création croisée : la
+                              tâche existe, son financement reste à
+                              saisir. Le dialogue s'ouvre déjà rattaché. */}
+                          {canBudget && (
+                            <BudgetLineDialog projectId={id} orgs={orgOptions} phases={phaseOptions} tasks={taskOptions}
+                              preset={{ phase_id: ph.id, task_id: t.id }} triggerLabel="ligne" />
+                          )}
                         </div>
                         <div className="mt-2 flex items-center gap-3">
                           <div className="flex-1"><ProgressBar value={t.progress} /></div>
@@ -624,15 +759,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
               ce qui est ACTIONNABLE : un échelon dont le tour n'est pas
               venu n'est pas une tâche, c'est une attente. */}
           {(() => {
-            const aDecider = (budgetLines ?? []).reduce((n: number, l: any) =>
-              n + (l.documents ?? []).reduce((m: number, d: any) => {
-                const all = d.validations ?? []
-                return m + all.filter((v: any) =>
-                  v.decision === 'en_attente'
-                  && (myOrgIds.has(v.org_id) || isPlatformAdmin)
-                  && !all.some((o: any) => (o.step ?? 1) < (v.step ?? 1) && o.decision !== 'valide')
-                ).length
-              }, 0), 0)
+            const aDecider = myDecisions
             if (!aDecider) return null
             return (
               <div className="rounded-xl p-4 mb-4 text-sm flex flex-wrap items-center justify-between gap-3"
@@ -662,21 +789,41 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
               Déplacer du budget d&apos;une ligne à l&apos;autre est normal ; le total, lui, correspond à un financement voté.
             </div>
           )}
-          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
-            {[
-              { label: "Voté", value: fmtEur(voted), color: "#17211D" },
-              { label: "Prévu (hors valorisation)", value: fmtEur(projectFin.planned), color: "var(--brand-accent,#0E6B5C)" },
-              { label: "Engagé (devis validés)", value: fmtEur(projectFin.engaged), color: "#3B5488" },
-              { label: "Payé", value: fmtEur(projectFin.paid), color: "var(--brand-accent,#0E6B5C)" },
-              { label: "Reste à engager", value: fmtEur(projectFin.remainingToCommit), color: "#66716B" },
-              { label: "Valorisations", value: fmtEur(totalValorisation), color: "#8A6A1F" },
-            ].map(({ label, value, color }) => (
-              <div key={label} className="bg-white rounded-2xl border p-4" style={{ borderColor: "#E3E6E2" }}>
-                <div className="text-lg font-bold" style={{ fontFamily: "var(--font-sora)", color }}>{value}</div>
-                <div className="text-xs mt-1" style={{ color: "#66716B" }}>{label}</div>
+          {/* Six tuiles de même poids visuel où « Voté » et « Payé » se
+              valaient, alors que la seule question du COPIL est l'écart
+              entre ce qui est voté et ce qui est consommé. Anatomie
+              partagée (StatTile), et surtout : TOUTES les jauges sont
+              rapportées à la même base — le montant voté quand il
+              existe. La rangée devient une phrase : voté, dont tant de
+              prévu, dont tant d'engagé, dont tant de payé. */}
+          {(() => {
+            const budgetBase = voted && voted > 0 ? voted : projectFin.planned
+            const pctOf = (n: number) => budgetBase > 0 ? Math.round((n / budgetBase) * 100) : 0
+            return (
+              <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2 mb-6">
+                <StatTile label="Voté" mark="#17211D"
+                  value={voted != null ? fmtEur(voted) : "—"}
+                  sub={voted != null ? "l'enveloppe de référence" : "aucun montant voté saisi"} />
+                <StatTile label="Prévu (hors valorisation)" mark="var(--brand-accent,#0E6B5C)"
+                  value={fmtEur(projectFin.planned)}
+                  meter={{ pct: pctOf(projectFin.planned), fill: "var(--brand-accent,#0E6B5C)", track: "var(--brand-accent-soft,#E4F0EC)" }}
+                  sub={voted != null ? `${pctOf(projectFin.planned)} % du voté réparti` : "réparti sur les lignes"} />
+                <StatTile label="Engagé (devis validés)" mark="#3B5488"
+                  value={fmtEur(projectFin.engaged)}
+                  meter={{ pct: pctOf(projectFin.engaged), fill: "#3B5488", track: "#E8ECF5" }}
+                  sub={`${pctOf(projectFin.engaged)} % de ${fmtEur(budgetBase)}`} />
+                <StatTile label="Payé" mark="var(--brand-accent,#0E6B5C)"
+                  value={fmtEur(projectFin.paid)}
+                  meter={{ pct: pctOf(projectFin.paid), fill: "var(--brand-accent,#0E6B5C)", track: "var(--brand-accent-soft,#E4F0EC)" }}
+                  sub={`reste ${fmtEur(Math.max(0, projectFin.engaged - projectFin.paid))} à régler`} />
+                <StatTile label="Reste à engager" mark="#66716B"
+                  value={fmtEur(projectFin.remainingToCommit)} />
+                <StatTile label="Valorisations" mark="#8A6A1F"
+                  value={fmtEur(totalValorisation)}
+                  sub="apports en nature — hors enveloppe" />
               </div>
-            ))}
-          </div>
+            )
+          })()}
           {/* Consommation du projet : engagé et payé rapportés au prévu.
               Deux barres superposées plutôt que deux pourcentages : on
               voit d'un coup l'écart entre commander et régler. */}
