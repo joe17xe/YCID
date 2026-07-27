@@ -13,6 +13,8 @@ import { BudgetLineDialog, CreateTaskFromLineButton, IndicatorDialog, MeasureDia
 import TaskDocuments from "@/components/project/TaskDocuments"
 import DeleteTaskButton from "@/components/tasks/DeleteTaskButton"
 import BudgetLineDocuments from "@/components/project/BudgetLineDocuments"
+import ProjectPulse from "@/components/project/ProjectPulse"
+import NextSteps, { daysUntil, type StepTask } from "@/components/project/NextSteps"
 import PhasePhotos, { type PhasePhoto } from "@/components/project/PhasePhotos"
 import DocumentsPanel, { type ProjectDoc } from "@/components/project/DocumentsPanel"
 import { GALLERY_URL_TTL, type DocMoment } from "@/lib/documents"
@@ -264,6 +266,42 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
   // bouger librement, l'enveloppe non (règle YCID du 25/07/2026).
   const voted = project.budget ?? null
   const envelopeGap = voted != null ? gap(projectFin.planned, voted) : null
+
+  // ---- Le pouls du projet, et ce qui vient ensuite -----------------
+  // « Pas de KPI, pas de vue globale, pas de prochaines étapes, pas de
+  // propriétaire » (27/07). Tout existait dans la base ; rien n'était
+  // remonté en tête. Ces trois calculs alimentent ProjectPulse et
+  // NextSteps — la page n'en fabrique pas la mise en forme, elle fournit
+  // les faits.
+  const todayISO = new Date().toISOString().slice(0, 10)
+  const steps: StepTask[] = (phases ?? []).flatMap((ph: any) =>
+    (ph.tasks ?? []).map((t: any) => ({
+      id: t.id, title: t.title, phaseName: ph.name,
+      ownerName: t.profiles?.full_name ?? null,
+      ownerIsMe: t.assignee_id === user.id,
+      endDate: t.end_date ?? null, status: t.status, progress: t.progress ?? 0,
+    })))
+  const openSteps = steps.filter(t => t.status !== "terminee")
+  const lateTasks = openSteps.filter(t => t.endDate && daysUntil(t.endDate, todayISO) < 0).length
+  const nextDated = openSteps
+    .filter(t => t.endDate)
+    .sort((a, b) => String(a.endDate).localeCompare(String(b.endDate)))[0]
+  const nextDeadline = nextDated
+    ? { title: nextDated.title, date: nextDated.endDate!, days: daysUntil(nextDated.endDate!, todayISO) }
+    : null
+
+  // Décisions ACTIONNABLES seulement : un échelon dont le tour n'est pas
+  // venu n'est pas une tâche, c'est une attente. Le compter gonflerait
+  // le chiffre sans donner de travail.
+  const myDecisions = (budgetLines ?? []).reduce((n: number, l: any) =>
+    n + (l.documents ?? []).reduce((m: number, d: any) => {
+      const all = d.validations ?? []
+      return m + all.filter((v: any) =>
+        v.decision === 'en_attente'
+        && (myOrgIds.has(v.org_id) || isPlatformAdmin)
+        && !all.some((o: any) => (o.step ?? 1) < (v.step ?? 1) && o.decision !== 'valide')
+      ).length
+    }, 0), 0)
   // Le budget d'une tâche existe toujours : à défaut d'affectation, 0 €.
   const taskBudget = (taskId: string) => plannedByTask.get(taskId) ?? 0
   // Regroupement du tableau budgétaire : phases dans l'ordre du projet,
@@ -307,30 +345,48 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
         </div>
       </div>
 
-      <div className="flex flex-wrap items-start gap-4 mb-6">
-        <div className="flex-1">
-          <div className="flex items-center gap-3 mb-1">
-            <h1 className="text-2xl font-bold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>{project.name}</h1>
+      {/* Sur un téléphone, cet en-tête occupait un écran entier avant
+          le premier chiffre : titre sur trois lignes en 24 px,
+          description en entier, et un « 48 650 € » flottant sans
+          étiquette — on ne savait pas s'il s'agissait du voté, du prévu
+          ou du dépensé. Le titre rétrécit, la description se limite à
+          deux lignes, et le montant dit ce qu'il est. */}
+      <div className="flex flex-wrap items-start gap-x-4 gap-y-2 mb-4">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap mb-1">
+            <h1 className="text-xl sm:text-2xl font-bold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>{project.name}</h1>
             <Badge label={s.label} fg={s.fg} bg={s.bg} />
             {project.programme && <Badge label={project.programme} fg="#6B4A8C" bg="#F0E9F5" />}
           </div>
-          {project.description && <p className="text-sm" style={{ color: "#66716B" }}>{project.description}</p>}
-        </div>
-        <div className="text-right text-sm" style={{ color: "#66716B" }}>
-          {project.country && <div>📍 {project.country}{project.zone ? ` — ${project.zone}` : ""}</div>}
-          {project.start_date && <div>{fmtDate(project.start_date)} → {fmtDate(project.end_date)}</div>}
-          {project.budget && <div className="font-semibold" style={{ color: "#17211D" }}>{fmtEur(project.budget)}</div>}
+          {project.description && (
+            <p className="text-sm line-clamp-2 sm:line-clamp-none" style={{ color: "#66716B" }}>{project.description}</p>
+          )}
+          <div className="text-xs mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1" style={{ color: "#66716B" }}>
+            {project.country && <span>📍 {project.country}{project.zone ? ` — ${project.zone}` : ""}</span>}
+            {project.start_date && <span>{fmtDate(project.start_date)} → {fmtDate(project.end_date)}</span>}
+            {project.budget != null && (
+              <span>Montant voté <strong style={{ color: "#17211D" }}>{fmtEur(project.budget)}</strong></span>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Progress global */}
-      <div className="bg-white rounded-2xl border p-5 mb-6" style={{ borderColor: "#E3E6E2" }}>
-        <div className="flex justify-between text-sm mb-2" style={{ color: "#66716B" }}>
-          <span>Avancement global</span>
-          <span className="font-semibold" style={{ color: "#17211D" }}>{projectProgress}%</span>
-        </div>
-        <ProgressBar value={projectProgress} />
-      </div>
+      {/* Le pouls du projet. Remplace la barre « Avancement global »,
+          qui occupait toute la largeur pour un seul chiffre — lequel ne
+          disait ni si l'argent suivait, ni si quelque chose glissait, ni
+          si une décision attendait quelqu'un. */}
+      <ProjectPulse
+        progress={projectProgress}
+        voted={voted}
+        planned={projectFin.planned}
+        engaged={projectFin.engaged}
+        paid={projectFin.paid}
+        lateTasks={lateTasks}
+        openTasks={openSteps.length}
+        myDecisions={myDecisions}
+        nextDeadline={nextDeadline}
+      />
+      <div className="mb-6"><ProgressBar value={projectProgress} /></div>
 
       {/* Tabs */}
       {/* Huit onglets à `px-4` font près de 900 pixels de large. Sur un
@@ -367,6 +423,12 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
 
       {/* ===== APERÇU ===== */}
       {tab === "apercu" && (
+        <div className="space-y-6">
+        {/* Ce qui vient d'abord, ce qui vient ensuite. L'aperçu ouvrait
+            sur « Organisations (6) » : la donnée la plus stable du
+            projet, celle qui ne demande aucune action, en position la
+            plus visible. Les prochaines étapes passent devant. */}
+        <NextSteps tasks={steps} today={todayISO} projectId={id} />
         <div className="grid lg:grid-cols-2 gap-6">
           {/* Organisations */}
           <div className="bg-white rounded-2xl border p-6" style={{ borderColor: "#E3E6E2" }}>
@@ -432,6 +494,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
             </div>
           </div>
         </div>
+        </div>
       )}
 
       {/* ===== TÂCHES ===== */}
@@ -442,6 +505,12 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
               <PhaseDialog projectId={id} />
             </div>
           )}
+          {/* Le découpage par phase répond à « comment le projet est
+              organisé ». Il ne répond pas à « qu'est-ce qui glisse » :
+              il fallait déplier chaque phase et comparer les dates de
+              tête. Cette liste traverse les phases et donne l'ordre dans
+              lequel les ouvrir. */}
+          <NextSteps tasks={steps} today={todayISO} projectId={id} limit={8} />
           {(phases ?? []).map((ph: any) => {
             const phaseTasks = ph.tasks ?? []
             // Avancement pondéré par le budget, avec PLANCHER À 2 %
@@ -535,9 +604,22 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                           <div className="flex-1">
                             <div className="text-sm font-medium" style={{ color: "#17211D" }}>{t.title}</div>
                             {t.description && <div className="text-xs mt-0.5" style={{ color: "#66716B" }}>{t.description}</div>}
-                            <div className="flex items-center gap-3 mt-1 text-xs" style={{ color: "#66716B" }}>
-                              {t.profiles?.full_name && <span>👤 {t.profiles.full_name}</span>}
-                              {t.end_date && <span>📅 {fmtDate(t.end_date)}</span>}
+                            <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mt-1 text-xs" style={{ color: "#66716B" }}>
+                              {/* Une tâche sans nom en face est une tâche
+                                  que personne ne fera. Le blanc ne le
+                                  disait pas ; le mot, si. */}
+                              {t.profiles?.full_name
+                                ? <span>👤 {t.profiles.full_name}</span>
+                                : t.status !== "terminee" && <span style={{ color: "#B4690E" }}>👤 sans responsable</span>}
+                              {t.end_date && (() => {
+                                const d = daysUntil(t.end_date, todayISO)
+                                const late = t.status !== "terminee" && d < 0
+                                return (
+                                  <span style={late ? { color: "#A3342C", fontWeight: 600 } : undefined}>
+                                    📅 {fmtDate(t.end_date)}{late ? ` · ${Math.abs(d)} j de retard` : ""}
+                                  </span>
+                                )
+                              })()}
                               {/* Le compteur « 📎 N doc » existait depuis
                                   l'origine mais restait à 0 : rien ne
                                   permettait de déposer une pièce (PR 38a). */}
@@ -624,15 +706,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
               ce qui est ACTIONNABLE : un échelon dont le tour n'est pas
               venu n'est pas une tâche, c'est une attente. */}
           {(() => {
-            const aDecider = (budgetLines ?? []).reduce((n: number, l: any) =>
-              n + (l.documents ?? []).reduce((m: number, d: any) => {
-                const all = d.validations ?? []
-                return m + all.filter((v: any) =>
-                  v.decision === 'en_attente'
-                  && (myOrgIds.has(v.org_id) || isPlatformAdmin)
-                  && !all.some((o: any) => (o.step ?? 1) < (v.step ?? 1) && o.decision !== 'valide')
-                ).length
-              }, 0), 0)
+            const aDecider = myDecisions
             if (!aDecider) return null
             return (
               <div className="rounded-xl p-4 mb-4 text-sm flex flex-wrap items-center justify-between gap-3"
