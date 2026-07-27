@@ -6,7 +6,7 @@ import { adminClient } from '@/lib/supabase/admin'
 import { AI_PROVIDERS, getAiConfig } from '@/lib/ai-settings'
 import { chatComplete } from '@/lib/llm'
 import { isUserAdmin } from '@/lib/permissions'
-import { verifyEmailSettings } from '@/lib/mailer'
+import { verifyEmailSettings, sendMail, renderMail, getEmailSettings, isUsable, unusableReason, recordSendOutcome } from '@/lib/mailer'
 
 const HEX = /^#[0-9A-Fa-f]{6}$/
 
@@ -240,6 +240,22 @@ export async function updateEmailSettings(input: EmailInput): Promise<{ ok: bool
     const siteUrl = (input.siteUrl ?? '').trim().replace(/\/+$/, '')
     const port = Number(input.port)
 
+    // Le nom du serveur est un NOM DE MACHINE, pas un bloc de
+    // configuration. Contrôlé même envoi désactivé : le 27/07, tout le
+    // pavé « SMTP_HOST=… SMTP_PORT=… SMTP_PASS=… » a été collé dans ce
+    // champ. La base l'a accepté sans broncher, l'écran l'a réaffiché
+    // comme si de rien n'était, et il a fallu une requête SQL pour
+    // s'en apercevoir. Une valeur qu'aucun résolveur DNS ne peut
+    // traiter n'a pas à être enregistrée.
+    if (host && !/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i.test(host)) {
+      return {
+        ok: false,
+        error: host.includes('=') || /\s/.test(host)
+          ? 'Le champ « Serveur SMTP » n’attend que le nom du serveur, par exemple smtp.hostinger.com — pas le bloc de configuration complet. Le port, l’identifiant et le mot de passe ont chacun leur champ.'
+          : `« ${host} » n’est pas un nom de serveur valide.`,
+      }
+    }
+
     // Les contrôles ne s'appliquent qu'à l'envoi ACTIVÉ : on doit pouvoir
     // enregistrer une configuration partielle et l'activer plus tard.
     if (input.enabled) {
@@ -304,6 +320,49 @@ export async function testEmailConnection(): Promise<{ ok: boolean; error?: stri
     }
     revalidatePath('/admin/configuration')
     return err ? { ok: false, error: err } : { ok: true }
+  } catch (e) {
+    return { ok: false, error: `Échec : ${e instanceof Error ? e.message : String(e)}` }
+  }
+}
+
+// Le seul essai qui prouve quelque chose : un message réel, soumis au
+// relais, sous l'expéditeur configuré.
+//
+// `verify()` s'authentifie et referme. Il ne dit rien du cas le plus
+// fréquent en production : un relais qui accepte l'identifiant
+// `joe@ezrya.fr` et refuse d'expédier sous `cem.notif@ezrya.fr`. Le
+// test affichait alors « connexion réussie » pendant que rien
+// n'arrivait — un vert qui oriente le soupçon vers le destinataire.
+//
+// Le destinataire est l'administrateur lui-même : on n'écrit à personne
+// d'autre pour vérifier une configuration.
+export async function sendTestEmail(): Promise<{ ok: boolean; error?: string; to?: string }> {
+  try {
+    const ctx = await requireAdmin()
+    if ('error' in ctx) return { ok: false, error: ctx.error }
+
+    const settings = await getEmailSettings()
+    if (!isUsable(settings)) return { ok: false, error: unusableReason(settings) ?? 'Configuration incomplète.' }
+
+    const admin = adminClient()
+    if (!admin) return { ok: false, error: 'Non configuré : SUPABASE_SERVICE_ROLE_KEY manquante sur le serveur.' }
+    const { data: me } = await admin.from('profiles').select('email').eq('id', ctx.user.id).maybeSingle()
+    const to = (me?.email ?? '').trim()
+    if (!to) return { ok: false, error: 'Votre compte n’a pas d’adresse email : impossible de vous écrire.' }
+
+    const { text, html } = renderMail(
+      'Test d’envoi — Solid’Pilot',
+      [
+        'Si vous lisez ce message, la chaîne complète fonctionne : authentification, expéditeur accepté par le relais, et remise.',
+        `Expéditeur : ${settings.from_name} <${settings.from_email}>. Réponse dirigée vers ${settings.reply_to || settings.from_email}.`,
+        'Vérifiez aussi le dossier « indésirables » : un message remis et classé en spam se comporte, pour le destinataire, comme un message perdu.',
+      ],
+      settings.site_url ? { href: settings.site_url.replace(/\/+$/, ''), label: 'Ouvrir Solid’Pilot' } : undefined,
+    )
+    const err = await sendMail({ to, subject: 'Test d’envoi — Solid’Pilot', text, html })
+    await recordSendOutcome(to, err)
+    revalidatePath('/admin/configuration')
+    return err ? { ok: false, error: err } : { ok: true, to }
   } catch (e) {
     return { ok: false, error: `Échec : ${e instanceof Error ? e.message : String(e)}` }
   }

@@ -63,6 +63,22 @@ export async function canManagePhases(supabase: SupabaseClient, userId: string, 
   return hasCapability(supabase, userId, projectId, 'phases.manage')
 }
 
+// Gérer les membres du projet. Séparé de `phases.manage` le 27/07 : la
+// même autorisation servait à créer une phase et à décider qui a accès
+// au projet.
+export async function canManageMembers(supabase: SupabaseClient, userId: string, projectId: string): Promise<boolean> {
+  return hasCapability(supabase, userId, projectId, 'membres.manage')
+}
+
+// Nommer ou retirer un AUDITEUR. Aucun rôle projet ne l'accorde : le
+// contrôlé ne choisit pas son contrôleur (0047). Ce n'est donc pas une
+// capacité de projet mais de plateforme — d'où l'absence de
+// `hasCapability`, qui commencerait par accorder le droit à l'admin
+// puis irait interroger un rôle projet pour rien.
+export async function canManageAuditors(supabase: SupabaseClient, userId: string): Promise<boolean> {
+  return isUserAdmin(supabase, userId)
+}
+
 // Gérer les tâches (policies « Contributeur ... tasks » + « Admins
 // manage tasks »).
 export async function canManageTasks(supabase: SupabaseClient, userId: string, projectId: string): Promise<boolean> {

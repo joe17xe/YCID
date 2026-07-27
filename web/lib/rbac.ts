@@ -69,6 +69,7 @@ export const ROLE_COLUMNS: { key: ProjectMemberRole; label: string }[] = [
 export type Capability =
   | 'projets.view' | 'projets.update'
   | 'phases.manage' | 'taches.manage' | 'taches.reopen_terminee'
+  | 'membres.manage' | 'membres.manage_auditeur'
   | 'budget.view' | 'budget.manage'
   | 'documents.upload' | 'validations.decide'
   | 'indicateurs.manage' | 'mesures.add'
@@ -91,6 +92,26 @@ export const RBAC_MATRIX: PermissionRow[] = [
   { key: 'projets.view', label: 'Voir les projets dont on est membre', admin: true, roles: ALL, policy: 'is_project_member()' },
   { key: 'projets.update', label: 'Modifier un projet', admin: true, roles: ['chef_projet', 'referent_mairie'] },
   { key: 'phases.manage', label: 'Gérer les phases', admin: true, roles: ['chef_projet', 'referent_mairie'] },
+  // Séparé de `phases.manage` le 27/07. La même autorisation servait à
+  // créer une phase et à décider QUI a accès au projet : deux pouvoirs
+  // de nature différente, confondus par commodité.
+  {
+    key: 'membres.manage', label: 'Gérer les membres du projet',
+    note: 'Rôles opérationnels seulement — le siège d’auditeur est réservé à l’administrateur.',
+    admin: true, roles: ['chef_projet', 'referent_mairie'],
+  },
+  // La règle qui donne son sens à la précédente : le contrôlé ne
+  // choisit pas son contrôleur. Un chef de projet pouvait retirer les
+  // auditeurs de son propre projet — le contrôle sautait sans que
+  // personne ne l'apprenne autrement qu'au journal. Symétrique de la
+  // 0038, qui interdit à l'auditeur de saisir les chiffres qu'il
+  // contrôle. Aucun rôle projet ne l'accorde : il vient du rôle
+  // plateforme, et de lui seul.
+  {
+    key: 'membres.manage_auditeur', label: 'Nommer ou retirer un auditeur',
+    note: 'Administrateur plateforme uniquement — le contrôlé ne choisit pas son contrôleur.',
+    admin: true, roles: [], policy: '"Auditor seat" — 0047',
+  },
   { key: 'taches.manage', label: 'Créer et modifier les tâches', admin: true, roles: CONTRIBUTORS },
   { key: 'taches.reopen_terminee', label: 'Rouvrir une tâche terminée', note: 'Double confirmation + journal d’audit', admin: true, roles: [], policy: '0005' },
   { key: 'budget.view', label: 'Voir le budget', admin: true, roles: ALL },
@@ -144,6 +165,16 @@ const BY_KEY = new Map(RBAC_MATRIX.map(r => [r.key, r]))
 // filtrer côté base (« qui prévenir », « qui peut décider »). Sans elle,
 // chaque appelant recopiait sa liste, et c'est ainsi qu'on s'est
 // retrouvé avec cinq exemplaires de la même règle.
+// Le siège d'auditeur se teste ici, pas ailleurs. Écrire `role ===
+// 'auditeur'` dans un écran ou une action, c'est recréer la copie que
+// ce module existe pour supprimer — et le garde-fou le refuse.
+export const AUDITOR_ROLE: ProjectMemberRole = 'auditeur'
+export const isAuditorSeat = (role: string | null | undefined): boolean => role === AUDITOR_ROLE
+// Rôles proposables à qui n'a pas le droit de nommer un auditeur (0047).
+export function assignableRolesFor(canAuditor: boolean): ProjectMemberRole[] {
+  return canAuditor ? [...ASSIGNABLE_ROLES] : ASSIGNABLE_ROLES.filter(r => !isAuditorSeat(r))
+}
+
 export function rolesWith(capability: Capability): string[] {
   return [...(BY_KEY.get(capability)?.roles ?? [])]
 }

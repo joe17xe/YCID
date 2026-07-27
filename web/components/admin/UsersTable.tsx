@@ -68,7 +68,8 @@ export default function UsersTable({ users }: { users: AdminUserRow[] }) {
         </select>
         <span className="text-sm" style={{ color: "#66716B" }}>{filtered.length} / {users.length}</span>
       </div>
-      <table className="w-full text-sm">
+      <div className="overflow-x-auto">
+      <table className="w-full text-sm" style={{ minWidth: 720 }}>
         <thead>
           <tr style={{ background: "#F5F6F4", borderBottom: "1px solid #E3E6E2" }}>
             <th className="text-left px-5 py-3 text-xs font-semibold" style={{ color: "#66716B" }}>NOM</th>
@@ -128,6 +129,7 @@ export default function UsersTable({ users }: { users: AdminUserRow[] }) {
           )}
         </tbody>
       </table>
+      </div>
     </div>
   )
 }

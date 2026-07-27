@@ -16,6 +16,9 @@ name: Contrôles Solid'Pilot
 #                     C'est la récursion infinie de la 0041 : six jours
 #                     pendant lesquels AUCUNE validation n'était
 #                     possible, trouvée par l'utilisateur en recette
+#   · check:mobile — un tableau sans conteneur défilant. C'est la page
+#                     ENTIÈRE qui glisse sous le doigt sur téléphone,
+#                     pas le seul tableau
 #   · build        — ce que le déploiement ferait, mais AVANT le merge
 #
 # Aucun secret n'est nécessaire : le build passe sans les variables
@@ -60,6 +63,9 @@ jobs:
 
       - name: Policies RLS non récursives
         run: npm run check:policies
+
+      - name: Tableaux lisibles sur téléphone
+        run: npm run check:mobile
 
       - name: Build
         run: npm run build

@@ -175,6 +175,27 @@ for (const [key, roles] of matrix) {
 }
 
 // ------------------------------------------------------------
+// 6. Le siège d'auditeur ne s'accorde par aucun rôle projet
+// ------------------------------------------------------------
+// Arbitrage du 27/07 : le contrôlé ne choisit pas son contrôleur. La
+// règle vit en RLS (0047) sous forme de policies RESTRICTIVES — une
+// policy ordinaire s'ajoute par OU et n'aurait rien restreint. Une
+// seule des trois qui redeviendrait permissive annulerait la règle en
+// silence, en ouvrant une voie au lieu d'en fermer une.
+const auditorSeat = matrix.get('membres.manage_auditeur')
+if (auditorSeat === undefined) {
+  fail('auditeur', '« membres.manage_auditeur » absent de la matrice — contrôle aveugle')
+} else if (auditorSeat.length) {
+  fail('auditeur', `« membres.manage_auditeur » accordé à ${auditorSeat.join(', ')} : aucun rôle projet ne doit l'ouvrir`)
+}
+for (const cmd of ['insert', 'update', 'delete']) {
+  const re = new RegExp(`create policy "[^"]*"\\s+on project_members\\s+as restrictive for ${cmd}[^;]*auditeur`, 'i')
+  if (!re.test(sqlAll)) {
+    fail('auditeur', `aucune policy RESTRICTIVE sur project_members pour ${cmd.toUpperCase()} : le siège d'auditeur n'est pas protégé en base`)
+  }
+}
+
+// ------------------------------------------------------------
 console.log(`Contrôle RBAC — ${matrix.size} capacités, ${ASSIGNABLE.length} rôles attribuables, ${LEGACY.length} retirés.`)
 if (failures.length) {
   console.error(`\n✗ ${failures.length} problème(s) :\n`)

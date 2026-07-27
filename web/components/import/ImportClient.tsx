@@ -172,7 +172,7 @@ export default function ImportClient({ canImport }: { canImport: boolean }) {
 
           <div className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor: "#E3E6E2" }}>
             <div className="overflow-x-auto">
-              <table className="w-full text-xs">
+              <table className="w-full text-xs" style={{ minWidth: 640 }}>
                 <thead>
                   <tr style={{ background: "#F5F6F4", borderBottom: "1px solid #E3E6E2" }}>
                     {Object.keys(rows[0] ?? {}).map(h => (

@@ -60,7 +60,11 @@ export default async function PilotagePage() {
         <div className="px-6 py-4 border-b" style={{ borderColor: "#E3E6E2" }}>
           <h2 className="font-semibold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>Projets par pays</h2>
         </div>
-        <table className="w-full text-sm">
+        {/* Un tableau ne rétrécit pas : il déborde. Sans conteneur qui
+            défile, c'est la PAGE ENTIÈRE qui glisse sous le doigt, et le
+            reste de l'écran part avec elle. */}
+        <div className="overflow-x-auto">
+        <table className="w-full text-sm" style={{ minWidth: 640 }}>
           <thead>
             <tr style={{ background: "#F5F6F4", borderBottom: "1px solid #E3E6E2" }}>
               {["Projet", "Statut", "Avancement", "Montant voté", "Tâches en retard"].map(h => (
@@ -121,6 +125,7 @@ export default async function PilotagePage() {
             ])}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Décisions ouvertes */}

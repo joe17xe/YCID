@@ -26,7 +26,8 @@ export default async function OrganisationsPage() {
       </div>
 
       <div className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor: "#E3E6E2" }}>
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full text-sm" style={{ minWidth: 640 }}>
           <thead>
             <tr style={{ background: "#F5F6F4", borderBottom: "1px solid #E3E6E2" }}>
               {["Nom", "Type", "Pays", "Email", "Statut"].map(h => (
@@ -70,6 +71,7 @@ export default async function OrganisationsPage() {
             })}
           </tbody>
         </table>
+        </div>
         {!(orgs ?? []).length && (
           <div className="p-12 text-center text-sm" style={{ color: "#66716B" }}>Aucune organisation</div>
         )}

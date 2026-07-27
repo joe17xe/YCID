@@ -6,15 +6,20 @@ import { ACCESS_ROLES } from "@/lib/constants"
 // Le sélecteur ne propose que les rôles attribuables : « validateur » et
 // « auditeur » restent affichables sur d'anciennes données, jamais
 // posables sur quelqu'un de nouveau.
-import { ASSIGNABLE_ROLES } from "@/lib/rbac"
+// Le siège d'auditeur est réservé à l'administrateur plateforme (0047) :
+// le contrôlé ne choisit pas son contrôleur. Proposer l'option à un chef
+// de projet ne ferait que promettre une action que la base refusera.
+import { assignableRolesFor as rolesFor, isAuditorSeat } from "@/lib/rbac"
 import { addProjectMember, removeProjectMember, createProjectUser, updateProjectMemberRole } from "@/app/(app)/projets/[id]/actions"
 
 const inputCls = "w-full px-3 py-2 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
 const border = { borderColor: "#E3E6E2" }
 
-export function MemberDialog({ projectId, candidates }: {
+export function MemberDialog({ projectId, candidates, canAuditor }: {
   projectId: string
   candidates: { id: string; name: string; email: string }[]
+  // Administrateur plateforme : lui seul peut nommer un auditeur (0047).
+  canAuditor?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const [error, setError] = useState("")
@@ -62,7 +67,7 @@ export function MemberDialog({ projectId, candidates }: {
             <label htmlFor="member-role" className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Rôle sur le projet *</label>
             <select id="member-role" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}
               className={inputCls} style={border}>
-              {ASSIGNABLE_ROLES.map(k => <option key={k} value={k}>{ACCESS_ROLES[k].label}</option>)}
+              {rolesFor(!!canAuditor).map(k => <option key={k} value={k}>{ACCESS_ROLES[k].label}</option>)}
             </select>
           </div>
           <ErrorMessage>{error}</ErrorMessage>
@@ -83,7 +88,7 @@ export function MemberDialog({ projectId, candidates }: {
 // PR 29 — Délégation : le chef de projet crée un compte Utilisateur
 // rattaché à SON projet uniquement (jamais admin). Le mot de passe
 // temporaire n'est montré qu'une seule fois.
-export function InviteUserDialog({ projectId }: { projectId: string }) {
+export function InviteUserDialog({ projectId, canAuditor }: { projectId: string; canAuditor?: boolean }) {
   const [open, setOpen] = useState(false)
   const [error, setError] = useState("")
   const [pending, startTransition] = useTransition()
@@ -161,7 +166,7 @@ export function InviteUserDialog({ projectId }: { projectId: string }) {
             <div>
               <label htmlFor="invite-role" className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Rôle sur le projet *</label>
               <select id="invite-role" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })} className={inputCls} style={border}>
-                {ASSIGNABLE_ROLES.map(k => <option key={k} value={k}>{ACCESS_ROLES[k].label}</option>)}
+                {rolesFor(!!canAuditor).map(k => <option key={k} value={k}>{ACCESS_ROLES[k].label}</option>)}
               </select>
             </div>
             <ErrorMessage>{error}</ErrorMessage>
@@ -218,8 +223,10 @@ export function RemoveMemberButton({ projectId, userId, name }: { projectId: str
 // garde-fou « ne pas retirer le dernier chef de projet » l'imposait. Et
 // rétrograder quelqu'un revenait à le retirer puis le rajouter, ce qui
 // efface son historique d'appartenance.
-export function MemberRoleSelect({ projectId, userId, name, role }: {
+export function MemberRoleSelect({ projectId, userId, name, role, canAuditor }: {
   projectId: string; userId: string; name: string; role: string
+  // Vrai pour un administrateur plateforme uniquement.
+  canAuditor?: boolean
 }) {
   const [error, setError] = useState("")
   const [value, setValue] = useState(role)
@@ -242,7 +249,11 @@ export function MemberRoleSelect({ projectId, userId, name, role }: {
         }}
         className="text-xs px-2 py-1 rounded-lg border"
         style={{ borderColor: "#E3E6E2", color: "#17211D", opacity: pending ? 0.6 : 1 }}>
-        {ASSIGNABLE_ROLES.map(k => <option key={k} value={k}>{ACCESS_ROLES[k].label}</option>)}
+        {/* Le rôle en cours reste affiché même s'il n'est plus
+            proposable : un auditeur vu par un chef de projet doit se
+            lire « Auditeur », pas basculer silencieusement sur la
+            première option de la liste. */}
+        {rolesFor(!!canAuditor || isAuditorSeat(role)).map(k => <option key={k} value={k}>{ACCESS_ROLES[k].label}</option>)}
       </select>
       {error && <span role="alert" className="text-xs" style={{ color: "#A3342C" }}>{error}</span>}
     </span>

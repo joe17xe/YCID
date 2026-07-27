@@ -61,7 +61,7 @@ export default function BulkImportForm({ canCreateAdmin }: { canCreateAdmin: boo
             </p>
           )}
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm" style={{ minWidth: 620 }}>
               <thead>
                 <tr style={{ background: "#F5F6F4" }}>
                   {["Nom", "Email", "État", "Mot de passe temporaire"].map(h => (

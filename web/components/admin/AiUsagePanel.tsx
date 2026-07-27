@@ -100,7 +100,7 @@ export default function AiUsagePanel({ usage }: { usage: AiUsageSummary }) {
 
         {usage.byFeature.length > 0 && (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm" style={{ minWidth: 620 }}>
               <thead>
                 <tr style={{ background: "#F5F6F4", borderBottom: "1px solid #E3E6E2" }}>
                   {["Fonction", "Appels", "Jetons", "Coût estimé"].map(h => (
