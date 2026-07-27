@@ -127,3 +127,98 @@ html[data-motion="reduced"] *::after {
   transition-duration: 0.001s !important;
   scroll-behavior: auto !important;
 }
+
+/* ============================================================
+   Tableaux qui deviennent des cartes sur téléphone
+   ============================================================
+   Un tableau qui défile latéralement est lisible, pas confortable :
+   pour lire une ligne il faut la balayer de gauche à droite, et l'on
+   perd l'en-tête en route. Sous 640 px, chaque ligne devient donc un
+   bloc, et chaque cellule porte son intitulé à gauche.
+
+   Une seule écriture du balisage, pas deux. Rendre le tableau ET une
+   liste de cartes séparée aurait recréé la divergence que ce dépôt a
+   déjà payée trois fois : deux copies d'une même chose finissent
+   toujours par ne plus dire la même chose.
+
+   Usage : classe `table-cards` sur le <table>, et `data-label` sur
+   chaque <td>. La largeur minimale vit ici et non en style inline,
+   sans quoi elle l'emporterait sur la requête média. */
+.table-cards { min-width: 760px; }
+
+@media (max-width: 639px) {
+  .table-cards { min-width: 0; display: block; }
+  .table-cards thead { display: none; }
+  .table-cards tbody { display: block; }
+
+  /* Les lignes de regroupement (nom de phase, sous-totaux) restent des
+     séparateurs pleine largeur : elles annoncent ce qui suit. */
+  .table-cards tr {
+    display: block;
+    border-bottom: 1px solid #E3E6E2;
+    padding: 10px 14px;
+  }
+  .table-cards tr[data-group] { padding: 8px 14px; }
+  .table-cards tr[data-group] th,
+  .table-cards tr[data-group] td { display: inline-block; width: auto; padding: 0 10px 0 0; }
+
+  .table-cards td, .table-cards th {
+    display: flex;
+    width: 100%;
+    align-items: baseline;
+    justify-content: space-between;
+    /* Une cellule peut contenir plus qu'une valeur : la liste des tâches
+       financées, le bouton « Pièces », le bouton de modification. Sans
+       retour à la ligne, ces éléments s'écrasent contre l'intitulé. */
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    padding: 3px 0;
+    text-align: right;
+  }
+  /* L'intitulé de colonne, repris à gauche de la valeur. Sans lui, une
+     carte n'est qu'une pile de nombres sans nom. */
+  .table-cards td[data-label]::before {
+    content: attr(data-label);
+    color: #66716B;
+    font-size: 11px;
+    font-weight: 600;
+    text-align: left;
+    flex: 0 0 40%;
+  }
+  /* Le poste ouvre la carte : c'est son titre, il n'a pas d'intitulé. */
+  .table-cards td[data-primary] {
+    display: block;
+    text-align: left;
+    font-size: 14px;
+    padding-bottom: 6px;
+  }
+  .table-cards td[data-primary]::before { content: none; }
+  /* Dans un regroupement, les sous-totaux tiennent sur une ligne : leur
+     intitulé se met devant la valeur, en petit, plutôt qu'en colonne. */
+  .table-cards tr[data-group] td[data-label]::before {
+    content: attr(data-label) " ";
+    color: #66716B;
+    font-size: 10px;
+    font-weight: 600;
+    flex: none;
+    margin-right: 4px;
+  }
+  /* Une liste garde sa lecture de gauche à droite : les puces alignées à
+     droite donnaient un texte en escalier. */
+  .table-cards td ul, .table-cards td ol {
+    width: 100%;
+    text-align: left;
+    margin: 0;
+    padding-left: 16px;
+  }
+  .table-cards td > div { text-align: left; }
+
+  /* Une cellule vide n'a pas à occuper une ligne pour ne rien dire. */
+  .table-cards td:empty,
+  .table-cards tr[data-group] td:empty { display: none; }
+}
+
+/* Le Pilotage a cinq colonnes, pas neuf : sa largeur minimale diffère.
+   La bascule en cartes, elle, est la même. */
+.table-cards-640 { min-width: 640px; }
+@media (max-width: 639px) { .table-cards-640 { min-width: 0; } }

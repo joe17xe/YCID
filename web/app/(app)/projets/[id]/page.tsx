@@ -829,7 +829,12 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
               inatteignable. Constaté en recette : un devis ne pouvait pas
               être déposé depuis un mobile. */}
           <div className="bg-white rounded-2xl border overflow-x-auto" style={{ borderColor: "#E3E6E2" }}>
-            <table className="w-full text-sm" style={{ minWidth: 760 }}>
+            {/* `table-cards` : sous 640 px chaque ligne devient un bloc et
+                chaque cellule porte son intitulé (voir globals.css). Un
+                seul balisage — rendre en plus une liste de cartes aurait
+                recréé la divergence que ce dépôt a déjà payée trois
+                fois. */}
+            <table className="w-full text-sm table-cards">
               <thead>
                 <tr style={{ background: "#F5F6F4", borderBottom: "1px solid #E3E6E2" }}>
                   {["Poste", "Tâche financée", "Catégorie", "Financeur", "Année", "Prévu", "Engagé", "Payé", "Statut"].map(h => (
@@ -842,7 +847,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                   coûte une phase. */}
               {budgetGroups.map(group => (
                 <tbody key={group.id}>
-                  <tr style={{ background: "#EEF0EE", borderBottom: "1px solid #E3E6E2" }}>
+                  <tr data-group="" style={{ background: "#EEF0EE", borderBottom: "1px solid #E3E6E2" }}>
                     <th scope="colgroup" colSpan={5} className="text-left px-4 py-2 text-xs font-semibold" style={{ color: "#17211D" }}>
                       {group.name}
                     </th>
@@ -853,9 +858,9 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                       const gf = sumFinancials(group.lines.map((l: any) => finByLine.get(l.id) ?? EMPTY_FIN))
                       return (
                         <>
-                          <td className="px-4 py-2 text-xs font-bold" style={{ color: "#17211D" }}>{fmtEur(gf.planned)}</td>
-                          <td className="px-4 py-2 text-xs font-bold" style={{ color: "#3B5488" }}>{fmtEur(gf.engaged)}</td>
-                          <td className="px-4 py-2 text-xs font-bold" style={{ color: "var(--brand-accent,#0E6B5C)" }}>{fmtEur(gf.paid)}</td>
+                          <td data-label="Prévu" className="px-4 py-2 text-xs font-bold" style={{ color: "#17211D" }}>{fmtEur(gf.planned)}</td>
+                          <td data-label="Engagé" className="px-4 py-2 text-xs font-bold" style={{ color: "#3B5488" }}>{fmtEur(gf.engaged)}</td>
+                          <td data-label="Payé" className="px-4 py-2 text-xs font-bold" style={{ color: "var(--brand-accent,#0E6B5C)" }}>{fmtEur(gf.paid)}</td>
                         </>
                       )
                     })()}
@@ -866,14 +871,14 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                     const lc = LINE_CATEGORIES[l.category] ?? { label: l.category, fg: "#66716B", bg: "#EEF0EE" }
                     return (
                       <tr key={l.id} style={{ borderBottom: "1px solid #E3E6E2", background: i % 2 === 0 ? "#fff" : "#FAFAFA" }}>
-                        <td className="px-4 py-3 font-medium" style={{ color: "#17211D" }}>
+                        <td data-primary="" className="px-4 py-3 font-medium" style={{ color: "#17211D" }}>
                           {l.poste}
                           {l.is_valorisation && <span className="ml-1 text-xs px-1.5 py-0.5 rounded" style={{ background: "#F5EFE2", color: "#8A6A1F" }}>Valorisation</span>}
                         </td>
                         {/* Une ligne peut se répartir sur plusieurs tâches :
                             on montre le détail, le montant par tâche étant
                             justement ce qui distingue ce modèle d'un 1:1. */}
-                        <td className="px-4 py-3 text-xs" style={{ color: (l.allocations ?? []).length ? "#17211D" : "#9AA39D" }}>
+                        <td data-label="Tâche financée" className="px-4 py-3 text-xs" style={{ color: (l.allocations ?? []).length ? "#17211D" : "#9AA39D" }}>
                           {(l.allocations ?? []).length ? (
                             <ul className="space-y-0.5">
                               {(l.allocations as any[]).map((a: any) => (
@@ -898,10 +903,10 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                             </div>
                           )}
                         </td>
-                        <td className="px-4 py-3"><Badge label={lc.label} fg={lc.fg} bg={lc.bg} /></td>
-                        <td className="px-4 py-3 text-xs" style={{ color: "#66716B" }}>{l.funder?.name ?? "—"}</td>
-                        <td className="px-4 py-3 text-xs" style={{ color: "#66716B" }}>{l.year ?? "—"}</td>
-                        <td className="px-4 py-3 font-semibold" style={{ color: "#17211D" }}>
+                        <td data-label="Catégorie" className="px-4 py-3"><Badge label={lc.label} fg={lc.fg} bg={lc.bg} /></td>
+                        <td data-label="Financeur" className="px-4 py-3 text-xs" style={{ color: "#66716B" }}>{l.funder?.name ?? "—"}</td>
+                        <td data-label="Année" className="px-4 py-3 text-xs" style={{ color: "#66716B" }}>{l.year ?? "—"}</td>
+                        <td data-label="Prévu" className="px-4 py-3 font-semibold" style={{ color: "#17211D" }}>
                           {fmtEur(l.planned_amount)}
                           {/* Devis, factures et reçus de la ligne (PR 38b) :
                               c'est ici que « engagé » et « payé » prennent
@@ -940,13 +945,13 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                         {/* Engagé et payé (PR 39), calculés depuis les
                             pièces de la ligne. Grisés à zéro : rien
                             n'est engagé tant qu'aucun devis n'est validé. */}
-                        <td className="px-4 py-3 text-xs" style={{ color: (finByLine.get(l.id)?.engaged ?? 0) > 0 ? "#3B5488" : "#9AA39D" }}>
+                        <td data-label="Engagé" className="px-4 py-3 text-xs" style={{ color: (finByLine.get(l.id)?.engaged ?? 0) > 0 ? "#3B5488" : "#9AA39D" }}>
                           {fmtEur(finByLine.get(l.id)?.engaged ?? 0)}
                         </td>
-                        <td className="px-4 py-3 text-xs" style={{ color: (finByLine.get(l.id)?.paid ?? 0) > 0 ? "var(--brand-accent,#0E6B5C)" : "#9AA39D" }}>
+                        <td data-label="Payé" className="px-4 py-3 text-xs" style={{ color: (finByLine.get(l.id)?.paid ?? 0) > 0 ? "var(--brand-accent,#0E6B5C)" : "#9AA39D" }}>
                           {fmtEur(finByLine.get(l.id)?.paid ?? 0)}
                         </td>
-                        <td className="px-4 py-3">
+                        <td data-label="Statut" className="px-4 py-3">
                           <div className="flex items-center gap-1">
                             <Badge label={ls.label} fg={ls.fg} bg={ls.bg} />
                             {canBudget && (

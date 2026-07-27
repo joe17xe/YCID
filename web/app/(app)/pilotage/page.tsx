@@ -64,7 +64,10 @@ export default async function PilotagePage() {
             défile, c'est la PAGE ENTIÈRE qui glisse sous le doigt, et le
             reste de l'écran part avec elle. */}
         <div className="overflow-x-auto">
-        <table className="w-full text-sm" style={{ minWidth: 640 }}>
+        {/* Sous 640 px chaque ligne devient un bloc (voir globals.css) :
+            lire un projet en balayant l'écran de gauche à droite, en
+            perdant l'en-tête en route, n'est pas lire. */}
+        <table className="w-full text-sm table-cards table-cards-640">
           <thead>
             <tr style={{ background: "#F5F6F4", borderBottom: "1px solid #E3E6E2" }}>
               {["Projet", "Statut", "Avancement", "Montant voté", "Tâches en retard"].map(h => (
@@ -74,15 +77,15 @@ export default async function PilotagePage() {
           </thead>
           <tbody>
             {countryGroups.map(([country, group]) => [
-              <tr key={`g-${country}`} style={{ background: "#FAFBFA", borderBottom: "1px solid #E3E6E2" }}>
+              <tr key={`g-${country}`} data-group="" style={{ background: "#FAFBFA", borderBottom: "1px solid #E3E6E2" }}>
                 <td className="px-5 py-2.5 font-semibold" style={{ color: "#17211D" }}>
                   📍 {country} <span className="text-xs font-normal" style={{ color: "#66716B" }}>· {group.length} projet{group.length > 1 ? "s" : ""}</span>
                 </td>
                 <td />
-                <td className="px-5 py-2.5 text-xs" style={{ color: "#66716B" }}>
+                <td data-label="Avancement moyen" className="px-5 py-2.5 text-xs" style={{ color: "#66716B" }}>
                   {group.length ? Math.round(group.reduce((s: number, p: any) => s + progress(p), 0) / group.length) : 0}% moyen
                 </td>
-                <td className="px-5 py-2.5 text-xs font-semibold" style={{ color: "#17211D" }}>
+                <td data-label="Montant voté" className="px-5 py-2.5 text-xs font-semibold" style={{ color: "#17211D" }}>
                   {fmtEur(group.reduce((s: number, p: any) => s + (p.budget ?? 0), 0))}
                 </td>
                 <td />
@@ -94,14 +97,14 @@ export default async function PilotagePage() {
               const lateTasks = allTasks.filter((t: any) => t.end_date && t.end_date < today && t.status !== "terminee")
               return (
                 <tr key={p.id} style={{ borderBottom: "1px solid #E3E6E2" }}>
-                  <td className="px-5 py-3">
+                  <td data-primary="" className="px-5 py-3">
                     <Link href={`/projets/${p.id}`} className="font-medium hover:underline" style={{ color: "var(--brand-accent,#0E6B5C)" }}>{p.name}</Link>
                     {p.programme && <span className="ml-2 text-xs px-2 py-0.5 rounded-full" style={{ background: "#F0E9F5", color: "#6B4A8C" }}>{p.programme}</span>}
                   </td>
-                  <td className="px-5 py-3">
+                  <td data-label="Statut" className="px-5 py-3">
                     <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: s.bg, color: s.fg }}>{s.label}</span>
                   </td>
-                  <td className="px-5 py-3 w-40">
+                  <td data-label="Avancement" className="px-5 py-3 w-40">
                     <div className="flex items-center gap-2">
                       <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: "#E3E6E2" }}>
                         <div className="h-full rounded-full" style={{ width: `${prog}%`, background: "var(--brand-accent,#0E6B5C)" }} />
@@ -109,8 +112,8 @@ export default async function PilotagePage() {
                       <span className="text-xs w-8" style={{ color: "#66716B" }}>{prog}%</span>
                     </div>
                   </td>
-                  <td className="px-5 py-3" style={{ color: "#17211D" }}>{fmtEur(p.budget)}</td>
-                  <td className="px-5 py-3">
+                  <td data-label="Montant voté" className="px-5 py-3" style={{ color: "#17211D" }}>{fmtEur(p.budget)}</td>
+                  <td data-label="Tâches en retard" className="px-5 py-3">
                     {lateTasks.length > 0 ? (
                       <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "#F6E7E5", color: "#A3342C" }}>
                         {lateTasks.length} en retard

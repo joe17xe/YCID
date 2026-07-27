@@ -17,6 +17,11 @@
 //     compriment jusqu'à l'illisible plutôt que de déclencher le
 //     défilement.
 //
+// La classe `table-cards` vaut largeur minimale : elle la porte en CSS
+// (globals.css) plutôt qu'en style inline, précisément pour qu'une
+// requête média puisse la lever et transformer les lignes en cartes.
+// Une largeur inline l'emporterait sur la requête média.
+//
 //   node scripts/check-mobile.mjs
 //
 // Ce contrôle ne remplace pas un essai sur un vrai téléphone : il
@@ -54,7 +59,7 @@ for (const file of walk(ROOT)) {
       failures.push(`${rel}:${i + 1} — <table> sans conteneur défilant. `
         + `Sur téléphone, c'est la page entière qui glisse. `
         + `Enveloppez dans <div className="overflow-x-auto">.`)
-    } else if (!/minWidth|min-w-\[/.test(lines[i])) {
+    } else if (!/minWidth|min-w-\[|table-cards/.test(lines[i])) {
       // Le conteneur seul ne suffit pas : sans largeur minimale, le
       // navigateur comprime les colonnes au lieu de faire défiler, et
       // l'on obtient six colonnes de trois caractères.
