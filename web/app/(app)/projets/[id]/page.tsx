@@ -594,6 +594,36 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
       {/* ===== BUDGET ===== */}
       {tab === "budget" && (
         <div>
+          {/* « Rien ne montre qu'il y a un devis à valider, je dois
+              cliquer sur toutes les lignes avec pièce » (27/07). Le
+              décompte se lit ici, avant le tableau, et il ne compte que
+              ce qui est ACTIONNABLE : un échelon dont le tour n'est pas
+              venu n'est pas une tâche, c'est une attente. */}
+          {(() => {
+            const aDecider = (budgetLines ?? []).reduce((n: number, l: any) =>
+              n + (l.documents ?? []).reduce((m: number, d: any) => {
+                const all = d.validations ?? []
+                return m + all.filter((v: any) =>
+                  v.decision === 'en_attente'
+                  && (myOrgIds.has(v.org_id) || isPlatformAdmin)
+                  && !all.some((o: any) => (o.step ?? 1) < (v.step ?? 1) && o.decision !== 'valide')
+                ).length
+              }, 0), 0)
+            if (!aDecider) return null
+            return (
+              <div className="rounded-xl p-4 mb-4 text-sm flex flex-wrap items-center justify-between gap-3"
+                style={{ background: "#FBF0E0", color: "#8A6A1F", border: "1px solid #E8D5AE" }}>
+                <span>
+                  <strong>{aDecider} décision{aDecider > 1 ? "s" : ""} vous {aDecider > 1 ? "attendent" : "attend"} sur ce projet.</strong>{" "}
+                  Les lignes concernées portent une pastille « À valider ».
+                </span>
+                <Link href="/a-valider" className="px-3 py-1.5 rounded-xl text-white text-xs font-semibold flex-shrink-0"
+                  style={{ background: "#B4690E" }}>
+                  Tout voir
+                </Link>
+              </div>
+            )
+          })()}
           {canBudget && (
             <div className="flex justify-end mb-4">
               <BudgetLineDialog projectId={id} orgs={orgOptions} phases={phaseOptions} tasks={taskOptions} />
@@ -765,7 +795,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                     Une valorisation non documentée reste déclarative : un financeur peut la
                     refuser au moment du contrôle. Déposez les feuilles d&apos;émargement,
                     conventions de mise à disposition ou attestations sur la ligne concernée,
-                    par l&apos;icône trombone.
+                    par le bouton « Pièces ».
                   </div>
                 )}
               </div>

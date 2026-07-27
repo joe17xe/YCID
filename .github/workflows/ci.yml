@@ -12,6 +12,10 @@ name: Contrôles Solid'Pilot
 #                     requête `decisions.label` trouvée le jour même
 #                     où ce contrôle a été écrit
 #   · check:rbac   — la matrice des droits en désaccord avec les policies
+#   · check:policies — une policy RLS qui interroge sa propre table.
+#                     C'est la récursion infinie de la 0041 : six jours
+#                     pendant lesquels AUCUNE validation n'était
+#                     possible, trouvée par l'utilisateur en recette
 #   · build        — ce que le déploiement ferait, mais AVANT le merge
 #
 # Aucun secret n'est nécessaire : le build passe sans les variables
@@ -53,6 +57,9 @@ jobs:
 
       - name: Matrice des droits vs policies
         run: npm run check:rbac
+
+      - name: Policies RLS non récursives
+        run: npm run check:policies
 
       - name: Build
         run: npm run build

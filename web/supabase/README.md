@@ -49,6 +49,7 @@ SQL Editor Supabase (ou via `supabase db push` avec la CLI) :
 | `migrations/0042_validation_settings.sql` | **Le circuit devient réglable depuis l'application** : `platform_settings.coordinator_min_amount` (seuil sous lequel le coordinateur n'est pas sollicité, 0 = aucun seuil) et `validation_chain_for_document()` qui en tient compte. L'organisation porteuse n'est jamais sautée. Écrans associés : Configuration ▸ Validation, et l'organisation porteuse dans « Modifier la fiche du projet » |
 | `migrations/0043_ai_usage.sql` | **Compteur de consommation IA** : table `ai_usage` (un enregistrement par appel — fonction, modèle, jetons entrée/sortie séparés, échecs compris), écriture par clé service uniquement, lecture admins. Tarifs et budget mensuel dans `ai_settings`. Historique des rapports repris, imputé à l'entrée faute de répartition connue |
 | `migrations/0044_email_reply_to.sql` | **Adresse de réponse** des notifications (`email_settings.reply_to`). L'expéditeur est souvent une boîte de service que personne ne relève : sans cette adresse, répondre à une notification revient à écrire dans le vide, sans que l'auteur le sache. Repli sur l'adresse d'expédition |
+| `migrations/0045_fix_validation_policy_recursion.sql` | **La policy d'ordre se mordait la queue** : « Decide validation » (0041) interrogeait `validations` dans son propre corps ; PostgreSQL applique la RLS à cette lecture interne, qui rappelle la même policy — `infinite recursion detected in policy for relation "validations"`. **Aucune décision n'était possible**, à aucun échelon. L'ordre passe désormais par `validation_step_is_open()`, `security definer`, donc hors RLS — même remède que les 0003 et 0010. `with check` ajouté, omis en 0041 : on contrôlait la ligne avant la mise à jour, jamais après |
 
 `seed.sql` contient les données de démonstration CEM Liban et s'exécute
 **après** les migrations, uniquement sur un environnement de démo.
@@ -64,7 +65,7 @@ SQL Editor Supabase (ou via `supabase db push` avec la CLI) :
 ## Installation complète (base neuve ou reset)
 
 `install-complet.sql` = préambule de nettoyage (**destructif**) + migrations
-0001 → 0008 concaténées + correctif du trigger admin. À coller en une fois
+0001 → 0045 concaténées. À coller en une fois
 dans le SQL Editor. Procédure détaillée : `docs/procedure-deploiement.md`.
 Ce fichier est généré par concaténation — après toute nouvelle migration,
 le regénérer plutôt que l'éditer à la main.
