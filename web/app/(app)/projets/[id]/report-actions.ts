@@ -72,7 +72,7 @@ export async function generateExpertReport(projectId: string, instructions?: str
       // modèle ne peut structurellement pas rapprocher une ligne de sa
       // phase ni des tâches qu'elle finance, donc pas commenter le
       // moindre écart.
-      supabase.from('budget_lines').select('id, poste, category, year, planned_amount, is_valorisation, status, phase_id, allocations:budget_line_tasks(task_id, amount), documents(type, amount, paid, validations(decision))').eq('project_id', projectId),
+      supabase.from('budget_lines').select('id, poste, category, year, planned_amount, is_valorisation, status, phase_id, funder:funder_org_id(name), allocations:budget_line_tasks(task_id, amount), documents(type, amount, paid, validations(decision))').eq('project_id', projectId),
       supabase.from('indicators').select('id, name, kind, unit, baseline, target').eq('project_id', projectId),
       supabase.from('indicator_measures').select('indicator_id, period, value').order('period'),
       supabase.from('meetings').select('title, kind, date, minutes').eq('project_id', projectId).order('date', { ascending: false }).limit(10),
@@ -150,6 +150,25 @@ export async function generateExpertReport(projectId: string, instructions?: str
         reste_a_engager: projectFin.remainingToCommit,
         reste_a_payer: projectFin.remainingToPay,
       },
+      // Répartition par financeur (spec §10.4). C'est la vue du COMPTE
+      // RENDU : depuis l'arbitrage du 27/07, le MEAE et le Département
+      // ne valident pas ligne à ligne — ils ont voté une enveloppe et
+      // attendent qu'on leur dise ce qu'elle est devenue. Sans ce bloc,
+      // le rapport destiné au financeur ne parlait jamais de lui.
+      //
+      // Hors valorisations, comme partout : du bénévolat ne se paie pas.
+      par_financeur: (() => {
+        const acc = new Map<string, { financeur: string; prevu: number; engage: number; paye: number }>()
+        for (const l of realLines as any[]) {
+          const f = Array.isArray(l.funder) ? l.funder[0] : l.funder
+          const name = f?.name ?? 'Non affecté'
+          const fin = financialsFor(Number(l.planned_amount ?? 0), (l.documents ?? []) as any[])
+          const row = acc.get(name) ?? { financeur: name, prevu: 0, engage: 0, paye: 0 }
+          row.prevu += fin.planned; row.engage += fin.engaged; row.paye += fin.paid
+          acc.set(name, row)
+        }
+        return [...acc.values()].sort((a, b) => b.prevu - a.prevu)
+      })(),
       organisations: (orgs ?? []).map(o => ({ role: o.role, org: o.organizations })),
       nb_membres: (members ?? []).length,
       phases: (phases ?? []).map(p => ({
@@ -214,6 +233,7 @@ RÈGLES ABSOLUES :
 - Distingue ce qui est DÉCLARÉ de ce qui est PROUVÉ : une tâche à 100 % sans pièce justificative (« terminee_sans_justificatif ») est un avancement déclaratif, à signaler comme tel. Une phase sans photo « avant » ni « après » ne documente pas sa réalisation.
 - Distingue les TROIS montants et ne les confonds jamais : « prévu » est ce qui est budgété, « engagé » ce que des devis validés ont réservé, « payé » ce qui est effectivement réglé. Un projet SOUS-consommé est une alerte de pilotage au même titre qu'un dépassement : commente le sens de l'écart, pas seulement son ampleur.
 - L'enveloppe correspond à un financement voté : sa répartition entre lignes peut bouger, son total non. Signale tout « ecart_au_vote » non nul.
+- Dans la section budgétaire, restitue OBLIGATOIREMENT la répartition « par_financeur » : ce rapport sert de compte rendu aux financeurs, qui ont voté une enveloppe et attendent de savoir ce qu'elle est devenue. Pour chacun, indique prévu, engagé, payé, et commente son taux de consommation. Une ligne « Non affecté » signale un montant rattaché à aucun financeur : signale-la comme une donnée manquante, pas comme un financeur.
 - N'écris AUCUNE consigne, instruction ni commentaire de méthode dans le document.
 - Markdown sobre : titres de niveau 2, listes à puces, gras pour les alertes. Pas d'italique.
 Emploie EXACTEMENT ces titres de section, sans rien ajouter entre parenthèses :

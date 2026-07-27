@@ -191,6 +191,33 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
   // d'un montant que personne ne paiera jamais.
   const realLines = (budgetLines ?? []).filter((l: any) => !l.is_valorisation)
   const projectFin = sumFinancials(realLines.map((l: any) => finByLine.get(l.id) ?? EMPTY_FIN))
+  // Répartition par financeur (spec §10.4) — « la vue qu'attend un
+  // financeur ». Elle prend tout son sens depuis l'arbitrage du 27/07 :
+  // le MEAE et le Département ne valident pas ligne à ligne, ils
+  // attendent un COMPTE RENDU. C'est celui-ci.
+  //
+  // Les valorisations sont exclues, comme partout ailleurs : du
+  // bénévolat et des locaux prêtés ne se paient pas, les mélanger à des
+  // euros fausserait le taux de consommation de chaque financeur.
+  //
+  // Les lignes sans financeur sont regroupées à part plutôt qu'omises :
+  // un montant prévu qui n'est rattaché à personne est une information,
+  // pas un détail à masquer.
+  const NO_FUNDER = '__sans__'
+  const byFunder = new Map<string, { name: string; fin: Financials[] }>()
+  for (const l of realLines as any[]) {
+    const key = l.funder_org_id ?? NO_FUNDER
+    const name = l.funder?.name ?? 'Non affecté'
+    if (!byFunder.has(key)) byFunder.set(key, { name, fin: [] })
+    byFunder.get(key)!.fin.push(finByLine.get(l.id) ?? EMPTY_FIN)
+  }
+  const funderRows = [...byFunder.entries()]
+    .map(([key, v]) => ({ key, name: v.name, fin: sumFinancials(v.fin) }))
+    // Le plus gros contributeur en tête ; « Non affecté » toujours en
+    // dernier, quel que soit son montant — c'est un reliquat, pas un
+    // financeur.
+    .sort((a, b) => a.key === NO_FUNDER ? 1 : b.key === NO_FUNDER ? -1 : b.fin.planned - a.fin.planned)
+
   const totalValorisation = (budgetLines ?? []).filter((l: any) => l.is_valorisation)
     .reduce((s: number, l: any) => s + (l.planned_amount ?? 0), 0)
   // Le montant VOTÉ est la référence : la répartition entre lignes peut
@@ -578,6 +605,70 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
               <ProgressBar value={Math.min(100, Math.round((projectFin.paid / projectFin.planned) * 100))} />
             </div>
           )}
+          {/* Répartition par financeur — la vue du compte rendu. Placée
+              avant le détail : en COPIL on lit le total, puis qui finance
+              quoi, puis seulement la ligne à la ligne. */}
+          {funderRows.length > 0 && (
+            <div className="bg-white rounded-2xl border overflow-hidden mb-6" style={{ borderColor: "#E3E6E2" }}>
+              <div className="px-4 py-3" style={{ borderBottom: "1px solid #E3E6E2" }}>
+                <h3 className="text-sm font-semibold" style={{ color: "#17211D" }}>Répartition par financeur</h3>
+                <p className="text-xs mt-0.5" style={{ color: "#66716B" }}>
+                  Hors valorisations. C&apos;est cette vue qui sert au compte rendu :
+                  chaque financeur y lit ce qui a été prévu sur son enveloppe, engagé, et réglé.
+                </p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr style={{ background: "#F5F6F4", borderBottom: "1px solid #E3E6E2" }}>
+                      {["Financeur", "Prévu", "Engagé", "Payé", "Reste à engager", "Consommation"].map(h => (
+                        <th key={h} className="text-left px-4 py-2.5 text-xs font-semibold" style={{ color: "#66716B" }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {funderRows.map(r => {
+                      const pct = r.fin.planned > 0 ? Math.round((r.fin.paid / r.fin.planned) * 100) : 0
+                      const orphan = r.key === NO_FUNDER
+                      return (
+                        <tr key={r.key} style={{ borderBottom: "1px solid #F0F2F0" }}>
+                          <td className="px-4 py-3" style={{ color: orphan ? "#B4690E" : "#17211D" }}>
+                            {r.name}
+                            {orphan && (
+                              <span className="block text-xs" style={{ color: "#66716B" }}>
+                                lignes sans financeur renseigné
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 font-semibold" style={{ color: "#17211D" }}>{fmtEur(r.fin.planned)}</td>
+                          <td className="px-4 py-3 text-xs" style={{ color: r.fin.engaged > 0 ? "#3B5488" : "#9AA39D" }}>{fmtEur(r.fin.engaged)}</td>
+                          <td className="px-4 py-3 text-xs" style={{ color: r.fin.paid > 0 ? "var(--brand-accent,#0E6B5C)" : "#9AA39D" }}>{fmtEur(r.fin.paid)}</td>
+                          <td className="px-4 py-3 text-xs" style={{ color: "#66716B" }}>{fmtEur(r.fin.remainingToCommit)}</td>
+                          <td className="px-4 py-3" style={{ minWidth: 120 }}>
+                            <ProgressBar value={Math.min(100, pct)} />
+                            <span className="text-xs" style={{ color: "#66716B" }}>{pct} % payé</span>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                  {/* Le total rappelle celui des tuiles : s'ils divergent,
+                      c'est qu'une ligne échappe au regroupement. */}
+                  <tfoot>
+                    <tr style={{ background: "#F5F6F4", borderTop: "1px solid #E3E6E2" }}>
+                      <th scope="row" className="text-left px-4 py-2.5 text-xs font-semibold" style={{ color: "#17211D" }}>Total</th>
+                      <td className="px-4 py-2.5 text-xs font-semibold" style={{ color: "#17211D" }}>{fmtEur(projectFin.planned)}</td>
+                      <td className="px-4 py-2.5 text-xs font-semibold" style={{ color: "#17211D" }}>{fmtEur(projectFin.engaged)}</td>
+                      <td className="px-4 py-2.5 text-xs font-semibold" style={{ color: "#17211D" }}>{fmtEur(projectFin.paid)}</td>
+                      <td className="px-4 py-2.5 text-xs font-semibold" style={{ color: "#17211D" }}>{fmtEur(projectFin.remainingToCommit)}</td>
+                      <td />
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          )}
+
           <div className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor: "#E3E6E2" }}>
             <table className="w-full text-sm">
               <thead>
