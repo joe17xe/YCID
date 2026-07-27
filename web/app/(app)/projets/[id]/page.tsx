@@ -231,7 +231,8 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
               programme: project.programme ?? null,
               start_date: project.start_date ?? null, end_date: project.end_date ?? null,
               status: project.status, budget: project.budget ?? null,
-            }} />
+              lead_org_id: project.lead_org_id ?? null,
+            }} organizations={orgOptions} />
           )}
           {canPhases && <PublicPageDialog projectId={id} token={project.public_token ?? null} />}
           <ExpertReportDialog projectId={id} projectName={project.name} />

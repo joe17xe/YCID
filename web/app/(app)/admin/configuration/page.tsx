@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic'
 import Link from "next/link"
-import { Palette, Sparkles, Scale, Mail } from "lucide-react"
+import { Palette, Sparkles, Scale, Mail, GitBranch } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { isUserAdmin } from "@/lib/permissions"
@@ -10,12 +10,14 @@ import BrandForm from "@/components/admin/BrandForm"
 import AiForm from "@/components/admin/AiForm"
 import LegalForm from "@/components/admin/LegalForm"
 import EmailForm from "@/components/admin/EmailForm"
+import ValidationForm from "@/components/admin/ValidationForm"
 import { getEmailSettings, getEmailTestStatus } from "@/lib/mailer"
 
 const SECTIONS = [
   { key: "marque", label: "Marque", Icon: Palette },
   { key: "ia", label: "Intelligence artificielle", Icon: Sparkles },
   { key: "email", label: "Email", Icon: Mail },
+  { key: "validation", label: "Validation", Icon: GitBranch },
   { key: "legal", label: "Mentions légales", Icon: Scale },
 ]
 
@@ -29,12 +31,35 @@ export default async function ConfigurationPage({ searchParams }: { searchParams
   const isAi = section === "ia"
   const isLegal = section === "legal"
   const isEmail = section === "email"
+  const isValidation = section === "validation"
   const [settings, ai, email] = await Promise.all([
     getPlatformSettings(),
     isAi ? getAiConfigPublic() : Promise.resolve(null),
     isEmail ? getEmailSettings() : Promise.resolve(null),
   ])
   const emailTest = isEmail ? await getEmailTestStatus() : null
+
+  // Réglages du circuit + aperçu projet par projet : un réglage dont on
+  // ne voit pas l'effet se règle à l'aveugle.
+  let validation = null
+  if (isValidation) {
+    const [{ data: ps }, { data: orgs }, { data: projs }] = await Promise.all([
+      supabase.from("platform_settings").select("coordinator_org_id, coordinator_min_amount").eq("id", true).maybeSingle(),
+      supabase.from("organizations").select("id, name").eq("status", "active").order("name"),
+      supabase.from("projects").select("name, lead:lead_org_id(name)").order("name"),
+    ])
+    validation = {
+      settings: {
+        coordinator_org_id: ps?.coordinator_org_id ?? null,
+        coordinator_min_amount: Number(ps?.coordinator_min_amount ?? 0),
+      },
+      organizations: (orgs ?? []) as { id: string; name: string }[],
+      projects: (projs ?? []).map((p: any) => ({
+        name: p.name,
+        leadName: (Array.isArray(p.lead) ? p.lead[0]?.name : p.lead?.name) ?? null,
+      })),
+    }
+  }
 
   return (
     <div className="p-8 max-w-3xl mx-auto">
@@ -44,6 +69,8 @@ export default async function ConfigurationPage({ searchParams }: { searchParams
       <p className="text-sm mb-5" style={{ color: "#66716B" }}>
         {isAi
           ? "Choisissez le fournisseur d'intelligence artificielle utilisé par le rapport d'expert et la génération des contenus de communication."
+          : isValidation
+          ? "Qui valide un devis, et dans quel ordre. L'organisation porteuse approuve d'abord, l'organisation coordinatrice entérine ensuite."
           : isEmail
           ? "Serveur d'envoi des notifications : soumission d'un devis, décision de validation, tâche terminée. Rien n'est écrit en dur — tout se règle ici."
           : isLegal
@@ -69,6 +96,15 @@ export default async function ConfigurationPage({ searchParams }: { searchParams
       </div>
 
       {isAi && ai ? <AiForm settings={ai} providers={AI_PROVIDERS} />
+        : isValidation ? (
+          validation
+            ? <ValidationForm settings={validation.settings} organizations={validation.organizations} projects={validation.projects} />
+            : (
+              <div className="rounded-xl px-4 py-3 text-sm" style={{ background: "#F7EDDD", color: "#8A6A1F" }}>
+                Réglages du circuit illisibles. Appliquez les migrations <code>0041</code> et <code>0042</code>.
+              </div>
+            )
+        )
         : isEmail ? (
           email ? (
             <EmailForm settings={{

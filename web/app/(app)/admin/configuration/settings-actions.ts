@@ -305,3 +305,57 @@ export async function testEmailConnection(): Promise<{ ok: boolean; error?: stri
     return { ok: false, error: `Échec : ${e instanceof Error ? e.message : String(e)}` }
   }
 }
+
+// ============================================================
+// Circuit de validation (0042)
+// ============================================================
+// La chaîne posée par la 0041 ne se réglait qu'en SQL. Un circuit qu'on
+// ne peut pas modifier depuis l'application n'est pas paramétrable.
+
+export async function updateValidationSettings(input: { coordinatorOrgId: string; minAmount: string }): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const ctx = await requireAdmin()
+    if ('error' in ctx) return { ok: false, error: ctx.error }
+
+    const min = Number((input.minAmount ?? '0').replace(',', '.'))
+    if (!Number.isFinite(min) || min < 0) return { ok: false, error: 'Le seuil doit être un nombre positif ou zéro.' }
+
+    const admin = adminClient()
+    if (!admin) return { ok: false, error: 'Non configuré : SUPABASE_SERVICE_ROLE_KEY manquante sur le serveur.' }
+
+    const orgId = (input.coordinatorOrgId ?? '').trim() || null
+    const { data: before } = await admin.from('platform_settings')
+      .select('coordinator_org_id, coordinator_min_amount').eq('id', true).maybeSingle()
+
+    const { error } = await admin.from('platform_settings').update({
+      coordinator_org_id: orgId,
+      coordinator_min_amount: min,
+      updated_at: new Date().toISOString(), updated_by: ctx.user.id,
+    }).eq('id', true)
+    if (error) {
+      console.error('[updateValidationSettings] échec:', { code: error.code, message: error.message })
+      const missing = /coordinator_min_amount|coordinator_org_id|does not exist/i.test(error.message)
+      return { ok: false, error: missing ? 'Appliquez les migrations 0041 et 0042 dans le SQL Editor Supabase.' : `Échec de l'enregistrement : ${error.message}` }
+    }
+
+    // Changer le circuit de validation d'un programme n'est pas un
+    // réglage d'affichage : la trace est portée au journal, sans projet
+    // rattaché puisque le réglage est global.
+    if (before && (before.coordinator_org_id !== orgId || Number(before.coordinator_min_amount) !== min)) {
+      const { data: orgs } = await admin.from('organizations').select('id, name')
+        .in('id', [before.coordinator_org_id, orgId].filter(Boolean) as string[])
+      const nameOf = (id: string | null) => id ? (orgs?.find(o => o.id === id)?.name ?? id) : 'aucune'
+      await admin.from('audit_log').insert({
+        project_id: null, entity: 'platform_settings', entity_id: null,
+        label: 'Circuit de validation', action: 'modifie', user_id: ctx.user.id,
+        comment: `Coordinateur : ${nameOf(before.coordinator_org_id)} → ${nameOf(orgId)} ; seuil : ${before.coordinator_min_amount} € → ${min} €`,
+      })
+    }
+
+    revalidatePath('/admin/configuration')
+    return { ok: true }
+  } catch (e) {
+    console.error('[updateValidationSettings] exception:', e)
+    return { ok: false, error: `Échec : ${e instanceof Error ? e.message : String(e)}` }
+  }
+}
