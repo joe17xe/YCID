@@ -226,6 +226,7 @@ export interface EmailInput {
   password: string
   fromName: string
   fromEmail: string
+  replyTo: string
   siteUrl: string
 }
 
@@ -259,6 +260,7 @@ export async function updateEmailSettings(input: EmailInput): Promise<{ ok: bool
       username: (input.username ?? '').trim() || null,
       from_name: (input.fromName ?? '').trim() || 'Solid\'Pilot',
       from_email: fromEmail || null,
+      reply_to: (input.replyTo ?? '').trim() || null,
       site_url: siteUrl || null,
       updated_at: new Date().toISOString(), updated_by: ctx.user.id,
     }

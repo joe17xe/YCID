@@ -130,7 +130,8 @@ export default async function ConfigurationPage({ searchParams }: { searchParams
               // Le mot de passe ne franchit jamais la frontière serveur :
               // seul le fait qu'il existe est transmis.
               hasPassword: !!email.password,
-              from_name: email.from_name, from_email: email.from_email, site_url: email.site_url,
+              from_name: email.from_name, from_email: email.from_email,
+              reply_to: email.reply_to, site_url: email.site_url,
               last_test_at: emailTest?.last_test_at ?? null,
               last_test_ok: emailTest?.last_test_ok ?? null,
               last_test_error: emailTest?.last_test_error ?? null,

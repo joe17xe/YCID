@@ -41,14 +41,14 @@ function ProgressBar({ value }: { value: number }) {
   )
 }
 
-export default async function ProjetDetailPage({ params, searchParams }: { params: Promise<{ id: string }>, searchParams: Promise<{ tab?: string }> }) {
+export default async function ProjetDetailPage({ params, searchParams }: { params: Promise<{ id: string }>, searchParams: Promise<{ tab?: string, ligne?: string }> }) {
   const { id } = await params
   // Un onglet inconnu (?tab=journal au lieu de ?tab=audit, lien périmé,
   // faute de frappe) affichait une page entièrement vide : aucune
   // section ne correspondait, et rien ne le disait. On retombe sur
   // l'aperçu, comportement attendu d'une URL qui ne mène nulle part.
   const VALID_TABS = ["apercu", "taches", "budget", "documents", "impact", "copil", "comm", "audit"]
-  const { tab: rawTab } = await searchParams
+  const { tab: rawTab, ligne: ligneParam } = await searchParams
   const tab = rawTab && VALID_TABS.includes(rawTab) ? rawTab : "apercu"
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -772,8 +772,13 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
             )
           })()}
 
-          <div className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor: "#E3E6E2" }}>
-            <table className="w-full text-sm">
+          {/* Le tableau des lignes n'avait AUCUN défilement horizontal :
+              sur téléphone il débordait de la page, et la colonne
+              « Prévu » — qui porte l'accès aux pièces — devenait
+              inatteignable. Constaté en recette : un devis ne pouvait pas
+              être déposé depuis un mobile. */}
+          <div className="bg-white rounded-2xl border overflow-x-auto" style={{ borderColor: "#E3E6E2" }}>
+            <table className="w-full text-sm" style={{ minWidth: 760 }}>
               <thead>
                 <tr style={{ background: "#F5F6F4", borderBottom: "1px solid #E3E6E2" }}>
                   {["Poste", "Tâche financée", "Catégorie", "Financeur", "Année", "Prévu", "Engagé", "Payé", "Statut"].map(h => (
@@ -853,6 +858,9 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                           <div className="mt-1 font-normal">
                             <BudgetLineDocuments projectId={id} phaseId={l.phase_id ?? null} lineId={l.id} poste={l.poste}
                               canManage={canBudget}
+                              /* Lien direct depuis une notification ou la file
+                                 « À valider » : la ligne visée s'ouvre seule. */
+                              autoOpen={!!ligneParam && l.id === ligneParam}
                               docs={(l.documents ?? []).map((d: any) => ({
                                 id: d.id, filename: d.filename, type: d.type,
                                 amount: d.amount ?? null, paid: !!d.paid, paid_at: d.paid_at ?? null,

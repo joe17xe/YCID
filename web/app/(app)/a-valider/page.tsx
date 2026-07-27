@@ -37,7 +37,7 @@ export default async function AValiderPage() {
                    id, filename, amount, project_id, uploaded_at,
                    uploaded_by, profiles:uploaded_by(full_name),
                    projects:project_id(name),
-                   budget_lines:budget_line_id(poste),
+                   budget_line_id, budget_lines:budget_line_id(poste),
                    validations(step, decision)
                  )`)
         .eq("decision", "en_attente")
@@ -92,7 +92,8 @@ export default async function AValiderPage() {
       <ul className="space-y-3">
         {rows.map(v => {
           const doc = one(v.documents) as {
-            id: string; filename: string; amount: number | null; project_id: string; uploaded_at?: string
+            id: string; filename: string; amount: number | null; project_id: string
+            budget_line_id?: string | null; uploaded_at?: string
             profiles?: { full_name: string } | { full_name: string }[] | null
             projects?: { name: string } | { name: string }[] | null
             budget_lines?: { poste: string } | { poste: string }[] | null
@@ -123,8 +124,10 @@ export default async function AValiderPage() {
                 {/* La décision se prend sur la ligne budgétaire, où l'on
                     voit le montant prévu, l'engagé et les autres pièces.
                     Décider depuis une liste, sans ce contexte, serait
-                    plus rapide et moins sérieux. */}
-                <Link href={`/projets/${doc.project_id}?tab=budget`}
+                    plus rapide et moins sérieux. Le lien porte l'identifiant
+                    de la ligne : le panneau s'ouvre sur la bonne pièce au
+                    lieu de laisser chercher dans le tableau. */}
+                <Link href={`/projets/${doc.project_id}?tab=budget${doc.budget_line_id ? `&ligne=${doc.budget_line_id}` : ""}`}
                   className="px-4 py-2 rounded-xl text-white text-sm font-semibold flex-shrink-0"
                   style={{ background: "var(--brand-accent,#0E6B5C)" }}>
                   Examiner
