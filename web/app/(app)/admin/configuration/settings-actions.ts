@@ -114,6 +114,7 @@ export async function testAiConnection(): Promise<{ ok: boolean; error?: string;
   const ctx = await requireAdmin()
   if ('error' in ctx) return { ok: false, error: ctx.error }
   const res = await chatComplete({
+    usageContext: { feature: 'test' },
     system: 'Tu réponds en un mot.',
     user: 'Réponds exactement : OK',
     temperature: 0,
@@ -356,6 +357,40 @@ export async function updateValidationSettings(input: { coordinatorOrgId: string
     return { ok: true }
   } catch (e) {
     console.error('[updateValidationSettings] exception:', e)
+    return { ok: false, error: `Échec : ${e instanceof Error ? e.message : String(e)}` }
+  }
+}
+
+// Tarifs et budget IA (0043). Séparé de updateAiSettings : changer un
+// prix n'est pas changer de fournisseur, et mélanger les deux ferait
+// perdre la clé API à qui vient corriger un tarif.
+export async function updateAiPricing(input: { priceIn: string; priceOut: string; monthlyBudget: string; currency: string }): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const ctx = await requireAdmin()
+    if ('error' in ctx) return { ok: false, error: ctx.error }
+
+    const num = (v: string) => Number((v ?? '0').replace(',', '.'))
+    const [pin, pout, budget] = [num(input.priceIn), num(input.priceOut), num(input.monthlyBudget)]
+    if ([pin, pout, budget].some(n => !Number.isFinite(n) || n < 0)) {
+      return { ok: false, error: 'Les tarifs et le budget doivent être des nombres positifs ou zéro.' }
+    }
+    const currency = (input.currency ?? 'EUR').trim().toUpperCase().slice(0, 4) || 'EUR'
+
+    const admin = adminClient()
+    if (!admin) return { ok: false, error: 'Non configuré : SUPABASE_SERVICE_ROLE_KEY manquante sur le serveur.' }
+
+    const { error } = await admin.from('ai_settings').update({
+      price_input_per_million: pin, price_output_per_million: pout,
+      monthly_budget: budget, currency,
+      updated_at: new Date().toISOString(), updated_by: ctx.user.id,
+    }).eq('id', true)
+    if (error) {
+      const missing = /price_input_per_million|monthly_budget|does not exist/i.test(error.message)
+      return { ok: false, error: missing ? 'Appliquez la migration 0043_ai_usage.sql dans le SQL Editor Supabase.' : `Échec de l'enregistrement : ${error.message}` }
+    }
+    revalidatePath('/admin/configuration')
+    return { ok: true }
+  } catch (e) {
     return { ok: false, error: `Échec : ${e instanceof Error ? e.message : String(e)}` }
   }
 }

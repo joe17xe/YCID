@@ -278,6 +278,7 @@ Ne commence pas par un titre de niveau 1 : il est ajouté par l'application.`
 
     const consigne = (instructions ?? '').trim().slice(0, 2000)
     const result = await chatComplete({
+      usageContext: { feature: 'rapport', projectId },
       system,
       user: [
         consigne ? `Consignes du chef de projet / de l'expert local, à respecter en priorité :\n${consigne}\n` : '',

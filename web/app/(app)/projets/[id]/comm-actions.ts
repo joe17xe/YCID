@@ -162,6 +162,7 @@ Langues demandées : ${langs.join(', ')} (ar = arabe standard moderne, sens RTL)
     // Mode JSON natif + budget large : le format n'est plus laissé au
     // bon vouloir du modèle (échecs 100 % constatés le 25/07/2026).
     const result = await chatComplete({
+      usageContext: { feature: 'campagne', projectId: campaign.project_id },
       system, user: userMsg, temperature: 0.5, maxTokens: 12_000, json: true, attempts: 2,
     })
     if (!result.ok || !result.content) {
