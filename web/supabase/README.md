@@ -64,7 +64,7 @@ SQL Editor Supabase (ou via `supabase db push` avec la CLI) :
 ## Installation complète (base neuve ou reset)
 
 `install-complet.sql` = préambule de nettoyage (**destructif**) + migrations
-0001 → 0008 concaténées + correctif du trigger admin. À coller en une fois
+0001 → 0044 concaténées. À coller en une fois
 dans le SQL Editor. Procédure détaillée : `docs/procedure-deploiement.md`.
 Ce fichier est généré par concaténation — après toute nouvelle migration,
 le regénérer plutôt que l'éditer à la main.

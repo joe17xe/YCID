@@ -4,7 +4,7 @@
 -- ⚠️⚠️⚠️  SCRIPT DESTRUCTIF  ⚠️⚠️⚠️
 -- Ce script SUPPRIME toutes les tables métier existantes (ancien schéma
 -- simple comme nouveau schéma) puis installe le schéma complet du dépôt
--- (migrations 0001 → 0040 concaténées, à jour des correctifs).
+-- (migrations 0001 → 0044 concaténées, à jour des correctifs).
 -- À exécuter EN UNE FOIS dans le SQL Editor Supabase, uniquement après
 -- avoir acté que les données actuelles sont jetables.
 -- Généré depuis web/supabase/migrations/ — ne pas éditer à la main :
@@ -24,6 +24,7 @@ drop table if exists public.indicators cascade;
 drop table if exists public.decisions cascade;
 drop table if exists public.meetings cascade;
 drop table if exists public.notifications cascade;
+drop table if exists public.ai_usage cascade;
 drop table if exists public.audit_log cascade;
 drop table if exists public.reviews cascade;
 drop table if exists public.validations cascade;
@@ -2843,6 +2844,379 @@ create index if not exists notifications_unread_idx
   on notifications (user_id, read_at) where read_at is null;
 
 -- ============================================================================
+-- MIGRATION 0041 — validation chain
+-- ============================================================================
+
+-- ============================================================
+-- 0041 — Le circuit réel : porteur, PUIS coordinateur
+-- ============================================================
+-- Arbitrage YCID du 27/07, qui invalide le routage précédent :
+--
+--   « Le schéma est très simple. Maria, chef de projet, propose ; LEY, le
+--     porteur, valide ; puis YCID valide. Nous n'allons pas solliciter le
+--     ministère des Affaires étrangères pour chaque ligne : nous avons
+--     déjà eu le budget, nous le gérons et nous rendons compte. »
+--
+-- Deux erreurs de conception sont corrigées d'un coup.
+--
+-- 1. LE MAUVAIS DESTINATAIRE. La 0031 adressait le devis au FINANCEUR de
+--    la ligne. Sur ce programme, les financeurs sont le MEAE et le
+--    Département — qui ont voté une enveloppe et attendent un
+--    compte rendu, pas une approbation ligne à ligne. Le circuit
+--    sollicitait donc des organisations qui n'ont ni compte, ni vocation
+--    à répondre : chaque devis restait bloqué, et l'unanimité livrée
+--    hier aurait gelé l'engagé de tout le programme.
+--
+--    Le financeur ne joue plus aucun rôle dans le routage. Le budget est
+--    voté en amont ; la redevabilité s'exerce en aval, par le rapport.
+--
+-- 2. L'ABSENCE D'ORDRE. `validations` était un ensemble plat : toutes les
+--    organisations sollicitées en même temps. Or « le porteur valide,
+--    PUIS YCID valide » est une hiérarchie — l'association engage sa
+--    dépense, le coordinateur du programme l'entérine. Laisser YCID se
+--    prononcer avant le porteur viderait le premier échelon de son sens.
+--
+-- La chaîne devient donc : étape 1, l'organisation PORTEUSE du projet ;
+-- étape 2, l'organisation COORDINATRICE du programme. Quand les deux
+-- coïncident — la Coordination est portée par YCID — la chaîne se réduit
+-- à une seule étape plutôt que de demander deux fois la même signature.
+
+-- ------------------------------------------------------------
+-- 1. Qui coordonne
+-- ------------------------------------------------------------
+-- En configuration, pas en dur : l'application est en marque blanche
+-- (0018), et « YCID » n'est le coordinateur que de CE déploiement.
+alter table platform_settings
+  add column if not exists coordinator_org_id uuid references organizations(id) on delete set null;
+
+update platform_settings
+   set coordinator_org_id = (select id from organizations where name = 'YCID' limit 1)
+ where coordinator_org_id is null;
+
+-- ------------------------------------------------------------
+-- 2. L'ordre
+-- ------------------------------------------------------------
+alter table validations
+  add column if not exists step smallint not null default 1;
+
+-- Les validations déjà en base sont toutes de premier échelon : elles ont
+-- été créées sans notion d'ordre, et rien ne permet de deviner après coup
+-- laquelle aurait été seconde.
+create index if not exists validations_doc_step_idx on validations (document_id, step);
+
+-- ------------------------------------------------------------
+-- 3. La chaîne
+-- ------------------------------------------------------------
+-- Remplace validation_orgs_for_document(), qui partait du financeur.
+--
+-- `validation_rules` n'est plus consultée. Cette table, prévue dans la
+-- 0001 pour paramétrer le circuit par rôle d'organisation, n'a jamais
+-- reçu une seule ligne en un an — et surtout, elle ne sait pas exprimer
+-- un ORDRE. La consulter ici casserait la garantie qu'apporte l'étape.
+-- Elle reste en base, dormante ; c'est une candidate au retrait.
+drop function if exists public.validation_orgs_for_document(uuid);
+
+create or replace function public.validation_chain_for_document(doc_id uuid)
+returns table (org_id uuid, step smallint)
+language sql
+security definer
+set search_path = public
+as $$
+  with doc as (
+    select d.id, d.project_id from documents d where d.id = doc_id
+  ),
+  porteur as (
+    select p.lead_org_id as org_id
+      from doc join projects p on p.id = doc.project_id
+     where p.lead_org_id is not null
+  ),
+  coordinateur as (
+    select s.coordinator_org_id as org_id
+      from platform_settings s
+     where s.id = true and s.coordinator_org_id is not null
+  )
+  select org_id, 1::smallint from porteur
+  union all
+  -- Le coordinateur n'est sollicité qu'en second, et seulement s'il n'est
+  -- pas déjà le porteur : sur la Coordination, YCID porte le projet et
+  -- signerait sinon deux fois.
+  select c.org_id, 2::smallint
+    from coordinateur c
+   where not exists (select 1 from porteur p where p.org_id = c.org_id)
+  union all
+  -- Repli : si le projet n'a pas d'organisation porteuse, le
+  -- coordinateur devient le premier et unique échelon. Sans cela un
+  -- devis ne partirait nulle part, et la panne serait muette.
+  select c.org_id, 1::smallint
+    from coordinateur c
+   where not exists (select 1 from porteur);
+$$;
+
+-- ------------------------------------------------------------
+-- 4. On ne saute pas son tour
+-- ------------------------------------------------------------
+-- L'ordre serait décoratif s'il n'était pas opposable : un lien direct,
+-- un rafraîchissement mal placé, et le second échelon se prononcerait
+-- avant le premier. La règle est donc posée au niveau de la base, comme
+-- toutes celles qui protègent l'argent public.
+drop policy if exists "Decide validation" on validations;
+create policy "Decide validation" on validations
+  for update using (
+    -- Aucun échelon antérieur ne doit rester en attente ou refusé.
+    not exists (
+      select 1 from validations prev
+       where prev.document_id = validations.document_id
+         and prev.step < validations.step
+         and prev.decision is distinct from 'valide'
+    )
+    and (
+      -- Cas normal : membre de l'organisation sollicitée.
+      exists (
+        select 1 from memberships m
+         where m.user_id = auth.uid() and m.org_id = validations.org_id
+      )
+      -- Recours d'exploitation, réservé au rôle « admin » (0036).
+      or exists (
+        select 1 from profiles p
+         where p.id = auth.uid()
+           and coalesce(p.platform_role, case when p.is_platform_admin then 'admin' else 'user' end) = 'admin'
+      )
+    )
+  );
+
+-- ------------------------------------------------------------
+-- Contrôle
+-- ------------------------------------------------------------
+--   select pr.name as projet,
+--          porteur.name as etape_1,
+--          coord.name   as etape_2
+--     from projects pr
+--     left join organizations porteur on porteur.id = pr.lead_org_id
+--     left join platform_settings s on s.id = true
+--     left join organizations coord on coord.id = s.coordinator_org_id
+--    order by pr.name;
+--
+-- Attendu : Triade Villepreux → LEY puis YCID ; Triade Jouy → Comité de
+-- Jumelage puis YCID ; Coordination → YCID seul (porteur et coordinateur
+-- confondus).
+
+-- ============================================================================
+-- MIGRATION 0042 — validation settings
+-- ============================================================================
+
+-- ============================================================
+-- 0042 — Le circuit devient réglable depuis l'application
+-- ============================================================
+-- La 0041 a posé la chaîne réelle — porteur, puis coordinateur — mais
+-- ses deux réglages n'avaient aucun écran : `coordinator_org_id` ne se
+-- changeait qu'en SQL, et `projects.lead_org_id` se figeait à la
+-- création. Annoncer un circuit « paramétrable » dans ces conditions
+-- serait une affirmation de documentation, pas une réalité d'usage : le
+-- jour où la mairie donne son vrai contact et où le porteur change, on
+-- ne peut rien corriger.
+--
+-- Cette migration ajoute le seul réglage qui manquait vraiment, et les
+-- écrans arrivent avec elle.
+
+-- ------------------------------------------------------------
+-- Seuil de sollicitation du coordinateur
+-- ------------------------------------------------------------
+-- Faire signer deux organisations pour 80 € de fournitures use le
+-- circuit — et un circuit qu'on trouve pénible finit contourné. En
+-- dessous du seuil, l'organisation porteuse valide seule.
+--
+-- Le porteur, LUI, n'est jamais sauté : une dépense engage toujours
+-- quelqu'un. Un seuil qui supprimerait toute validation ferait du
+-- circuit une option, ce qu'il ne doit pas être sur de l'argent public.
+--
+-- Zéro = aucun seuil, donc comportement de la 0041 inchangé. C'est le
+-- défaut : un réglage neuf ne doit pas modifier un circuit en service
+-- sans décision explicite.
+alter table platform_settings
+  add column if not exists coordinator_min_amount numeric not null default 0;
+
+-- ------------------------------------------------------------
+-- La chaîne tient compte du seuil
+-- ------------------------------------------------------------
+-- Le montant lu est celui du DOCUMENT, pas de la ligne budgétaire : ce
+-- qu'on soumet à validation est un devis précis, pas l'enveloppe qui le
+-- contient. Un devis sans montant ne bénéficie d'aucune dispense — il
+-- n'y a rien à comparer, et le passe-droit irait au dossier le moins
+-- renseigné.
+create or replace function public.validation_chain_for_document(doc_id uuid)
+returns table (org_id uuid, step smallint)
+language sql
+security definer
+set search_path = public
+as $$
+  with doc as (
+    select d.id, d.project_id, d.amount from documents d where d.id = doc_id
+  ),
+  reglages as (
+    select s.coordinator_org_id, s.coordinator_min_amount
+      from platform_settings s where s.id = true
+  ),
+  porteur as (
+    select p.lead_org_id as org_id
+      from doc join projects p on p.id = doc.project_id
+     where p.lead_org_id is not null
+  ),
+  coordinateur as (
+    select r.coordinator_org_id as org_id
+      from reglages r, doc
+     where r.coordinator_org_id is not null
+       -- Sous le seuil, le coordinateur n'est pas sollicité.
+       and (r.coordinator_min_amount <= 0
+            or doc.amount is null
+            or doc.amount >= r.coordinator_min_amount)
+  ),
+  -- Sans coordinateur — non configuré, ou écarté par le seuil — le
+  -- porteur reste le seul échelon.
+  coordinateur_toujours as (
+    select r.coordinator_org_id as org_id
+      from reglages r where r.coordinator_org_id is not null
+  )
+  select org_id, 1::smallint from porteur
+  union all
+  select c.org_id, 2::smallint
+    from coordinateur c
+   where not exists (select 1 from porteur p where p.org_id = c.org_id)
+  union all
+  -- Repli : projet sans organisation porteuse. Le coordinateur devient
+  -- le premier et unique échelon, seuil ou non — sinon le devis ne
+  -- partirait nulle part, et la panne serait muette.
+  select c.org_id, 1::smallint
+    from coordinateur_toujours c
+   where not exists (select 1 from porteur);
+$$;
+
+-- ------------------------------------------------------------
+-- Contrôle
+-- ------------------------------------------------------------
+--   select brand_name, coordinator_org_id, coordinator_min_amount
+--     from platform_settings where id = true;
+--
+-- Attendu après cette migration : coordinator_min_amount = 0, donc
+-- aucune dispense tant qu'un administrateur n'en décide pas.
+
+-- ============================================================================
+-- MIGRATION 0043 — ai usage
+-- ============================================================================
+
+-- ============================================================
+-- 0043 — Mesurer ce que l'IA consomme, et ce qu'elle coûte
+-- ============================================================
+-- Constat du 27/07 : l'application appelle un fournisseur d'IA payant à
+-- l'usage, et ne sait pas ce qu'elle consomme.
+--
+--   · `lib/llm.ts` récupère bien les jetons renvoyés par le fournisseur,
+--     mais SEUL le rapport d'expert en garde une trace
+--     (`ai_reports.tokens`) ;
+--   · la génération des contenus de communication appelle l'IA et
+--     n'enregistre rien ;
+--   · seul le TOTAL est conservé — or la sortie coûte trois à huit fois
+--     l'entrée selon les fournisseurs. Un total ne permet donc pas de
+--     calculer un coût ;
+--   · aucun écran n'affiche quoi que ce soit.
+--
+-- Autrement dit : une dépense engagée automatiquement, sans compteur.
+-- C'est exactement le genre de chose qu'on découvre sur une facture.
+
+create table if not exists ai_usage (
+  id uuid primary key default uuid_generate_v4(),
+  at timestamptz not null default now(),
+  -- Qui, et pour quoi. `project_id` est nullable : le test de connexion
+  -- depuis l'administration ne relève d'aucun projet.
+  user_id uuid references profiles(id) on delete set null,
+  project_id uuid references projects(id) on delete set null,
+  -- 'rapport' | 'campagne' | 'test' | autre. Texte libre plutôt qu'enum :
+  -- une fonctionnalité nouvelle ne doit pas exiger une migration pour
+  -- être comptée — sans quoi elle ne le serait pas, comme aujourd'hui.
+  feature text not null,
+  model text,
+  -- Séparés, parce que leurs tarifs le sont.
+  prompt_tokens int not null default 0,
+  completion_tokens int not null default 0,
+  total_tokens int not null default 0,
+  -- Un appel en échec consomme quand même des jetons d'entrée : le
+  -- compter permet de voir ce que coûtent les tentatives ratées.
+  ok boolean not null default true,
+  truncated boolean not null default false
+);
+
+create index if not exists ai_usage_at_idx on ai_usage (at desc);
+create index if not exists ai_usage_feature_idx on ai_usage (feature, at desc);
+
+alter table ai_usage enable row level security;
+
+-- Lecture réservée aux administrateurs : la consommation d'IA est une
+-- donnée d'exploitation, au même titre que le stockage.
+drop policy if exists "Admins read ai usage" on ai_usage;
+create policy "Admins read ai usage" on ai_usage for select using (is_admin());
+
+-- Aucune policy d'insertion : l'écriture passe par la clé service, comme
+-- les notifications. Un utilisateur ne doit pas pouvoir fabriquer ni
+-- effacer une ligne de consommation — ce serait un compteur qu'on peut
+-- truquer, donc pas un compteur.
+
+-- ------------------------------------------------------------
+-- Tarifs et budget
+-- ------------------------------------------------------------
+-- Les prix ne sont pas devinables : ils dépendent du fournisseur, du
+-- modèle, et changent. On ne les met donc pas en dur — ils se saisissent,
+-- et le coût affiché est une ESTIMATION assumée comme telle.
+--
+-- Le budget mensuel, lui, ne bloque rien pour l'instant : il sert de
+-- repère et d'alerte. Interrompre une génération de rapport la veille
+-- d'un COPIL parce qu'un plafond est atteint serait pire que la dépense
+-- évitée — cette décision revient à YCID, pas au code.
+alter table ai_settings
+  add column if not exists price_input_per_million numeric not null default 0,
+  add column if not exists price_output_per_million numeric not null default 0,
+  add column if not exists monthly_budget numeric not null default 0,
+  add column if not exists currency text not null default 'EUR';
+
+-- ------------------------------------------------------------
+-- Reprise de l'historique connu
+-- ------------------------------------------------------------
+-- Les rapports déjà générés portent un total de jetons. On ne connaît
+-- pas leur répartition entrée/sortie — elle n'a jamais été enregistrée —
+-- donc tout est porté en entrée, et signalé comme tel : l'estimation de
+-- coût sur cette période sera BASSE. Mieux vaut un historique incomplet
+-- et daté qu'un historique inventé.
+insert into ai_usage (at, user_id, project_id, feature, model, prompt_tokens, completion_tokens, total_tokens, ok)
+select r.created_at, r.created_by, r.project_id, 'rapport (historique)', r.model,
+       coalesce(r.tokens, 0), 0, coalesce(r.tokens, 0), true
+  from ai_reports r
+ where r.tokens is not null
+   and not exists (select 1 from ai_usage u where u.feature = 'rapport (historique)' and u.at = r.created_at);
+
+-- ============================================================================
+-- MIGRATION 0044 — email reply to
+-- ============================================================================
+
+-- ============================================================
+-- 0044 — Adresse de réponse des notifications
+-- ============================================================
+-- La 0040 gérait l'expéditeur, pas la réponse. Or les deux diffèrent
+-- souvent : on expédie depuis une boîte de service — « YCID Notifications
+-- <cem.notif@…> » — et l'on veut que les réponses arrivent quelque part
+-- de lu.
+--
+-- Sans `reply_to`, une réponse part vers l'adresse d'expédition. Si
+-- celle-ci n'est relevée par personne, la réponse est perdue en silence —
+-- et l'expéditeur croit avoir répondu. C'est le genre de perte qu'on ne
+-- constate jamais, puisque personne ne sait qu'un message a existé.
+alter table email_settings
+  add column if not exists reply_to text;
+
+-- Par défaut, l'adresse d'expédition : mieux vaut un repli explicite
+-- qu'un champ vide dont le comportement dépend du client de messagerie.
+update email_settings
+   set reply_to = from_email
+ where reply_to is null and from_email is not null;
+
+-- ============================================================================
 -- FIN — Prochaines étapes (voir docs/procedure-deploiement.md) :
 --   1. Créer votre compte via la page de connexion de l'app (ou Dashboard
 --      Supabase > Authentication > Add user).
@@ -2862,5 +3236,14 @@ create index if not exists notifications_unread_idx
 --   5. (Optionnel) Configurer l'envoi d'emails dans Administration ▸
 --      Configuration ▸ Email. Sans cela l'application fonctionne, mais
 --      les notifications restent internes.
---   6. Désactiver le signup public (Authentication > Providers).
+--   6. Désigner l'organisation coordinatrice dans Administration ▸
+--      Configuration ▸ Validation. Tant que `coordinator_org_id` est
+--      nul, la chaîne de validation (0041) se limite à l'organisation
+--      porteuse — un devis validé par le porteur est engagé sans second
+--      regard. Ce n'est pas une panne, c'est un réglage absent, et rien
+--      à l'écran ne le distingue d'un circuit complet.
+--   7. (Optionnel) Renseigner les tarifs du fournisseur d'IA et le
+--      budget mensuel dans Administration ▸ Configuration ▸ IA. Sans
+--      tarifs, le compteur (0043) compte les jetons mais chiffre 0 €.
+--   8. Désactiver le signup public (Authentication > Providers).
 -- ============================================================================
