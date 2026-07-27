@@ -131,7 +131,7 @@ async function submitForValidation(documentId: string): Promise<string | null> {
   const laterCount = steps.length - firstOrgs.length
 
   const { data: doc } = await supabase.from('documents')
-    .select('filename, amount, project_id, projects:project_id(name)').eq('id', documentId).maybeSingle()
+    .select('filename, amount, project_id, budget_line_id, projects:project_id(name)').eq('id', documentId).maybeSingle()
   const project = Array.isArray(doc?.projects) ? doc?.projects[0] : doc?.projects
   const montant = doc?.amount != null ? `${Math.round(doc.amount).toLocaleString('fr-FR')} €` : 'montant non renseigné'
   await notifyPeople(await membersOfOrgs(firstOrgs), {
@@ -143,8 +143,12 @@ async function submitForValidation(documentId: string): Promise<string | null> {
         ? `Votre accord ouvrira la seconde étape du circuit ; le montant ne sera engagé qu'à l'issue de celle-ci.`
         : `Tant qu'il n'est pas validé, ce montant n'est pas engagé au budget du projet.`,
     ],
-    path: doc?.project_id ? `/projets/${doc.project_id}?tab=budget` : undefined,
-    linkLabel: 'Voir le devis',
+    // Vers la FILE, pas vers l'onglet budget. Déposer quelqu'un sur une
+    // page qui contient vingt lignes en le laissant chercher laquelle
+    // attend sa décision, c'est lui faire refaire le travail que la file
+    // existe pour lui épargner.
+    path: '/a-valider',
+    linkLabel: 'Voir ce qui attend ma décision',
   })
   return null
 }
@@ -208,7 +212,7 @@ export async function decideValidation(input: {
   // Prévenir le déposant : c'est lui qui attend, et il n'a aujourd'hui
   // aucun moyen de savoir qu'on a tranché sans rouvrir la ligne.
   const { data: full } = await supabase.from('documents')
-    .select('uploaded_by, filename, project_id, projects:project_id(name), validations(decision, step, org_id)')
+    .select('uploaded_by, filename, project_id, budget_line_id, projects:project_id(name), validations(decision, step, org_id)')
     .eq('id', v.document_id).maybeSingle()
   const allValidations = (full?.validations ?? []) as { decision: string; step: number; org_id: string }[]
   const restants = allValidations.filter(x => x.decision === 'en_attente').length
@@ -227,7 +231,11 @@ export async function decideValidation(input: {
           ? `Il reste ${restants} organisation${restants > 1 ? 's' : ''} à se prononcer avant que le montant soit engagé.`
           : `Toutes les organisations sollicitées ont validé : le montant est désormais engagé.`,
     ].filter(Boolean),
-    path: `/projets/${input.projectId}?tab=budget`,
+    // Lien direct sur la ligne : le panneau des pièces s'ouvre tout seul
+    // à l'arrivée. Le déposant n'a pas à retrouver son propre devis.
+    path: full?.budget_line_id
+      ? `/projets/${input.projectId}?tab=budget&ligne=${full.budget_line_id}`
+      : `/projets/${input.projectId}?tab=budget`,
     linkLabel: 'Voir la ligne',
   })
 
@@ -250,7 +258,7 @@ export async function decideValidation(input: {
             `Le devis « ${full?.filename ?? 'pièce'} » a été validé par ${orgName}.`,
             `Il vous revient désormais de vous prononcer. Le montant sera engagé dès votre accord.`,
           ],
-          path: `/projets/${input.projectId}?tab=budget`,
+          path: '/a-valider',
           linkLabel: 'Examiner le devis',
         })
       }
