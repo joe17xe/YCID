@@ -1,5 +1,5 @@
 import { createClient as createAdminClient } from '@supabase/supabase-js'
-import { sendMail, renderMail, getEmailSettings, isUsable } from './mailer'
+import { sendMail, renderMail, getEmailSettings, isUsable, unusableReason, recordSendOutcome } from './mailer'
 import { rolesWith } from './rbac'
 
 // ============================================================
@@ -52,14 +52,20 @@ export async function notifyPeople(userIds: (string | null | undefined)[], notic
 
   // 1. Interne d'abord : c'est le canal fiable. Il ne dépend d'aucun
   //    tiers, et il reste la trace consultable si l'email se perd.
-  const { error } = await db.from('notifications').insert(
+  const { data: created, error } = await db.from('notifications').insert(
     ids.map(user_id => ({ user_id, type: notice.type, payload: { title: notice.title, href: notice.path } })),
-  )
+  ).select('id, user_id')
   if (error) console.error('[notify-circuit] notification interne échouée:', error.message)
 
   // 2. Email ensuite, et seulement si la configuration le permet.
   const settings = await getEmailSettings()
-  if (!isUsable(settings)) return
+  if (!isUsable(settings)) {
+    // Se taire ici, c'était laisser croire à un envoi. « Le SMTP est en
+    // place, pourquoi je n'ai pas reçu de mail ? » n'avait aucune
+    // réponse consultable : ni journal, ni trace en base.
+    console.warn('[notify-circuit] aucun email envoyé —', unusableReason(settings))
+    return
+  }
 
   const { data: profiles } = await db.from('profiles').select('id, email, full_name').in('id', ids)
   const base = (settings.site_url ?? '').replace(/\/+$/, '')
@@ -67,6 +73,11 @@ export async function notifyPeople(userIds: (string | null | undefined)[], notic
     ? { href: `${base}${notice.path}`, label: notice.linkLabel ?? 'Ouvrir dans Solid’Pilot' }
     : undefined
   const { text, html } = renderMail(notice.title, notice.body, link)
+
+  const notifByUser = new Map((created ?? []).map(n => [n.user_id as string, n.id as string]))
+  const sent: string[] = []
+  let lastTo: string | null = null
+  let lastErr: string | null = null
 
   for (const p of profiles ?? []) {
     // Une adresse manifestement invalide ne part pas : l'import CSV en a
@@ -78,8 +89,25 @@ export async function notifyPeople(userIds: (string | null | undefined)[], notic
       continue
     }
     const err = await sendMail({ to: p.email, subject: notice.title, text, html })
+    lastTo = p.email
+    lastErr = err
     if (err) console.error('[notify-circuit] email non envoyé à', p.email, ':', err)
+    else {
+      const nid = notifByUser.get(p.id as string)
+      if (nid) sent.push(nid)
+    }
   }
+
+  // `emailed_at` posée par la 0040 n'était jamais renseignée : la
+  // colonne existait, personne ne l'écrivait. Elle répond pourtant à la
+  // seule question qui compte après coup — ce message est-il parti, ou
+  // seulement affiché dans l'application ?
+  if (sent.length) {
+    const { error: stampErr } = await db.from('notifications')
+      .update({ emailed_at: new Date().toISOString() }).in('id', sent)
+    if (stampErr) console.error('[notify-circuit] horodatage d’envoi non posé:', stampErr.message)
+  }
+  if (lastTo !== null) await recordSendOutcome(lastTo, lastErr)
 }
 
 // ------------------------------------------------------------

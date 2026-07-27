@@ -50,6 +50,7 @@ SQL Editor Supabase (ou via `supabase db push` avec la CLI) :
 | `migrations/0043_ai_usage.sql` | **Compteur de consommation IA** : table `ai_usage` (un enregistrement par appel — fonction, modèle, jetons entrée/sortie séparés, échecs compris), écriture par clé service uniquement, lecture admins. Tarifs et budget mensuel dans `ai_settings`. Historique des rapports repris, imputé à l'entrée faute de répartition connue |
 | `migrations/0044_email_reply_to.sql` | **Adresse de réponse** des notifications (`email_settings.reply_to`). L'expéditeur est souvent une boîte de service que personne ne relève : sans cette adresse, répondre à une notification revient à écrire dans le vide, sans que l'auteur le sache. Repli sur l'adresse d'expédition |
 | `migrations/0045_fix_validation_policy_recursion.sql` | **La policy d'ordre se mordait la queue** : « Decide validation » (0041) interrogeait `validations` dans son propre corps ; PostgreSQL applique la RLS à cette lecture interne, qui rappelle la même policy — `infinite recursion detected in policy for relation "validations"`. **Aucune décision n'était possible**, à aucun échelon. L'ordre passe désormais par `validation_step_is_open()`, `security definer`, donc hors RLS — même remède que les 0003 et 0010. `with check` ajouté, omis en 0041 : on contrôlait la ligne avant la mise à jour, jamais après |
+| `migrations/0046_email_send_trace.sql` | **La trace des envois RÉELS** : `email_settings.last_send_at / _to / _ok / _error`. La 0040 ne conservait que le résultat du bouton « Tester la connexion », qui appelle `verify()` — il s'authentifie et referme, sans jamais soumettre de message. Il ne prouve donc rien du cas le plus fréquent : un relais qui accepte l'identifiant et refuse l'expéditeur (s'authentifier en `joe@` pour écrire sous `cem.notif@`). L'écran affichait « connexion réussie » pendant que rien n'arrivait — un vert qui oriente le soupçon vers le destinataire. Écriture par clé service, comme le compteur d'IA |
 
 `seed.sql` contient les données de démonstration CEM Liban et s'exécute
 **après** les migrations, uniquement sur un environnement de démo.
@@ -65,7 +66,7 @@ SQL Editor Supabase (ou via `supabase db push` avec la CLI) :
 ## Installation complète (base neuve ou reset)
 
 `install-complet.sql` = préambule de nettoyage (**destructif**) + migrations
-0001 → 0045 concaténées. À coller en une fois
+0001 → 0046 concaténées. À coller en une fois
 dans le SQL Editor. Procédure détaillée : `docs/procedure-deploiement.md`.
 Ce fichier est généré par concaténation — après toute nouvelle migration,
 le regénérer plutôt que l'éditer à la main.

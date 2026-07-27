@@ -1,8 +1,8 @@
 "use client"
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { Check, Plug } from "lucide-react"
-import { updateEmailSettings, testEmailConnection } from "@/app/(app)/admin/configuration/settings-actions"
+import { Check, Plug, Send } from "lucide-react"
+import { updateEmailSettings, testEmailConnection, sendTestEmail } from "@/app/(app)/admin/configuration/settings-actions"
 
 const label = "block text-xs font-semibold mb-1 tracking-wider"
 const inputCls = "w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
@@ -23,6 +23,11 @@ export interface EmailPublic {
   last_test_at: string | null
   last_test_ok: boolean | null
   last_test_error: string | null
+  // Envois RÉELS (0046). `last_test_*` ne prouve que l'authentification.
+  last_send_at: string | null
+  last_send_to: string | null
+  last_send_ok: boolean | null
+  last_send_error: string | null
 }
 
 export default function EmailForm({ settings }: { settings: EmailPublic }) {
@@ -50,6 +55,16 @@ export default function EmailForm({ settings }: { settings: EmailPublic }) {
       const res = await updateEmailSettings(form)
       if (res.ok) { setOk("Configuration enregistrée."); setForm(f => ({ ...f, password: "" })); router.refresh() }
       else setError(res.error ?? "Une erreur est survenue.")
+    })
+  }
+
+  function realTest() {
+    setError(""); setOk("")
+    startTransition(async () => {
+      const res = await sendTestEmail()
+      if (res.ok) setOk(`Message soumis au relais pour ${res.to}. S'il n'arrive pas, regardez les indésirables : remis et classé en spam, cela se comporte comme perdu.`)
+      else setError(res.error ?? "Envoi échoué.")
+      router.refresh()
     })
   }
 
@@ -160,8 +175,30 @@ export default function EmailForm({ settings }: { settings: EmailPublic }) {
           style={settings.last_test_ok
             ? { background: "#E4F0EC", color: "#0E6B5C" }
             : { background: "#F6E7E5", color: "#A3342C" }}>
-          Dernier test le {new Date(settings.last_test_at).toLocaleString("fr-FR")} —{" "}
-          {settings.last_test_ok ? "connexion réussie." : `échec : ${settings.last_test_error ?? "raison inconnue"}`}
+          Dernier test de connexion le {new Date(settings.last_test_at).toLocaleString("fr-FR")} —{" "}
+          {settings.last_test_ok ? "authentification réussie." : `échec : ${settings.last_test_error ?? "raison inconnue"}`}
+        </p>
+      )}
+
+      {/* La ligne qui répond à « pourquoi je n'ai pas reçu de mail ». Un
+          test vert et une case « dernier envoi » vide veut dire une
+          chose et une seule : la connexion fonctionne, et l'application
+          n'a encore écrit à personne. */}
+      {settings.last_send_at ? (
+        <p className="text-xs rounded-lg px-3 py-2"
+          style={settings.last_send_ok
+            ? { background: "#E4F0EC", color: "#0E6B5C" }
+            : { background: "#F6E7E5", color: "#A3342C" }}>
+          Dernier envoi réel le {new Date(settings.last_send_at).toLocaleString("fr-FR")}
+          {settings.last_send_to ? ` vers ${settings.last_send_to}` : ""} —{" "}
+          {settings.last_send_ok
+            ? "accepté par le relais."
+            : `refusé : ${settings.last_send_error ?? "raison inconnue"}`}
+        </p>
+      ) : (
+        <p className="text-xs rounded-lg px-3 py-2" style={{ background: "#F7EDDD", color: "#8A6A1F" }}>
+          Aucun envoi réel à ce jour. Les emails ne partent que sur événement — dépôt d&apos;un devis,
+          décision, tâche terminée. Configurer le SMTP ne réémet pas les notifications passées.
         </p>
       )}
 
@@ -182,7 +219,18 @@ export default function EmailForm({ settings }: { settings: EmailPublic }) {
           style={{ ...border, color: "#17211D" }}>
           <Plug size={15} /> Tester la connexion
         </button>
-        <span className="text-xs" style={{ color: "#66716B" }}>Le test n&apos;envoie aucun message.</span>
+        {/* Le seul essai concluant. Un relais peut accepter l'identifiant
+            et refuser l'expéditeur — s'authentifier en joe@ pour écrire
+            sous cem.notif@ est justement le cas courant du refus. */}
+        <button type="button" onClick={realTest} disabled={pending}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium"
+          style={{ ...border, color: "#17211D" }}>
+          <Send size={15} /> M&apos;envoyer un email de test
+        </button>
+        <span className="text-xs" style={{ color: "#66716B" }}>
+          « Tester la connexion » n&apos;envoie rien : il s&apos;authentifie seulement. Seul l&apos;envoi
+          réel prouve que le relais accepte votre expéditeur.
+        </span>
       </div>
     </form>
   )

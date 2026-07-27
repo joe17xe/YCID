@@ -40,11 +40,35 @@ function adminDb() {
 
 export async function getEmailSettings(): Promise<EmailSettings | null> {
   const db = adminDb()
-  if (!db) return null
-  const { data } = await db.from('email_settings')
+  if (!db) {
+    console.error('[mailer] SUPABASE_SERVICE_ROLE_KEY absente — aucun email ne peut partir')
+    return null
+  }
+  // L'erreur était jetée : `const { data } = ...`. Une migration non
+  // appliquée (une colonne demandée ici et absente de la base) rendait
+  // donc `data` nul, ce que l'appelant lisait comme « pas configuré ».
+  // Résultat : configuration renseignée, écran serein, zéro email, et
+  // pas une ligne de journal pour l'expliquer.
+  const { data, error } = await db.from('email_settings')
     .select('enabled, host, port, secure, username, password, from_name, from_email, reply_to, site_url')
     .eq('id', true).maybeSingle()
+  if (error) {
+    console.error('[mailer] configuration illisible:', error.message,
+      '— migration email_settings manquante ou incomplète ?')
+    return null
+  }
   return (data as EmailSettings | null) ?? null
+}
+
+// Pourquoi l'envoi ne se fera pas, en clair. `isUsable` répond par oui
+// ou non ; l'exploitant, lui, a besoin de savoir laquelle des quatre
+// conditions manque.
+export function unusableReason(s: EmailSettings | null): string | null {
+  if (!s) return 'Configuration email illisible ou absente.'
+  if (!s.enabled) return 'L’envoi d’emails est désactivé dans la configuration.'
+  if (!s.host) return 'Serveur SMTP non renseigné.'
+  if (!s.from_email) return 'Adresse d’expéditeur non renseignée.'
+  return null
 }
 
 // Une configuration incomplète vaut « pas configuré ». Tenter l'envoi
@@ -100,6 +124,30 @@ export async function sendMail(mail: Mail): Promise<string | null> {
   }
 }
 
+// ------------------------------------------------------------
+// Garder trace de ce qui part VRAIMENT
+// ------------------------------------------------------------
+// `last_test_*` ne dit rien des envois réels : `verify()` s'authentifie
+// et referme, sans jamais soumettre de message. Un relais qui accepte
+// l'authentification et refuse l'expéditeur affichait donc « connexion
+// réussie » pendant que rien n'arrivait (0046).
+//
+// N'échoue jamais : tracer l'envoi ne doit pas casser l'envoi.
+export async function recordSendOutcome(to: string, err: string | null): Promise<void> {
+  try {
+    const db = adminDb()
+    if (!db) return
+    await db.from('email_settings').update({
+      last_send_at: new Date().toISOString(),
+      last_send_to: to,
+      last_send_ok: !err,
+      last_send_error: err,
+    }).eq('id', true)
+  } catch (e) {
+    console.error('[mailer] trace d’envoi non enregistrée:', e instanceof Error ? e.message : String(e))
+  }
+}
+
 // Vérifie la connexion SANS écrire à personne : `verify()` ouvre la
 // session et s'authentifie, puis referme. C'est ce que doit faire le
 // bouton « Tester » — envoyer un vrai message pour tester suppose de
@@ -142,10 +190,27 @@ export function renderMail(title: string, body: string[], link?: { href: string;
 // État du dernier essai, pour l'écran d'administration. Séparé de
 // getEmailSettings() : celui-ci ramène un mot de passe et n'a rien à
 // faire près d'un composant client.
-export async function getEmailTestStatus(): Promise<{ last_test_at: string | null; last_test_ok: boolean | null; last_test_error: string | null } | null> {
+export interface EmailTraceStatus {
+  last_test_at: string | null; last_test_ok: boolean | null; last_test_error: string | null
+  last_send_at: string | null; last_send_to: string | null
+  last_send_ok: boolean | null; last_send_error: string | null
+}
+
+export async function getEmailTestStatus(): Promise<EmailTraceStatus | null> {
   const db = adminDb()
   if (!db) return null
-  const { data } = await db.from('email_settings')
-    .select('last_test_at, last_test_ok, last_test_error').eq('id', true).maybeSingle()
-  return data ?? null
+  const { data, error } = await db.from('email_settings')
+    .select('last_test_at, last_test_ok, last_test_error, last_send_at, last_send_to, last_send_ok, last_send_error')
+    .eq('id', true).maybeSingle()
+  // Repli sur les seules colonnes de la 0040 : tant que la 0046 n'est
+  // pas appliquée, l'écran doit rester lisible plutôt que vide — c'est
+  // précisément l'écran où l'on vient chercher pourquoi rien ne part.
+  if (error) {
+    const { data: legacy } = await db.from('email_settings')
+      .select('last_test_at, last_test_ok, last_test_error').eq('id', true).maybeSingle()
+    return legacy
+      ? { ...legacy, last_send_at: null, last_send_to: null, last_send_ok: null, last_send_error: null } as EmailTraceStatus
+      : null
+  }
+  return (data as EmailTraceStatus | null) ?? null
 }

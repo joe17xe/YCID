@@ -135,6 +135,10 @@ export default async function ConfigurationPage({ searchParams }: { searchParams
               last_test_at: emailTest?.last_test_at ?? null,
               last_test_ok: emailTest?.last_test_ok ?? null,
               last_test_error: emailTest?.last_test_error ?? null,
+              last_send_at: emailTest?.last_send_at ?? null,
+              last_send_to: emailTest?.last_send_to ?? null,
+              last_send_ok: emailTest?.last_send_ok ?? null,
+              last_send_error: emailTest?.last_send_error ?? null,
             }} />
           ) : (
             <div className="rounded-xl px-4 py-3 text-sm" style={{ background: "#F7EDDD", color: "#8A6A1F" }}>
