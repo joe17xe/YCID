@@ -173,13 +173,17 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
   // migration n'est pas passée elles échouent, et la fiche n'affiche
   // simplement ni la ligne ni le bouton « Villes » — jamais d'écran
   // cassé entre le déploiement du code et le passage du SQL.
-  const [{ data: projectCityRows, error: pcErr }, { data: allCities, error: cErr }, { data: mpRows, error: mpErr }] = await Promise.all([
+  const [{ data: projectCityRows, error: pcErr }, { data: allCities, error: cErr }, { data: mpRows, error: mpErr }, { data: orgMembers, error: omErr }] = await Promise.all([
     supabase.from("project_cities").select("city_id, cities(id, name, country)").eq("project_id", id),
     supabase.from("cities").select("id, name, country").order("name"),
     // Invités des réunions (0051) — même dégradation douce : tant que
     // la migration n'est pas passée, l'onglet COPIL fonctionne comme
     // avant et le dialogue n'envoie aucun champ neuf.
     supabase.from("meeting_participants").select("meeting_id, user_id, response, responded_at"),
+    // Qui compose les organisations du projet (0053) — pour inviter
+    // une réunion PAR organisation. Tolérant : sans la migration, le
+    // dialogue garde sa liste à plat.
+    supabase.rpc("project_org_members", { pid: id }),
   ])
   const citiesReady = !pcErr && !cErr
   const participantsReady = !mpErr
@@ -220,6 +224,24 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
   const { data: orgsAll } = await supabase.from("organizations").select("id, name").eq("status", "active").order("name")
   const orgOptions = (orgsAll ?? []).map((o: any) => ({ id: o.id, name: o.name }))
   // Candidats à l'ajout comme membre : comptes existants pas encore membres
+  // Invitations par organisation (0053) : « YCID veut voir LEY » —
+  // cocher l'organisation coche ses comptes. Ne retient que les
+  // comptes déjà MEMBRES du projet : un compte hors projet ne verrait
+  // ni la réunion ni le bouton Répondre (RLS des participants).
+  const projMemberIds = new Set(memberOptions.map((m: { id: string }) => m.id))
+  const orgGroupsMap = new Map<string, { name: string; memberIds: string[] }>()
+  if (!omErr) {
+    for (const r of (orgMembers ?? []) as { org_id: string; org_name: string; user_id: string }[]) {
+      if (!projMemberIds.has(r.user_id)) continue
+      const g = orgGroupsMap.get(r.org_id) ?? { name: r.org_name, memberIds: [] }
+      if (!g.memberIds.includes(r.user_id)) g.memberIds.push(r.user_id)
+      orgGroupsMap.set(r.org_id, g)
+    }
+  }
+  const orgGroups = [...orgGroupsMap.values()]
+    .filter(g => g.memberIds.length > 0)
+    .sort((a, b) => a.name.localeCompare(b.name, "fr"))
+
   const { data: allProfiles } = await supabase.from("profiles").select("id, full_name, email").order("full_name")
   // Nom d'un invité de réunion (0051) — via l'annuaire complet : un
   // invité retiré du projet depuis garde son nom sur la réunion.
@@ -1294,7 +1316,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
         <div className="space-y-4">
           {canMeetings && (
             <div className="flex flex-col items-end gap-1">
-              <MeetingDialog projectId={id} members={memberOptions} participantsReady={participantsReady} />
+              <MeetingDialog projectId={id} members={memberOptions} participantsReady={participantsReady} orgGroups={orgGroups} />
               {!participantsReady && (
                 <p className="text-xs" style={{ color: "#66716B" }}>
                   Invitations et réponses : appliquez la migration <strong>0051_meeting_participants.sql</strong> dans le SQL Editor Supabase.

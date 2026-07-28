@@ -377,8 +377,11 @@ export function MeasureDialog({ indicatorId, indicatorName, unit }: { indicatorI
 // `participantsReady` dit si la migration est passée — sans elle, le
 // dialogue reste celui d'avant (titre, type, date, compte rendu) et
 // n'envoie aucun champ nouveau.
-export function MeetingDialog({ projectId, members = [], participantsReady = false }: {
+export function MeetingDialog({ projectId, members = [], participantsReady = false, orgGroups = [] }: {
   projectId: string; members?: Option[]; participantsReady?: boolean
+  // Invitations par organisation (0053) : « YCID veut voir LEY » —
+  // une pastille par organisation du projet, qui coche ses comptes.
+  orgGroups?: { name: string; memberIds: string[] }[]
 }) {
   const [form, setForm] = useState<Omit<MeetingInput, "projectId" | "participantIds">>({
     title: "", kind: "copil", date: "", minutes: "", start_time: "", location: "",
@@ -393,6 +396,18 @@ export function MeetingDialog({ projectId, members = [], participantsReady = fal
     const next = new Set(invited)
     if (next.has(id)) next.delete(id)
     else next.add(id)
+    setInvited(next)
+  }
+
+  // Cocher une organisation coche tous ses comptes ; recliquer les
+  // décoche tous — l'ajustement fin se fait ensuite compte par compte.
+  function toggleOrg(g: { memberIds: string[] }) {
+    const next = new Set(invited)
+    const all = g.memberIds.every(id => next.has(id))
+    for (const id of g.memberIds) {
+      if (all) next.delete(id)
+      else next.add(id)
+    }
     setInvited(next)
   }
 
@@ -430,6 +445,25 @@ export function MeetingDialog({ projectId, members = [], participantsReady = fal
             {participantsReady && (
               <div>
                 <div className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Invités</div>
+                {/* « YCID veut voir LEY » : une pastille par
+                    organisation du projet coche ses comptes d'un coup ;
+                    l'ajustement fin reste compte par compte. */}
+                {orgGroups.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {orgGroups.map(g => {
+                      const all = g.memberIds.every(id => invited.has(id))
+                      return (
+                        <button key={g.name} type="button" onClick={() => toggleOrg(g)} aria-pressed={all}
+                          className="text-xs px-2.5 py-1 rounded-full border font-medium transition-colors"
+                          style={all
+                            ? { background: "var(--brand-accent,#0E6B5C)", borderColor: "var(--brand-accent,#0E6B5C)", color: "#fff" }
+                            : { borderColor: "#E3E6E2", color: "#17211D" }}>
+                          {g.name} ({g.memberIds.length})
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
                 {/* Les invités cochés reçoivent cloche + email et
                     répondent depuis l'onglet COPIL. L'organisateur qui
                     se coche naît « accepté » : il programme, il vient. */}
