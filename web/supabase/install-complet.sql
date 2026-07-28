@@ -4,7 +4,7 @@
 -- ⚠️⚠️⚠️  SCRIPT DESTRUCTIF  ⚠️⚠️⚠️
 -- Ce script SUPPRIME toutes les tables métier existantes (ancien schéma
 -- simple comme nouveau schéma) puis installe le schéma complet du dépôt
--- (migrations 0001 → 0048 concaténées, à jour des correctifs).
+-- (migrations 0001 → 0049 concaténées, à jour des correctifs).
 -- À exécuter EN UNE FOIS dans le SQL Editor Supabase, uniquement après
 -- avoir acté que les données actuelles sont jetables.
 -- Généré depuis web/supabase/migrations/ — ne pas éditer à la main :
@@ -3507,6 +3507,36 @@ comment on column profiles.tour_seen_at is
 -- connexion. C'est voulu — elle décrit un écran qui vient de changer
 -- (pouls, pastilles, file « À valider »), et ils ne le connaissent pas
 -- davantage qu'un nouveau.
+
+-- ============================================================================
+-- MIGRATION 0049 — brand favicon
+-- ============================================================================
+
+-- ============================================================
+-- 0049 — Favicon paramétrable
+-- ============================================================
+-- Constat du 27/07, en téléversant les logos : « je n'ai pas l'endroit
+-- pour paramétrer le favicon ». Exact — c'était un fichier figé dans le
+-- code, invisible de l'écran Marque, donc impossible à changer sans
+-- redéployer. Pour une application white-label (0018), l'icône d'onglet
+-- fait partie de la marque au même titre que le logo et les couleurs.
+--
+-- Colonne séparée de logo_url : un logo est souvent horizontal
+-- (marque + texte), un favicon doit être carré et lisible à 16 pixels.
+-- Forcer l'un dans l'autre donnerait une icône d'onglet illisible.
+-- Repli en cascade côté application : favicon dédié → logo → fichier
+-- par défaut du dépôt.
+
+alter table platform_settings
+  add column if not exists favicon_url text;
+
+comment on column platform_settings.favicon_url is
+  'Icône d''onglet (favicon), carrée. Nulle = repli sur logo_url puis sur le fichier par défaut.';
+
+-- ------------------------------------------------------------
+-- Contrôle
+-- ------------------------------------------------------------
+--   select logo_url, favicon_url from platform_settings;
 
 -- ============================================================================
 -- FIN — Prochaines étapes (voir docs/procedure-deploiement.md) :

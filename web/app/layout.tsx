@@ -10,9 +10,18 @@ const inter = Inter({ variable: '--font-inter', subsets: ['latin'] })
 
 export async function generateMetadata(): Promise<Metadata> {
   const s = await getPlatformSettings()
+  // L'icône d'onglet suit la marque (0049) : favicon dédié, sinon le
+  // logo, sinon le fichier du dépôt. Les fichiers statiques vivent dans
+  // public/ et non app/ — la convention app/favicon.ico émettrait sa
+  // balise EN PLUS de celle-ci, et le navigateur choisirait lui-même.
+  const icon = s.faviconUrl || s.logoUrl || '/favicon.ico'
   return {
     title: `${s.brandName} — YCID`,
     description: s.tagline,
+    icons: {
+      icon,
+      apple: s.faviconUrl || s.logoUrl || '/apple-icon.png',
+    },
   }
 }
 

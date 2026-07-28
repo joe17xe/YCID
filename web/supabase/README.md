@@ -53,6 +53,7 @@ SQL Editor Supabase (ou via `supabase db push` avec la CLI) :
 | `migrations/0046_email_send_trace.sql` | **La trace des envois RÉELS** : `email_settings.last_send_at / _to / _ok / _error`. La 0040 ne conservait que le résultat du bouton « Tester la connexion », qui appelle `verify()` — il s'authentifie et referme, sans jamais soumettre de message. Il ne prouve donc rien du cas le plus fréquent : un relais qui accepte l'identifiant et refuse l'expéditeur (s'authentifier en `joe@` pour écrire sous `cem.notif@`). L'écran affichait « connexion réussie » pendant que rien n'arrivait — un vert qui oriente le soupçon vers le destinataire. Écriture par clé service, comme le compteur d'IA |
 | `migrations/0047_auditor_seat.sql` | **Le contrôlé ne choisit pas son contrôleur** : trois policies RESTRICTIVES sur `project_members` réservent à l'administrateur plateforme l'ajout, le changement et le retrait d'un `auditeur`. Un chef de projet pouvait retirer les auditeurs de son propre projet — l'audité congédiait son auditeur. Symétrique de la 0038, qui interdit à l'auditeur de saisir les chiffres qu'il contrôle. `as restrictive` et non permissif : une policy ordinaire s'ajoute par OU et n'aurait rien restreint. Écriture seulement — masquer les auditeurs en lecture reviendrait à cacher qui contrôle le projet |
 | `migrations/0048_welcome_tour.sql` | **Visite guidée de première connexion** : `profiles.tour_seen_at`. Le marqueur vit en base et non dans le navigateur — un compte qui se connecte au bureau puis au téléphone ne rejoue pas la visite. Écrit par l'intéressé via la policy « Own profile » (0001), comme la photo de profil. Une date, pas un booléen : elle dit quelle version de l'application la visite décrivait |
+| `migrations/0049_brand_favicon.sql` | **Favicon paramétrable** : `platform_settings.favicon_url`, champ dédié de l'écran Marque. Colonne séparée du logo — un logo est souvent horizontal, un favicon doit être carré et lisible à 16 px. Repli en cascade : favicon → logo → fichier du dépôt (déplacé de `app/` vers `public/`, la convention `app/favicon.ico` émettrait sa balise en plus de celle de la marque) |
 
 `seed.sql` contient les données de démonstration CEM Liban et s'exécute
 **après** les migrations, uniquement sur un environnement de démo.
@@ -68,7 +69,7 @@ SQL Editor Supabase (ou via `supabase db push` avec la CLI) :
 ## Installation complète (base neuve ou reset)
 
 `install-complet.sql` = préambule de nettoyage (**destructif**) + migrations
-0001 → 0048 concaténées. À coller en une fois
+0001 → 0049 concaténées. À coller en une fois
 dans le SQL Editor. Procédure détaillée : `docs/procedure-deploiement.md`.
 Ce fichier est généré par concaténation — après toute nouvelle migration,
 le regénérer plutôt que l'éditer à la main.
