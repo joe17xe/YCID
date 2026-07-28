@@ -1,7 +1,7 @@
 "use client"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { LayoutDashboard, FolderKanban, Building2, Upload, PieChart, Lightbulb, Users, ShieldCheck, Settings, HardDrive, HelpCircle, LogOut, ChevronLeft, ChevronRight, CheckSquare, Layers, type LucideIcon } from "lucide-react"
+import { LayoutDashboard, FolderKanban, Building2, Upload, PieChart, Lightbulb, Users, ShieldCheck, Settings, HardDrive, HelpCircle, LogOut, ChevronLeft, ChevronRight, CheckSquare, Layers, Megaphone, type LucideIcon } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { useState } from "react"
 import { useTranslations } from "next-intl"
@@ -31,6 +31,9 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/pilotage", key: "steering", Icon: PieChart },
       { href: "/roadmap", key: "roadmap", Icon: Lightbulb },
+      // Kit de communication (0057) : les supports du designer, pour
+      // tout le monde.
+      { href: "/kit", key: "kit", Icon: Megaphone },
       { href: "/aide", key: "help", Icon: HelpCircle },
     ],
   },

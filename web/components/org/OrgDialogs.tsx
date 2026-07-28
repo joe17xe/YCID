@@ -1,8 +1,9 @@
 "use client"
 import { useId, useState, useTransition } from "react"
-import { Plus, Pencil, Trash2, UserPlus, Copy, Check } from "lucide-react"
+import { Plus, Pencil, Trash2, UserPlus, Copy, Check, Upload } from "lucide-react"
 import Modal, { ErrorMessage } from "@/components/ui/Modal"
 import { ORG_TYPES } from "@/lib/constants"
+import { createClient } from "@/lib/supabase/client"
 import { saveOrganization, deleteOrganization, createUserAccount } from "@/app/(app)/organisations/actions"
 
 const inputCls = "w-full px-3 py-2 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
@@ -10,23 +11,50 @@ const border = { borderColor: "#E3E6E2" }
 
 export interface OrgData {
   id: string; name: string; type: string; country: string; email: string | null; status: string
+  logo_url?: string | null
 }
 
-export function OrgDialog({ org }: { org?: OrgData }) {
+// `logosReady` (0057) : tant que la migration n'est pas passée, ni
+// champ logo ni envoi de la colonne — le dialogue reste celui d'avant.
+export function OrgDialog({ org, logosReady = false }: { org?: OrgData; logosReady?: boolean }) {
   const uid = useId()
+  const supabase = createClient()
   const [open, setOpen] = useState(false)
   const [error, setError] = useState("")
+  const [uploading, setUploading] = useState(false)
   const [pending, startTransition] = useTransition()
   const [form, setForm] = useState({
     name: org?.name ?? "", type: org?.type ?? "association", country: org?.country ?? "France",
     email: org?.email ?? "", status: org?.status ?? "active",
+    logo_url: org?.logo_url ?? "",
   })
+
+  // Le logo est FOURNI par l'organisation (décision du 28/07 : rien à
+  // créer) — même bucket public que la marque, chemin org-logos/.
+  async function uploadLogo(file: File) {
+    setError("")
+    if (!org) return
+    if (!file.type.startsWith("image/")) { setError("Choisissez un fichier image (PNG, JPG ou SVG)."); return }
+    if (file.size > 1024 * 1024) { setError("Fichier trop lourd (1 Mo maximum)."); return }
+    setUploading(true)
+    const ext = file.name.split(".").pop()?.toLowerCase() || "png"
+    const path = `org-logos/${org.id}.${ext}`
+    const { error: upErr } = await supabase.storage.from("branding").upload(path, file, { upsert: true })
+    if (upErr) { setError(`Échec de l'envoi : ${upErr.message}`); setUploading(false); return }
+    const { data } = supabase.storage.from("branding").getPublicUrl(path)
+    setForm(f => ({ ...f, logo_url: `${data.publicUrl}?v=${Date.now()}` }))
+    setUploading(false)
+  }
 
   function submit(e: React.FormEvent) {
     e.preventDefault()
     setError("")
     startTransition(async () => {
-      const res = await saveOrganization({ orgId: org?.id, ...form })
+      const { logo_url, ...rest } = form
+      const res = await saveOrganization({
+        orgId: org?.id, ...rest,
+        ...(logosReady ? { logo_url } : {}),
+      })
       if (res.ok) setOpen(false)
       else setError(res.error ?? "Une erreur est survenue.")
     })
@@ -74,6 +102,31 @@ export function OrgDialog({ org }: { org?: OrgData }) {
               <option value="inactive">Inactive</option>
             </select>
           </div>
+          {/* Logo (0057) : fourni par l'organisation, affiché partout
+              où elle apparaît. Seulement en modification — le chemin
+              de stockage porte l'identifiant de l'organisation. */}
+          {org && logosReady && (
+            <div>
+              <div className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Logo</div>
+              <div className="flex items-center gap-3">
+                {form.logo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={form.logo_url} alt={`Logo ${form.name}`} className="w-10 h-10 rounded-lg object-contain border" style={border} />
+                ) : (
+                  <div className="w-10 h-10 rounded-lg border grid place-items-center text-[10px]" style={{ ...border, color: "#9AA39D" }}>—</div>
+                )}
+                <label className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-medium cursor-pointer"
+                  style={{ ...border, color: "#17211D" }}>
+                  <Upload size={14} aria-hidden="true" /> {uploading ? "…" : "Choisir un logo"}
+                  <input type="file" accept="image/*" className="sr-only" disabled={uploading}
+                    onChange={e => e.target.files?.[0] && uploadLogo(e.target.files[0])} />
+                </label>
+              </div>
+              <p className="text-xs mt-1" style={{ color: "#66716B" }}>
+                Fourni par l&apos;organisation (PNG, JPG ou SVG, 1 Mo max) — enregistrez pour l&apos;appliquer.
+              </p>
+            </div>
+          )}
           <ErrorMessage>{error}</ErrorMessage>
           <div className="flex justify-end gap-2 pt-1">
             <button type="button" onClick={() => setOpen(false)} className="px-4 py-2 rounded-xl border text-sm font-medium" style={{ ...border, color: "#66716B" }}>Annuler</button>

@@ -10,10 +10,14 @@ export default async function OrganisationsPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/")
 
-  const [{ data: orgs }, canManage] = await Promise.all([
+  const [{ data: orgs }, canManage, { error: logoErr }] = await Promise.all([
     supabase.from("organizations").select("*").order("name"),
     isUserAdmin(supabase, user.id),
+    // Sonde 0057 : tant que la colonne logo_url n'existe pas, le
+    // dialogue n'affiche pas le champ et n'envoie rien.
+    supabase.from("organizations").select("logo_url").limit(1),
   ])
+  const logosReady = !logoErr
 
   return (
     <div className="p-4 sm:p-8 max-w-5xl mx-auto">
@@ -22,7 +26,7 @@ export default async function OrganisationsPage() {
           <h1 className="text-2xl font-bold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>Organisations</h1>
           <p className="mt-1 text-sm" style={{ color: "#66716B" }}>{(orgs ?? []).length} organisation{(orgs ?? []).length !== 1 ? "s" : ""}</p>
         </div>
-        {canManage && <OrgDialog />}
+        {canManage && <OrgDialog logosReady={logosReady} />}
       </div>
 
       <div className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor: "#E3E6E2" }}>
@@ -38,10 +42,18 @@ export default async function OrganisationsPage() {
           </thead>
           <tbody>
             {(orgs ?? []).map((org: any, i: number) => {
-              const data: OrgData = { id: org.id, name: org.name, type: org.type, country: org.country, email: org.email ?? null, status: org.status }
+              const data: OrgData = { id: org.id, name: org.name, type: org.type, country: org.country, email: org.email ?? null, status: org.status, logo_url: org.logo_url ?? null }
               return (
                 <tr key={org.id} style={{ borderBottom: "1px solid #E3E6E2", background: i % 2 === 0 ? "#fff" : "#FAFAFA" }}>
-                  <td data-primary="" className="px-5 py-3 font-medium" style={{ color: "#17211D" }}>{org.name}</td>
+                  <td data-primary="" className="px-5 py-3 font-medium" style={{ color: "#17211D" }}>
+                    {/* Le logo fourni par l'organisation (0057) — à
+                        défaut, le nom seul, jamais un carré cassé. */}
+                    {org.logo_url && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={org.logo_url} alt="" className="inline-block w-6 h-6 rounded object-contain mr-2 align-middle" />
+                    )}
+                    {org.name}
+                  </td>
                   <td data-label="Type" className="px-5 py-3">
                     <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "#E8ECF5", color: "#3B5488" }}>
                       {ORG_TYPES[org.type] ?? org.type}
@@ -61,7 +73,7 @@ export default async function OrganisationsPage() {
                     <td data-label="Actions" className="px-5 py-3">
                       <div className="flex items-center justify-end gap-1">
                         {org.email && <CreateUserButton email={org.email} orgName={org.name} />}
-                        <OrgDialog org={data} />
+                        <OrgDialog org={data} logosReady={logosReady} />
                         <DeleteOrgButton org={data} />
                       </div>
                     </td>

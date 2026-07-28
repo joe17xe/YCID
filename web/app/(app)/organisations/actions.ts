@@ -18,6 +18,9 @@ export interface OrgInput {
   country: string
   email: string
   status: string
+  // Logo (0057) — absent tant que la migration n'est pas passée : le
+  // dialogue ne l'envoie pas.
+  logo_url?: string
 }
 
 export async function saveOrganization(input: OrgInput): Promise<Result> {
@@ -33,7 +36,10 @@ export async function saveOrganization(input: OrgInput): Promise<Result> {
   if (email && !EMAIL_RE.test(email)) return { ok: false, error: 'Adresse email invalide.' }
   const status = input.status === 'inactive' ? 'inactive' : 'active'
 
-  const values = { name, type: input.type, country: (input.country ?? '').trim() || 'France', email: email || null, status }
+  const values = {
+    name, type: input.type, country: (input.country ?? '').trim() || 'France', email: email || null, status,
+    ...(input.logo_url !== undefined ? { logo_url: input.logo_url || null } : {}),
+  }
 
   if (input.orgId) {
     const { error } = await supabase.from('organizations').update(values).eq('id', input.orgId)
