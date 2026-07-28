@@ -1,31 +1,69 @@
 "use client"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { LayoutDashboard, FolderKanban, Building2, Upload, PieChart, Lightbulb, Users, ShieldCheck, Settings, HardDrive, HelpCircle, LogOut, ChevronLeft, ChevronRight, CheckSquare } from "lucide-react"
+import { LayoutDashboard, FolderKanban, Building2, Upload, PieChart, Lightbulb, Users, ShieldCheck, Settings, HardDrive, HelpCircle, LogOut, ChevronLeft, ChevronRight, CheckSquare, type LucideIcon } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { useState } from "react"
 import { useTranslations } from "next-intl"
 
-// Partagé avec la navigation mobile (MobileNav)
-export const NAV = [
-  { href: "/dashboard", key: "dashboard", Icon: LayoutDashboard },
-  { href: "/projets", key: "projects", Icon: FolderKanban },
-  // Placée haut : une décision qui attend est ce qui bloque le plus
-  // vite un projet, depuis que l'unanimité est requise.
-  { href: "/a-valider", key: "toValidate", Icon: CheckSquare },
-  { href: "/organisations", key: "organisations", Icon: Building2 },
-  { href: "/import", key: "import", Icon: Upload },
-  { href: "/pilotage", key: "steering", Icon: PieChart },
-  { href: "/roadmap", key: "roadmap", Icon: Lightbulb },
-  { href: "/aide", key: "help", Icon: HelpCircle },
+export type NavItem = { href: string; key: string; Icon: LucideIcon }
+export type NavGroup = { key: string | null; items: NavItem[] }
+
+// Partagé avec la navigation mobile (MobileNav) : UNE seule liste.
+// Les sections (V1, maquette du 27/07) vivent dans la donnée, pas dans le
+// JSX — sans quoi la Sidebar et le tiroir mobile finiraient par grouper
+// différemment, la divergence habituelle des copies.
+export const NAV_GROUPS: NavGroup[] = [
+  { key: null, items: [{ href: "/dashboard", key: "dashboard", Icon: LayoutDashboard }] },
+  {
+    key: "groupProjects",
+    items: [
+      { href: "/projets", key: "projects", Icon: FolderKanban },
+      // Placée haut : une décision qui attend est ce qui bloque le plus
+      // vite un projet, depuis que l'unanimité est requise.
+      { href: "/a-valider", key: "toValidate", Icon: CheckSquare },
+      { href: "/organisations", key: "organisations", Icon: Building2 },
+      { href: "/import", key: "import", Icon: Upload },
+    ],
+  },
+  {
+    key: "groupMonitoring",
+    items: [
+      { href: "/pilotage", key: "steering", Icon: PieChart },
+      { href: "/roadmap", key: "roadmap", Icon: Lightbulb },
+      { href: "/aide", key: "help", Icon: HelpCircle },
+    ],
+  },
 ]
 
-export const ADMIN_NAV = [
+export const ADMIN_NAV: NavItem[] = [
   { href: "/admin/utilisateurs", key: "users", Icon: Users },
   { href: "/admin/acces", key: "access", Icon: ShieldCheck },
   { href: "/admin/stockage", key: "storage", Icon: HardDrive },
   { href: "/admin/configuration", key: "configuration", Icon: Settings },
 ]
+
+// Une entrée de navigation, partagée entre la Sidebar et le tiroir
+// mobile. Ses états (repos, survol, actif en pastille claire) sont en
+// CSS (.sidebar-link, globals.css) : un style inline interdirait le
+// :hover et dupliquerait la règle.
+export function NavLink({ href, label, Icon, active, collapsed, onNavigate }: {
+  href: string; label: string; Icon: LucideIcon; active: boolean; collapsed?: boolean; onNavigate?: () => void
+}) {
+  return (
+    <Link
+      href={href}
+      onClick={onNavigate}
+      title={collapsed ? label : undefined}
+      data-active={active ? "" : undefined}
+      aria-current={active ? "page" : undefined}
+      className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors sidebar-link"
+    >
+      <Icon size={18} className="flex-shrink-0 sidebar-link-icon" />
+      {!collapsed && <span className="text-sm">{label}</span>}
+    </Link>
+  )
+}
 
 export default function Sidebar({ showAdmin = false, brandName = "Solid'Pilot", logoUrl = null }: { showAdmin?: boolean; brandName?: string; logoUrl?: string | null }) {
   const pathname = usePathname()
@@ -39,91 +77,75 @@ export default function Sidebar({ showAdmin = false, brandName = "Solid'Pilot", 
     router.push("/")
   }
 
+  const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/")
+
   return (
     <aside
       className="hidden md:flex flex-col h-full border-r transition-all duration-200"
-      style={{ width: collapsed ? 64 : 220, background: "#FFFFFF", borderColor: "#E3E6E2", minHeight: "100vh" }}
+      style={{ width: collapsed ? 64 : 220, background: "var(--sidebar-bg)", borderColor: "var(--sidebar-border)", minHeight: "100vh" }}
     >
       {/* Logo */}
-      <div className="flex items-center gap-2 px-4 py-5 border-b" style={{ borderColor: "#E3E6E2" }}>
+      <div className="flex items-center gap-2 px-4 py-5 border-b" style={{ borderColor: "var(--sidebar-border)" }}>
         {logoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={logoUrl} alt={brandName} className="w-7 h-7 rounded-lg flex-shrink-0 object-contain" />
+          <img src={logoUrl} alt={brandName} className="w-7 h-7 rounded-lg flex-shrink-0 object-contain bg-white/90 p-0.5" />
         ) : (
           <div className="w-7 h-7 rounded-lg flex-shrink-0" style={{ background: "var(--brand-accent,#0E6B5C)" }} />
         )}
         {!collapsed && (
-          <span className="font-bold text-base leading-tight" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>
+          <span className="font-bold text-base leading-tight" style={{ fontFamily: "var(--font-sora)", color: "var(--sidebar-fg)" }}>
             {brandName}
           </span>
         )}
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 py-4 px-2 space-y-1">
-        {NAV.map(({ href, key, Icon }) => {
-          const active = pathname === href || pathname.startsWith(href + "/")
-          return (
-            <Link
-              key={href}
-              href={href}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors"
-              style={{
-                background: active ? "var(--brand-accent-soft,#E4F0EC)" : "transparent",
-                color: active ? "var(--brand-accent,#0E6B5C)" : "#66716B",
-                fontFamily: "var(--font-inter)",
-                fontWeight: active ? 600 : 400,
-              }}
-            >
-              <Icon size={18} className="flex-shrink-0" />
-              {!collapsed && <span className="text-sm">{t(key)}</span>}
-            </Link>
-          )
-        })}
+      <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto">
+        {NAV_GROUPS.map((group, gi) => (
+          <div key={group.key ?? `g${gi}`} className="space-y-1">
+            {group.key && !collapsed && (
+              <div className="px-3 pt-4 pb-1 text-[11px] font-semibold tracking-wider uppercase" style={{ color: "var(--sidebar-muted)" }}>
+                {t(group.key)}
+              </div>
+            )}
+            {/* Replié, un intitulé n'a pas la place : un simple filet
+                marque la coupure entre sections. */}
+            {group.key && collapsed && <div className="mx-3 my-3 border-t" style={{ borderColor: "var(--sidebar-border)" }} />}
+            {group.items.map(({ href, key, Icon }) => (
+              <NavLink key={href} href={href} label={t(key)} Icon={Icon} active={isActive(href)} collapsed={collapsed} />
+            ))}
+          </div>
+        ))}
         {showAdmin && (
-          <>
+          <div className="space-y-1">
             {!collapsed && (
-              <div className="px-3 pt-4 pb-1 text-xs font-semibold tracking-wider" style={{ color: "#66716B" }}>
+              <div className="px-3 pt-4 pb-1 text-[11px] font-semibold tracking-wider uppercase" style={{ color: "var(--sidebar-muted)" }}>
                 {t("administration")}
               </div>
             )}
-            {ADMIN_NAV.map(({ href, key, Icon }) => {
-              const active = pathname === href || pathname.startsWith(href + "/")
-              return (
-                <Link
-                  key={href}
-                  href={href}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors"
-                  style={{
-                    background: active ? "var(--brand-accent-soft,#E4F0EC)" : "transparent",
-                    color: active ? "var(--brand-accent,#0E6B5C)" : "#66716B",
-                    fontFamily: "var(--font-inter)",
-                    fontWeight: active ? 600 : 400,
-                  }}
-                >
-                  <Icon size={18} className="flex-shrink-0" />
-                  {!collapsed && <span className="text-sm">{t(key)}</span>}
-                </Link>
-              )
-            })}
-          </>
+            {collapsed && <div className="mx-3 my-3 border-t" style={{ borderColor: "var(--sidebar-border)" }} />}
+            {ADMIN_NAV.map(({ href, key, Icon }) => (
+              <NavLink key={href} href={href} label={t(key)} Icon={Icon} active={isActive(href)} collapsed={collapsed} />
+            ))}
+          </div>
         )}
       </nav>
 
       {/* Footer */}
-      <div className="p-2 border-t" style={{ borderColor: "#E3E6E2" }}>
+      <div className="p-2 border-t" style={{ borderColor: "var(--sidebar-border)" }}>
         <button
           onClick={signOut}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors hover:bg-red-50"
-          style={{ color: "#A3342C" }}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors sidebar-link"
+          style={{ color: "#F0B9B3" }}
         >
           <LogOut size={18} />
           {!collapsed && <span className="text-sm font-medium" style={{ fontFamily: "var(--font-inter)" }}>{t("signOut")}</span>}
         </button>
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="w-full flex items-center justify-center py-2 mt-1 rounded-xl transition-colors hover:bg-gray-50"
-          style={{ color: "#66716B" }}
+          aria-label={collapsed ? "Déplier le menu" : "Replier le menu"}
+          className="w-full flex items-center justify-center py-2 mt-1 rounded-xl transition-colors sidebar-link"
+          style={{ color: "var(--sidebar-muted)" }}
         >
           {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         </button>

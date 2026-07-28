@@ -1,6 +1,8 @@
 {
   "nav": {
     "dashboard": "Tableau de bord",
+    "groupProjects": "Projets",
+    "groupMonitoring": "Suivi",
     "projects": "Projets",
     "organisations": "Organisations",
     "import": "Import",
