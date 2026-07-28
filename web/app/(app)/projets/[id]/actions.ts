@@ -621,6 +621,125 @@ export async function createMeeting(input: MeetingInput): Promise<{ ok: boolean;
 }
 
 // ------------------------------------------------------------
+// Modifier une réunion (28/07 soir)
+// ------------------------------------------------------------
+// « Une réunion créée est non modifiable, n'est-ce pas ? » — exact, et
+// c'était un manque : une coquille dans le titre ou un report de date
+// étaient définitifs. La modification suit les règles de la création,
+// avec deux comportements en plus :
+//  · les invités AJOUTÉS reçoivent l'invitation, les retirés sortent ;
+//  · si la DATE ou l'HEURE change, toutes les réponses (sauf celle de
+//    l'auteur du changement) repassent « en attente » et les invités
+//    sont prévenus — un « accepté » pour mardi ne vaut pas pour jeudi.
+export async function updateMeeting(input: MeetingInput & { meetingId: string }): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Non authentifié.' }
+  if (!(await canManageMeetings(supabase, user.id, input.projectId))) {
+    return { ok: false, error: 'Gestion des réunions réservée au chef de projet et aux admins.' }
+  }
+  const title = (input.title ?? '').trim()
+  if (!title) return { ok: false, error: 'Le titre est obligatoire.' }
+  if (!['copil', 'technique', 'terrain'].includes(input.kind)) return { ok: false, error: 'Type de réunion invalide.' }
+  if (!input.date) return { ok: false, error: 'La date est obligatoire.' }
+
+  const { data: before } = await supabase.from('meetings')
+    .select('title, date, created_by').eq('id', input.meetingId).maybeSingle()
+  if (!before) return { ok: false, error: 'Réunion introuvable.' }
+
+  const values: Record<string, unknown> = {
+    title, kind: input.kind, date: input.date,
+    minutes: input.minutes?.trim() || null,
+  }
+  // En modification, vider un champ doit VIDER la colonne — mais un
+  // champ absent (migration 0051/0054 non passée, dialogue réduit) ne
+  // touche à rien.
+  if (input.start_time !== undefined) values.start_time = input.start_time.trim() || null
+  if (input.location !== undefined) values.location = input.location.trim() || null
+  if (input.video_url !== undefined) {
+    const videoUrl = input.video_url.trim()
+    if (videoUrl && !/^https:\/\/\S+$/i.test(videoUrl)) {
+      return { ok: false, error: 'Le lien visio doit être une adresse https (Teams, Meet…).' }
+    }
+    values.video_url = videoUrl || null
+  }
+
+  // .select() : la policy « Chef manage meetings » est plus étroite que
+  // le droit applicatif — un refus silencieux (0 ligne) doit se DIRE,
+  // pas laisser croire à une modification réussie.
+  const { data: updated, error } = await supabase.from('meetings')
+    .update(values).eq('id', input.meetingId).select('id')
+  if (error) return { ok: false, error: `Échec de la modification : ${error.message}` }
+  if (!updated?.length) return { ok: false, error: 'La base a refusé la modification (droits insuffisants sur cette réunion).' }
+
+  const dateChanged = before.date !== input.date
+  await supabase.from('audit_log').insert({
+    project_id: input.projectId, entity: 'meeting', entity_id: input.meetingId,
+    label: title, action: 'modifie', user_id: user.id,
+    comment: `Réunion modifiée${dateChanged ? ` — DATE : ${fmtDate(before.date)} → ${fmtDate(input.date)}` : ''}`,
+  })
+
+  const when = `${fmtDate(input.date)}${input.start_time?.trim() ? ` à ${input.start_time.trim().slice(0, 5)}` : ''}`
+
+  // Invités : ajouts invités, retraits sortis — même périmètre que la
+  // création. Ignoré si la 0051 n'est pas passée (champ absent).
+  let currentIds: string[] = []
+  if (input.participantIds !== undefined) {
+    const { data: current } = await supabase.from('meeting_participants')
+      .select('user_id').eq('meeting_id', input.meetingId)
+    const beforeIds = new Set((current ?? []).map(r => r.user_id))
+    const after = new Set(input.participantIds)
+    const toAdd = [...after].filter(id => !beforeIds.has(id))
+    const toRemove = [...beforeIds].filter(id => !after.has(id))
+    if (toRemove.length) {
+      await supabase.from('meeting_participants')
+        .delete().eq('meeting_id', input.meetingId).in('user_id', toRemove)
+    }
+    if (toAdd.length) {
+      const { error: addErr } = await supabase.from('meeting_participants').insert(
+        toAdd.map(uid => uid === user.id
+          ? { meeting_id: input.meetingId, user_id: uid, response: 'acceptee', responded_at: new Date().toISOString() }
+          : { meeting_id: input.meetingId, user_id: uid })
+      )
+      if (addErr) return { ok: false, error: `Réunion modifiée, mais invitations non enregistrées : ${addErr.message}` }
+      await notifyPeople(toAdd.filter(uid => uid !== user.id), {
+        type: 'meeting_invite',
+        title: `Invitation — ${title}`,
+        body: [
+          `Vous êtes invité·e à la réunion « ${title} », le ${when}${input.location?.trim() ? `, ${input.location.trim()}` : ''}.`,
+          ...(input.video_url?.trim() ? [`Rejoindre en visio : ${input.video_url.trim()}`] : []),
+          'Merci d\'accepter ou de refuser depuis l\'onglet COPIL du projet.',
+        ],
+        path: `/projets/${input.projectId}?tab=copil`,
+        linkLabel: 'Répondre dans Solid’Pilot',
+      })
+    }
+    currentIds = [...after]
+  }
+
+  if (dateChanged && currentIds.length) {
+    // La date a bougé : les réponses données ne valent plus. Reset —
+    // sauf l'auteur du changement — et nouvelle sollicitation.
+    await supabase.from('meeting_participants')
+      .update({ response: 'en_attente', responded_at: null })
+      .eq('meeting_id', input.meetingId).neq('user_id', user.id)
+    await notifyPeople(currentIds.filter(uid => uid !== user.id), {
+      type: 'meeting_update',
+      title: `Réunion déplacée — ${title}`,
+      body: [
+        `La réunion « ${title} » est déplacée au ${when}.`,
+        'Votre réponse précédente a été remise à zéro : merci d\'accepter ou de refuser à nouveau.',
+      ],
+      path: `/projets/${input.projectId}?tab=copil`,
+      linkLabel: 'Répondre dans Solid’Pilot',
+    })
+  }
+
+  revalidatePath(`/projets/${input.projectId}`)
+  return { ok: true }
+}
+
+// ------------------------------------------------------------
 // Répondre à une invitation (0051)
 // ------------------------------------------------------------
 // Chacun répond pour lui-même — la RLS ne laisse modifier que SA

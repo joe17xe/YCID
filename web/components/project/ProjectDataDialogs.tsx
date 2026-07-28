@@ -4,7 +4,7 @@ import { Plus, Pencil, X } from "lucide-react"
 import BaseModal, { ErrorMessage } from "@/components/ui/Modal"
 import { LINE_CATEGORIES, LINE_STATUS, IND_KINDS, MEETING_KINDS, DECISION_STATUS } from "@/lib/constants"
 import {
-  saveBudgetLine, createTaskFromBudgetLine, createIndicator, addMeasure, createMeeting, saveDecision,
+  saveBudgetLine, createTaskFromBudgetLine, createIndicator, addMeasure, createMeeting, updateMeeting, saveDecision,
   type BudgetLineInput, type IndicatorInput, type MeasureInput, type MeetingInput, type DecisionInput,
 } from "@/app/(app)/projets/[id]/actions"
 
@@ -377,20 +377,34 @@ export function MeasureDialog({ indicatorId, indicatorName, unit }: { indicatorI
 // `participantsReady` dit si la migration est passée — sans elle, le
 // dialogue reste celui d'avant (titre, type, date, compte rendu) et
 // n'envoie aucun champ nouveau.
-export function MeetingDialog({ projectId, members = [], participantsReady = false, orgGroups = [] }: {
+// En édition (`meeting` fourni), le déclencheur devient un crayon —
+// même motif que DecisionDialog — et l'enregistrement passe par
+// updateMeeting : ajouts invités, retraits sortis, et une date qui
+// bouge remet les réponses « en attente ».
+export function MeetingDialog({ projectId, members = [], participantsReady = false, orgGroups = [], meeting }: {
   projectId: string; members?: Option[]; participantsReady?: boolean
   // Invitations par organisation (0053) : « YCID veut voir LEY » —
   // une pastille par organisation du projet, qui coche ses comptes.
   orgGroups?: { name: string; memberIds: string[] }[]
+  meeting?: {
+    id: string; title: string; kind: string; date: string
+    start_time: string; location: string; video_url: string; minutes: string
+    participantIds: string[]
+  }
 }) {
   const [form, setForm] = useState<Omit<MeetingInput, "projectId" | "participantIds">>({
-    title: "", kind: "copil", date: "", minutes: "", start_time: "", location: "", video_url: "",
+    title: meeting?.title ?? "", kind: meeting?.kind ?? "copil", date: meeting?.date ?? "",
+    minutes: meeting?.minutes ?? "", start_time: meeting?.start_time ?? "",
+    location: meeting?.location ?? "", video_url: meeting?.video_url ?? "",
   })
-  const [invited, setInvited] = useState<Set<string>>(new Set())
-  const d = useDialog(() => createMeeting({
-    projectId, ...form,
-    ...(participantsReady ? { participantIds: [...invited] } : {}),
-  }))
+  const [invited, setInvited] = useState<Set<string>>(new Set(meeting?.participantIds ?? []))
+  const d = useDialog(() => {
+    const payload = {
+      projectId, ...form,
+      ...(participantsReady ? { participantIds: [...invited] } : {}),
+    }
+    return meeting ? updateMeeting({ ...payload, meetingId: meeting.id }) : createMeeting(payload)
+  })
 
   function toggleInvite(id: string) {
     const next = new Set(invited)
@@ -413,11 +427,18 @@ export function MeetingDialog({ projectId, members = [], participantsReady = fal
 
   return (
     <>
-      <button onClick={() => d.setOpen(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold" style={{ background: "var(--brand-accent,#0E6B5C)" }}>
-        <Plus size={15} aria-hidden="true" /> Réunion
-      </button>
+      {meeting ? (
+        <button onClick={() => d.setOpen(true)} className="p-1 rounded-full hover:bg-gray-100"
+          aria-label={`Modifier la réunion ${meeting.title}`} title="Modifier la réunion">
+          <Pencil size={13} style={{ color: "#66716B" }} aria-hidden="true" />
+        </button>
+      ) : (
+        <button onClick={() => d.setOpen(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold" style={{ background: "var(--brand-accent,#0E6B5C)" }}>
+          <Plus size={15} aria-hidden="true" /> Réunion
+        </button>
+      )}
       {d.open && (
-        <Modal title="Nouvelle réunion" busy={d.pending} onClose={() => d.setOpen(false)}>
+        <Modal title={meeting ? "Modifier la réunion" : "Nouvelle réunion"} busy={d.pending} onClose={() => d.setOpen(false)}>
           <form onSubmit={d.submit} className="space-y-3">
             <Field label="Titre *">{id => (
               <input id={id} value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} required className={inputCls} style={border} />
@@ -503,7 +524,15 @@ export function MeetingDialog({ projectId, members = [], participantsReady = fal
               <textarea id={id} value={form.minutes} onChange={e => setForm({ ...form, minutes: e.target.value })} rows={3} className={inputCls} style={border} />
             )}</Field>
             <ErrorMessage>{d.error}</ErrorMessage>
-            <Actions pending={d.pending} onClose={() => d.setOpen(false)} label="Créer la réunion" />
+            {/* Une date qui bouge invalide les réponses : le dire AVANT
+                d'enregistrer, pas après. */}
+            {meeting && participantsReady && form.date !== meeting.date && (
+              <p className="text-xs rounded-lg px-3 py-2" style={{ background: "#F7EDDD", color: "#8A6A1F" }}>
+                Vous changez la date : les réponses déjà données repasseront « en attente »
+                et les invités seront prévenus.
+              </p>
+            )}
+            <Actions pending={d.pending} onClose={() => d.setOpen(false)} label={meeting ? "Enregistrer" : "Créer la réunion"} />
           </form>
         </Modal>
       )}
