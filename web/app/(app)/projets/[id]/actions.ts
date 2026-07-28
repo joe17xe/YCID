@@ -847,6 +847,10 @@ export interface ProjectEditInput {
   // (0041). Elle se figeait à la création : impossible de la corriger le
   // jour où le portage change.
   lead_org_id: string
+  // Position sur la carte du tableau de bord (V1, Lot 3) — saisie
+  // manuelle, jamais géocodée
+  lat: string
+  lng: string
 }
 
 const PROJECT_STATUSES = ['en_preparation', 'en_cours', 'suspendu', 'termine']
@@ -870,6 +874,20 @@ export async function updateProject(input: ProjectEditInput): Promise<{ ok: bool
   if (input.start_date && input.end_date && input.end_date < input.start_date) {
     return { ok: false, error: 'La date de fin doit être postérieure à la date de début.' }
   }
+  // Les deux coordonnées vont ensemble : une latitude seule ne place
+  // aucun repère, elle ne ferait que DONNER L'IMPRESSION d'une saisie
+  // réussie — le refus explicite vaut mieux que le silence.
+  const lat = (input.lat ?? '').trim() ? Number(input.lat) : null
+  const lng = (input.lng ?? '').trim() ? Number(input.lng) : null
+  if ((lat === null) !== (lng === null)) {
+    return { ok: false, error: 'Latitude et longitude vont ensemble : renseignez les deux, ou aucune.' }
+  }
+  if (lat !== null && (!Number.isFinite(lat) || lat < -90 || lat > 90)) {
+    return { ok: false, error: 'La latitude doit être un nombre décimal entre -90 et 90.' }
+  }
+  if (lng !== null && (!Number.isFinite(lng) || lng < -180 || lng > 180)) {
+    return { ok: false, error: 'La longitude doit être un nombre décimal entre -180 et 180.' }
+  }
 
   const { data: before } = await supabase.from('projects')
     .select('name, budget, lead_org_id').eq('id', input.projectId).maybeSingle()
@@ -890,6 +908,8 @@ export async function updateProject(input: ProjectEditInput): Promise<{ ok: bool
     end_date: input.end_date || null,
     status: input.status,
     budget,
+    lat,
+    lng,
   }).eq('id', input.projectId)
   if (error) return { ok: false, error: `Échec de la modification : ${error.message}` }
 

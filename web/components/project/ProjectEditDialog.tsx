@@ -30,6 +30,8 @@ export interface ProjectEditable {
   status: string
   budget: number | null
   lead_org_id: string | null
+  lat: number | null
+  lng: number | null
 }
 
 export default function ProjectEditDialog({ project, organizations }: {
@@ -51,6 +53,8 @@ export default function ProjectEditDialog({ project, organizations }: {
     status: project.status ?? "en_preparation",
     budget: project.budget != null ? String(project.budget) : "",
     lead_org_id: project.lead_org_id ?? "",
+    lat: project.lat != null ? String(project.lat) : "",
+    lng: project.lng != null ? String(project.lng) : "",
   })
 
   const leadChanged = form.lead_org_id !== (project.lead_org_id ?? "")
@@ -121,6 +125,24 @@ export default function ProjectEditDialog({ project, organizations }: {
                 <label htmlFor="pe-end" className={label} style={{ color: "#17211D" }}>Date de fin</label>
                 <input id="pe-end" type="date" value={form.end_date} onChange={e => setForm({ ...form, end_date: e.target.value })}
                   className={inputCls} style={border} />
+              </div>
+              {/* Position sur la carte du tableau de bord (V1, Lot 3).
+                  Saisie MANUELLE : pas de géocodage, qui appellerait un
+                  service externe pour trois communes connues. */}
+              <div>
+                <label htmlFor="pe-lat" className={label} style={{ color: "#17211D" }}>Latitude</label>
+                <input id="pe-lat" type="number" step="any" min={-90} max={90} value={form.lat}
+                  onChange={e => setForm({ ...form, lat: e.target.value })}
+                  className={inputCls} style={border} placeholder="48.831" />
+              </div>
+              <div>
+                <label htmlFor="pe-lng" className={label} style={{ color: "#17211D" }}>Longitude</label>
+                <input id="pe-lng" type="number" step="any" min={-180} max={180} value={form.lng}
+                  onChange={e => setForm({ ...form, lng: e.target.value })}
+                  className={inputCls} style={border} placeholder="2.001" />
+                <p className="text-xs mt-1" style={{ color: "#66716B" }}>
+                  Coordonnées décimales — placent le repère du projet sur la carte du tableau de bord.
+                </p>
               </div>
             </div>
 

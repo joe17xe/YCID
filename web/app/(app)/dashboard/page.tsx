@@ -5,6 +5,7 @@ import Link from "next/link"
 import { PROJECT_STATUS, TASK_STATUS, fmtDate } from "@/lib/constants"
 import { AlertTriangle, CalendarClock } from "lucide-react"
 import { StatTile, AlertStatTile } from "@/components/ui/StatTile"
+import InterventionMap from "@/components/pilotage/InterventionMap"
 
 const PERIODS: Record<string, { label: string; days: number | null }> = {
   semaine: { label: "Semaine", days: 7 },
@@ -108,6 +109,16 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           ? <AlertStatTile tone="danger" icon={<AlertTriangle size={13} aria-hidden="true" />}
               label="Décisions en retard" value={lateDecisions.length} sub="COPIL à relancer" />
           : <StatTile label="Décisions en retard" mark="#9AA39D" value={0} />}
+      </div>
+
+      {/* Carte des interventions (V1, Lot 3) : un repère par projet
+          localisé, depuis projects.lat/lng — saisis sur la fiche,
+          jamais géocodés. */}
+      <div className="mb-8">
+        <InterventionMap projects={(projects ?? []).map(p => ({
+          id: p.id, name: p.name, country: p.country ?? null,
+          lat: p.lat ?? null, lng: p.lng ?? null,
+        }))} />
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6">
