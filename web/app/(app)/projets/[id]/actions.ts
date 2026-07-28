@@ -1018,3 +1018,98 @@ export async function updateProjectMemberRole(input: { projectId: string; userId
   revalidatePath(`/projets/${input.projectId}`)
   return { ok: true }
 }
+
+// ------------------------------------------------------------
+// Les villes du projet (0050)
+// ------------------------------------------------------------
+// Le travail est ENTRE des villes : une triade en implique deux ou
+// trois, un échange deux villes libanaises. Les villes vivent dans un
+// référentiel partagé (`cities`) et se rattachent au projet par
+// `project_cities` — la carte du tableau de bord agrège ensuite tout
+// le monde sur les mêmes repères. Les droits sont ceux de la fiche
+// (phases.manage, comme le bouton « Modifier »), doublés par la RLS.
+
+export async function createCity(input: { name: string; country: string; lat: string; lng: string }): Promise<{ ok: boolean; id?: string; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Non connecté.' }
+
+  const name = input.name?.trim()
+  const country = input.country?.trim()
+  if (!name || !country) return { ok: false, error: 'Le nom et le pays de la ville sont obligatoires.' }
+  // Une ville sans position ne placerait aucun repère : elle donnerait
+  // l'impression d'une saisie réussie qui ne montre rien (même règle
+  // que le lot 3).
+  const lat = (input.lat ?? '').trim() ? Number(input.lat) : null
+  const lng = (input.lng ?? '').trim() ? Number(input.lng) : null
+  if (lat === null || !Number.isFinite(lat) || lat < -90 || lat > 90) {
+    return { ok: false, error: 'La latitude doit être un nombre décimal entre -90 et 90.' }
+  }
+  if (lng === null || !Number.isFinite(lng) || lng < -180 || lng > 180) {
+    return { ok: false, error: 'La longitude doit être un nombre décimal entre -180 et 180.' }
+  }
+
+  const { data: created, error } = await supabase.from('cities')
+    .insert({ name, country, lat, lng }).select('id').single()
+  if (!error) return { ok: true, id: created.id }
+
+  // Doublon (name, country) : la ville existe déjà — créée depuis un
+  // autre projet. Ce n'est pas une erreur pour l'utilisateur : on la
+  // retrouve et on la lui rend, prête à cocher.
+  if (error.code === '23505') {
+    const { data: existing } = await supabase.from('cities')
+      .select('id').eq('name', name).eq('country', country).maybeSingle()
+    if (existing) return { ok: true, id: existing.id }
+  }
+  return { ok: false, error: `Échec de la création : ${error.message}` }
+}
+
+export async function setProjectCities(input: { projectId: string; cityIds: string[] }): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Non connecté.' }
+  if (!await canManagePhases(supabase, user.id, input.projectId)) {
+    return { ok: false, error: 'Vous n\'avez pas le droit de modifier les villes de ce projet.' }
+  }
+
+  const { data: current, error: readErr } = await supabase.from('project_cities')
+    .select('city_id').eq('project_id', input.projectId)
+  if (readErr) return { ok: false, error: `Lecture impossible : ${readErr.message}` }
+
+  const before = new Set((current ?? []).map(r => r.city_id))
+  const after = new Set(input.cityIds)
+  const toAdd = [...after].filter(id => !before.has(id))
+  const toRemove = [...before].filter(id => !after.has(id))
+  if (!toAdd.length && !toRemove.length) return { ok: true }
+
+  if (toRemove.length) {
+    const { error } = await supabase.from('project_cities')
+      .delete().eq('project_id', input.projectId).in('city_id', toRemove)
+    if (error) return { ok: false, error: `Échec du retrait : ${error.message}` }
+  }
+  if (toAdd.length) {
+    const { error } = await supabase.from('project_cities')
+      .insert(toAdd.map(city_id => ({ project_id: input.projectId, city_id })))
+    if (error) return { ok: false, error: `Échec de l'ajout : ${error.message}` }
+  }
+
+  // Le Journal dit lesquelles : « Villes du projet modifiées » seul ne
+  // permettrait pas de comprendre, six mois plus tard, quand une ville
+  // est entrée ou sortie du périmètre.
+  const { data: cityRows } = await supabase.from('cities')
+    .select('id, name').in('id', [...toAdd, ...toRemove])
+  const nameOf = (id: string) => cityRows?.find(c => c.id === id)?.name ?? id
+  const parts = [
+    toAdd.length ? `ajout : ${toAdd.map(nameOf).join(', ')}` : '',
+    toRemove.length ? `retrait : ${toRemove.map(nameOf).join(', ')}` : '',
+  ].filter(Boolean).join(' — ')
+  const { error: auditErr } = await supabase.from('audit_log').insert({
+    project_id: input.projectId, entity: 'project', entity_id: input.projectId,
+    label: 'Villes du projet', action: 'modifie', user_id: user.id,
+    comment: `Villes concernées modifiées — ${parts}`,
+  })
+  if (auditErr) console.error('[audit] trace NON enregistrée:', auditErr.message)
+
+  revalidatePath(`/projets/${input.projectId}`)
+  return { ok: true }
+}

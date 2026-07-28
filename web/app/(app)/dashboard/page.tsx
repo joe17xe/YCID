@@ -5,7 +5,7 @@ import Link from "next/link"
 import { PROJECT_STATUS, TASK_STATUS, fmtDate } from "@/lib/constants"
 import { AlertTriangle, CalendarClock } from "lucide-react"
 import { StatTile, AlertStatTile } from "@/components/ui/StatTile"
-import InterventionMap from "@/components/pilotage/InterventionMap"
+import InterventionMap, { type MapCity } from "@/components/pilotage/InterventionMap"
 
 const PERIODS: Record<string, { label: string; days: number | null }> = {
   semaine: { label: "Semaine", days: 7 },
@@ -22,13 +22,18 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const { periode = "mois" } = await searchParams
   const period = PERIODS[periode] ?? PERIODS.mois
 
-  const [{ data: projects, error: projectsError }, { data: profile }, { data: openDecisions }] = await Promise.all([
+  const [{ data: projects, error: projectsError }, { data: profile }, { data: openDecisions }, citiesRes, linksRes] = await Promise.all([
     supabase
       .from("projects")
       .select("*, project_organizations(org_id, role, organizations(name)), phases(id, name, status, tasks(id, status, progress, end_date, title))")
       .order("created_at", { ascending: false }),
     supabase.from("profiles").select("*").eq("id", user.id).single(),
     supabase.from("decisions").select("id, due_date").neq("status", "fait"),
+    // Carte des villes (0050). Requêtes TOLÉRANTES : tant que la
+    // migration n'est pas passée elles échouent, et la carte retombe
+    // sur le mode « un repère par projet » (lat/lng du lot 3).
+    supabase.from("cities").select("id, name, country, lat, lng"),
+    supabase.from("project_cities").select("project_id, city_id"),
   ])
 
   const today = new Date().toISOString().slice(0, 10)
@@ -47,6 +52,36 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     .sort((a: any, b: any) => a.end_date.localeCompare(b.end_date))
     .slice(0, 5)
   const lateDecisions = (openDecisions ?? []).filter((d: any) => d.due_date && d.due_date < today)
+
+  // Repères de la carte (0050) : chaque ville porte le nombre TOTAL de
+  // projets qui l'impliquent (le lien project_cities est lisible par
+  // tous — des identifiants opaques) et la liste des projets que MES
+  // policies me laissent voir. La différence s'affiche « sans accès »,
+  // jamais nommée — visualiser sans accéder.
+  let mapCities: MapCity[] | null = null
+  let unlinkedCount = 0
+  if (!citiesRes.error && !linksRes.error) {
+    const visibleName = new Map<string, string>((projects ?? []).map((p: { id: string; name: string }) => [p.id, p.name]))
+    const byCity = new Map<string, { total: number; accessible: { id: string; name: string }[] }>()
+    for (const l of linksRes.data ?? []) {
+      const entry = byCity.get(l.city_id) ?? { total: 0, accessible: [] }
+      entry.total++
+      const name = visibleName.get(l.project_id)
+      if (name) entry.accessible.push({ id: l.project_id, name })
+      byCity.set(l.city_id, entry)
+    }
+    mapCities = (citiesRes.data ?? []).map(c => {
+      const entry = byCity.get(c.id) ?? { total: 0, accessible: [] }
+      return {
+        id: c.id, name: c.name, country: c.country ?? null,
+        lat: Number(c.lat), lng: Number(c.lng),
+        total: entry.total,
+        accessible: [...entry.accessible].sort((a, b) => a.name.localeCompare(b.name, "fr")),
+      }
+    })
+    const linked = new Set((linksRes.data ?? []).map(l => l.project_id))
+    unlinkedCount = (projects ?? []).filter((p: { id: string }) => !linked.has(p.id)).length
+  }
 
   function projectProgress(p: any): number {
     const tasks = (p.phases ?? []).flatMap((ph: any) => ph.tasks ?? [])
@@ -111,14 +146,20 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           : <StatTile label="Décisions en retard" mark="#9AA39D" value={0} />}
       </div>
 
-      {/* Carte des interventions (V1, Lot 3) : un repère par projet
-          localisé, depuis projects.lat/lng — saisis sur la fiche,
-          jamais géocodés. */}
+      {/* Carte des interventions : un repère par VILLE (0050) — le
+          travail est entre des villes, une triade apparaît sur les
+          deux panneaux. Cliquer une ville liste les projets
+          accessibles ; les autres sont comptés, jamais nommés. Avant
+          la migration : repli sur un repère par projet (lat/lng). */}
       <div className="mb-8">
-        <InterventionMap projects={(projects ?? []).map(p => ({
-          id: p.id, name: p.name, country: p.country ?? null,
-          lat: p.lat ?? null, lng: p.lng ?? null,
-        }))} />
+        <InterventionMap
+          projects={(projects ?? []).map(p => ({
+            id: p.id, name: p.name, country: p.country ?? null,
+            lat: p.lat ?? null, lng: p.lng ?? null,
+          }))}
+          cities={mapCities}
+          unlinkedCount={unlinkedCount}
+        />
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6">
