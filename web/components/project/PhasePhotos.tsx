@@ -29,9 +29,12 @@ export default function PhasePhotos({ projectId, phaseId, photos, canUpload }: {
   const supabase = createClient()
   const [expanded, setExpanded] = useState(false)
   const [open, setOpen] = useState(false)
-  const [file, setFile] = useState<File | null>(null)
+  // Dépôt MULTIPLE (roadmap) : les photos de chantier arrivent par
+  // rafale, les déposer une à une était la moitié du problème.
+  const [files, setFiles] = useState<File[]>([])
   const [moment, setMoment] = useState<DocMoment>("avant")
   const [busy, setBusy] = useState(false)
+  const [progress, setProgress] = useState("")
   const [error, setError] = useState("")
   const [pending, startTransition] = useTransition()
 
@@ -44,24 +47,43 @@ export default function PhasePhotos({ projectId, phaseId, photos, canUpload }: {
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     setError("")
-    if (!file) { setError("Choisissez une photo."); return }
-    if (file.size > MAX_DOC_SIZE) { setError("Photo trop lourde (10 Mo maximum)."); return }
+    if (!files.length) { setError("Choisissez au moins une photo."); return }
+    const tooBig = files.find(f => f.size > MAX_DOC_SIZE)
+    if (tooBig) { setError(`« ${tooBig.name} » dépasse 10 Mo — allégez-la ou retirez-la du lot.`); return }
     setBusy(true)
-    const path = buildStoragePath(projectId, phaseId, file.name)
-    const { error: upErr } = await supabase.storage.from("documents").upload(path, file)
-    if (upErr) { setError(`Échec de l'envoi : ${upErr.message}`); setBusy(false); return }
 
-    // phaseId sans taskId : la photo appartient à la phase, pas à une
-    // tâche — c'est ce qui la fait apparaître dans cette galerie.
-    const res = await saveDocument({
-      projectId, phaseId, type: "photo", moment,
-      filename: file.name, storagePath: path,
-    })
-    if (!res.ok) {
-      await supabase.storage.from("documents").remove([path])
-      setError(res.error ?? "Une erreur est survenue."); setBusy(false); return
+    // Séquentiel, pas en parallèle : les photos de téléphone pèsent
+    // plusieurs Mo chacune, et la progression « 2/5 » dit ce qui se
+    // passe. Un échec n'interrompt pas le lot : chaque photo réussie
+    // est acquise, les échecs sont NOMMÉS à la fin.
+    const failed: string[] = []
+    let done = 0
+    for (const file of files) {
+      setProgress(`Envoi ${done + 1}/${files.length} — ${file.name}`)
+      const path = buildStoragePath(projectId, phaseId, file.name)
+      const { error: upErr } = await supabase.storage.from("documents").upload(path, file)
+      if (upErr) { failed.push(`${file.name} (${upErr.message})`); continue }
+      // phaseId sans taskId : la photo appartient à la phase, pas à une
+      // tâche — c'est ce qui la fait apparaître dans cette galerie.
+      const res = await saveDocument({
+        projectId, phaseId, type: "photo", moment,
+        filename: file.name, storagePath: path,
+      })
+      if (!res.ok) {
+        await supabase.storage.from("documents").remove([path])
+        failed.push(`${file.name} (${res.error ?? "erreur"})`)
+        continue
+      }
+      done++
     }
-    setBusy(false); setFile(null); setOpen(false); setExpanded(true)
+    setBusy(false)
+    setProgress("")
+    if (failed.length) {
+      setError(`${done}/${files.length} photo${done > 1 ? "s" : ""} déposée${done > 1 ? "s" : ""} — en échec : ${failed.join(" · ")}`)
+      if (done > 0) { setExpanded(true); router.refresh() }
+      return
+    }
+    setFiles([]); setOpen(false); setExpanded(true)
     router.refresh()
   }
 
@@ -125,10 +147,26 @@ export default function PhasePhotos({ projectId, phaseId, photos, canUpload }: {
         <Modal open onClose={() => !busy && setOpen(false)} title="Ajouter une photo" busy={busy} maxWidth="max-w-md">
           <form onSubmit={submit} className="space-y-3">
             <div>
-              <label htmlFor={`photo-file-${phaseId}`} className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Photo *</label>
-              <input id={`photo-file-${phaseId}`} type="file" accept="image/*" required
-                onChange={e => setFile(e.target.files?.[0] ?? null)} className="w-full text-sm" />
-              <p className="text-xs mt-1" style={{ color: "#66716B" }}>10 Mo maximum · formats photo, HEIC compris</p>
+              <label htmlFor={`photo-file-${phaseId}`} className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>
+                Photo{files.length > 1 ? "s" : ""} *
+              </label>
+              {/* La liste `accept` est SANS HEIC, et c'est voulu : un
+                  iPhone convertit alors ses photos HEIC en JPEG à la
+                  sélection même — la « conversion » de la roadmap, sans
+                  bibliothèque ni serveur. Un HEIC qui passe quand même
+                  (glisser-déposer, export brut) est accepté et affiché
+                  en repli téléchargeable, jamais en vignette cassée. */}
+              <input id={`photo-file-${phaseId}`} type="file" multiple required
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                onChange={e => setFiles(Array.from(e.target.files ?? []))} className="w-full text-sm" />
+              <p className="text-xs mt-1" style={{ color: "#66716B" }}>
+                Plusieurs photos à la fois · 10 Mo chacune · les photos iPhone (HEIC) sont converties en JPEG à la sélection.
+              </p>
+              {files.length > 1 && (
+                <p className="text-xs mt-1" style={{ color: "#17211D" }}>
+                  {files.length} photos retenues — toutes en « {DOC_MOMENT_LABELS[moment]} ».
+                </p>
+              )}
             </div>
             <div>
               <label htmlFor={`photo-moment-${phaseId}`} className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Moment</label>
@@ -150,7 +188,8 @@ export default function PhasePhotos({ projectId, phaseId, photos, canUpload }: {
               <button type="submit" disabled={busy}
                 className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white"
                 style={{ background: "var(--brand-accent,#0E6B5C)", opacity: busy ? 0.7 : 1 }}>
-                <Upload size={14} aria-hidden="true" /> {busy ? "Envoi…" : "Déposer"}
+                <Upload size={14} aria-hidden="true" />
+                {busy ? (progress || "Envoi…") : files.length > 1 ? `Déposer les ${files.length} photos` : "Déposer"}
               </button>
             </div>
           </form>
@@ -163,9 +202,21 @@ export default function PhasePhotos({ projectId, phaseId, photos, canUpload }: {
 function Thumb({ photo, canUpload, pending, onRemove }: {
   photo: PhasePhoto; canUpload: boolean; pending: boolean; onRemove: (p: PhasePhoto) => void
 }) {
+  // Repli HEIC (roadmap) : le navigateur ne sait pas afficher ce
+  // format. Une tuile honnête — nommée, téléchargeable — vaut mieux
+  // qu'une vignette cassée qui ressemble à une photo perdue.
+  const isHeic = /\.hei[cf]$/i.test(photo.filename)
   return (
     <li className="relative group">
-      {photo.url ? (
+      {photo.url && isHeic ? (
+        <a href={photo.url} target="_blank" rel="noopener noreferrer" title={`${photo.filename} — format HEIC, téléchargez pour voir`}
+          className="w-full h-20 rounded-lg border flex flex-col items-center justify-center gap-0.5 text-xs"
+          style={{ borderColor: "#E3E6E2", color: "#66716B", background: "#F5F6F4" }}>
+          <Camera size={14} aria-hidden="true" />
+          <span className="font-medium">HEIC</span>
+          <span style={{ color: "var(--brand-accent,#0E6B5C)" }}>télécharger</span>
+        </a>
+      ) : photo.url ? (
         <a href={photo.url} target="_blank" rel="noopener noreferrer" title={photo.filename}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={photo.url} alt={photo.filename} loading="lazy"
