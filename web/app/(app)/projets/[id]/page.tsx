@@ -30,6 +30,7 @@ import CommPanel, { type Campaign } from "@/components/project/CommPanel"
 import PublicPageDialog from "@/components/project/PublicPageDialog"
 import ProjectEditDialog from "@/components/project/ProjectEditDialog"
 import ProjectCitiesDialog from "@/components/project/ProjectCitiesDialog"
+import MeetingRSVP from "@/components/project/MeetingRSVP"
 import ProjectDocUpload from "@/components/project/ProjectDocUpload"
 import { ChevronLeft, User, CalendarDays, MapPin } from "lucide-react"
 
@@ -128,11 +129,24 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
   // migration n'est pas passée elles échouent, et la fiche n'affiche
   // simplement ni la ligne ni le bouton « Villes » — jamais d'écran
   // cassé entre le déploiement du code et le passage du SQL.
-  const [{ data: projectCityRows, error: pcErr }, { data: allCities, error: cErr }] = await Promise.all([
+  const [{ data: projectCityRows, error: pcErr }, { data: allCities, error: cErr }, { data: mpRows, error: mpErr }] = await Promise.all([
     supabase.from("project_cities").select("city_id, cities(id, name, country)").eq("project_id", id),
     supabase.from("cities").select("id, name, country").order("name"),
+    // Invités des réunions (0051) — même dégradation douce : tant que
+    // la migration n'est pas passée, l'onglet COPIL fonctionne comme
+    // avant et le dialogue n'envoie aucun champ neuf.
+    supabase.from("meeting_participants").select("meeting_id, user_id, response, responded_at"),
   ])
   const citiesReady = !pcErr && !cErr
+  const participantsReady = !mpErr
+  const participantsByMeeting = new Map<string, { user_id: string; response: string }[]>()
+  if (participantsReady) {
+    for (const r of mpRows ?? []) {
+      const list = participantsByMeeting.get(r.meeting_id) ?? []
+      list.push({ user_id: r.user_id, response: r.response })
+      participantsByMeeting.set(r.meeting_id, list)
+    }
+  }
   const linkedCities: { id: string; name: string; country: string | null }[] = citiesReady
     ? (projectCityRows ?? []).flatMap(r => {
         const c = Array.isArray(r.cities) ? r.cities[0] : r.cities
@@ -163,6 +177,9 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
   const orgOptions = (orgsAll ?? []).map((o: any) => ({ id: o.id, name: o.name }))
   // Candidats à l'ajout comme membre : comptes existants pas encore membres
   const { data: allProfiles } = await supabase.from("profiles").select("id, full_name, email").order("full_name")
+  // Nom d'un invité de réunion (0051) — via l'annuaire complet : un
+  // invité retiré du projet depuis garde son nom sur la réunion.
+  const profileName = new Map<string, string>((allProfiles ?? []).map((p: { id: string; full_name: string | null; email: string | null }) => [p.id, p.full_name ?? p.email ?? "—"]))
   const memberIds = new Set((project.project_members ?? []).map((pm: any) => pm.user_id))
   const memberCandidates = (allProfiles ?? [])
     .filter((p: any) => !memberIds.has(p.id))
@@ -1223,12 +1240,19 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
       {tab === "copil" && (
         <div className="space-y-4">
           {canMeetings && (
-            <div className="flex justify-end">
-              <MeetingDialog projectId={id} />
+            <div className="flex flex-col items-end gap-1">
+              <MeetingDialog projectId={id} members={memberOptions} participantsReady={participantsReady} />
+              {!participantsReady && (
+                <p className="text-xs" style={{ color: "#66716B" }}>
+                  Invitations et réponses : appliquez la migration <strong>0051_meeting_participants.sql</strong> dans le SQL Editor Supabase.
+                </p>
+              )}
             </div>
           )}
           {(meetings ?? []).map((m: any) => {
             const mk = MEETING_KINDS[m.kind] ?? { label: m.kind, fg: "#66716B", bg: "#EEF0EE" }
+            const invitees = participantsByMeeting.get(m.id) ?? []
+            const mine = invitees.find(p => p.user_id === user.id)
             return (
               <div key={m.id} className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor: "#E3E6E2" }}>
                 <div className="p-5 border-b flex items-center justify-between" style={{ borderColor: "#E3E6E2" }}>
@@ -1237,7 +1261,11 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                       <Badge label={mk.label} fg={mk.fg} bg={mk.bg} />
                       <span className="font-semibold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>{m.title}</span>
                     </div>
-                    <div className="text-xs mt-1" style={{ color: "#66716B" }}>{fmtDate(m.date)}</div>
+                    <div className="text-xs mt-1" style={{ color: "#66716B" }}>
+                      {fmtDate(m.date)}
+                      {m.start_time ? ` · ${String(m.start_time).slice(0, 5)}` : ""}
+                      {m.location ? ` · ${m.location}` : ""}
+                    </div>
                   </div>
                   {(m.decisions ?? []).length > 0 && (
                     <span className="text-xs px-2 py-1 rounded-full" style={{ background: "#E8ECF5", color: "#3B5488" }}>
@@ -1245,6 +1273,32 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                     </span>
                   )}
                 </div>
+                {/* Invités et réponses (0051) : chaque pastille porte un
+                    nom, sa couleur dit la réponse — acceptée (accent),
+                    refusée (rouge), en attente (neutre). L'invité
+                    connecté répond ici même. */}
+                {invitees.length > 0 && (
+                  <div className="px-5 py-3 border-b space-y-2" style={{ borderColor: "#E3E6E2" }}>
+                    <div className="flex flex-wrap gap-1.5">
+                      {invitees.map(p => {
+                        const st = p.response === "acceptee"
+                          ? { fg: "var(--brand-accent,#0E6B5C)", bg: "var(--brand-accent-soft,#E4F0EC)", label: "acceptée" }
+                          : p.response === "refusee"
+                            ? { fg: "#A3342C", bg: "#F6E7E5", label: "refusée" }
+                            : { fg: "#66716B", bg: "#EEF0EE", label: "en attente" }
+                        return (
+                          <span key={p.user_id} className="text-xs px-2 py-0.5 rounded-full" style={{ background: st.bg, color: st.fg }}
+                            title={`Invitation ${st.label}`}>
+                            {profileName.get(p.user_id) ?? "—"}
+                          </span>
+                        )
+                      })}
+                    </div>
+                    {mine && (
+                      <MeetingRSVP projectId={id} meetingId={m.id} current={mine.response} />
+                    )}
+                  </div>
+                )}
                 {m.minutes && <p className="px-5 py-3 text-sm" style={{ color: "#66716B" }}>{m.minutes}</p>}
                 {(m.decisions ?? []).length > 0 && (
                   <div className="px-5 pb-4 space-y-2">
