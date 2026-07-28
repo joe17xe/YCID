@@ -29,6 +29,7 @@ import ExpertReportDialog from "@/components/project/ExpertReportDialog"
 import CommPanel, { type Campaign } from "@/components/project/CommPanel"
 import PublicPageDialog from "@/components/project/PublicPageDialog"
 import ProjectEditDialog from "@/components/project/ProjectEditDialog"
+import ProjectCitiesDialog from "@/components/project/ProjectCitiesDialog"
 import ProjectDocUpload from "@/components/project/ProjectDocUpload"
 import { ChevronLeft, User, CalendarDays, MapPin } from "lucide-react"
 
@@ -122,6 +123,22 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
   }
 
   if (!project) notFound()
+
+  // Villes du projet (0050). Requêtes TOLÉRANTES : tant que la
+  // migration n'est pas passée elles échouent, et la fiche n'affiche
+  // simplement ni la ligne ni le bouton « Villes » — jamais d'écran
+  // cassé entre le déploiement du code et le passage du SQL.
+  const [{ data: projectCityRows, error: pcErr }, { data: allCities, error: cErr }] = await Promise.all([
+    supabase.from("project_cities").select("city_id, cities(id, name, country)").eq("project_id", id),
+    supabase.from("cities").select("id, name, country").order("name"),
+  ])
+  const citiesReady = !pcErr && !cErr
+  const linkedCities: { id: string; name: string; country: string | null }[] = citiesReady
+    ? (projectCityRows ?? []).flatMap(r => {
+        const c = Array.isArray(r.cities) ? r.cities[0] : r.cities
+        return c ? [{ id: c.id, name: c.name, country: c.country ?? null }] : []
+      })
+    : []
 
   // Droits d'édition : les admins (canEditCompleted couvre le même
   // périmètre) ou le rôle du membre dans ce projet.
@@ -347,6 +364,10 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
               lat: project.lat ?? null, lng: project.lng ?? null,
             }} organizations={orgOptions} />
           )}
+          {canPhases && citiesReady && (
+            <ProjectCitiesDialog projectId={id} linkedIds={linkedCities.map(c => c.id)}
+              cities={(allCities ?? []).map(c => ({ id: c.id, name: c.name, country: c.country ?? null }))} />
+          )}
           {canPhases && <PublicPageDialog projectId={id} token={project.public_token ?? null} />}
           <ExpertReportDialog projectId={id} projectName={project.name} />
           {canEditCompleted && <DeleteProjectButton projectId={id} projectName={project.name} />}
@@ -374,6 +395,13 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
               <span className="inline-flex items-center gap-1">
                 <MapPin size={12} aria-hidden="true" />
                 {project.country}{project.zone ? ` — ${project.zone}` : ""}
+              </span>
+            )}
+            {/* Les villes du projet (0050) : le travail est ENTRE des
+                villes, la fiche les nomme toutes. */}
+            {linkedCities.length > 0 && (
+              <span>
+                Villes : {linkedCities.map(c => c.name).join(" · ")}
               </span>
             )}
             {project.start_date && <span>{fmtDate(project.start_date)} → {fmtDate(project.end_date)}</span>}

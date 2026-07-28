@@ -1,33 +1,37 @@
 import Link from "next/link"
-import { countryCode } from "@/lib/flags"
+import { countryCode, countryFlag } from "@/lib/flags"
 import { YVELINES_OUTLINE, LIBAN_OUTLINE, type Outline } from "@/lib/map-outlines"
+import CityMarker, { type CityMarkerProject } from "@/components/pilotage/CityMarker"
 
 // ============================================================
-// Carte des interventions Yvelines–Liban (V1, Lot 3)
+// Carte des interventions Yvelines–Liban (V1, Lot 3 · villes 28/07)
 // ============================================================
-// Deux panneaux, un repère par projet, cliquable vers la fiche.
+// Deux panneaux ; les contours viennent de lib/map-outlines.ts (limites
+// administratives réelles, simplifiées hors ligne, figées) — SVG
+// statique, zéro fournisseur à l'exécution, l'arbitrage du 27/07 tient.
 //
-// Choix technique ARBITRÉ le 27/07 : SVG embarqué, zéro dépendance. Une
-// bibliothèque cartographique (Leaflet, Google Maps…) tirerait des
-// fonds de carte d'un serveur tiers — réseau, poids, RGPD, clé d'API —
-// pour deux territoires qui ne changeront jamais. Les contours viennent
-// de lib/map-outlines.ts : les limites administratives RÉELLES (IGN
-// Admin Express, geoBoundaries), simplifiées hors ligne et figées dans
-// le dépôt — la précision d'un fond officiel, sans fournisseur à
-// l'exécution.
+// Depuis le 28/07, le repère est une VILLE, plus un projet. Le travail
+// est ENTRE des villes — une en Yvelines et une au Liban pour les
+// triades, parfois deux villes libanaises — et le modèle « un projet,
+// un point » laissait le panneau Yvelines à zéro pendant que les deux
+// triades s'affichaient côté Liban. Les villes d'un projet se
+// renseignent sur sa fiche (bouton « Villes ») ; cliquer un repère
+// liste les projets qui impliquent la ville.
 //
-// Les repères viennent de `projects.lat` / `projects.lng` — colonnes
-// présentes depuis la 0001, jamais branchées. PAS de géocodage
-// automatique (qui appellerait un service externe pour trois communes
-// connues) : les coordonnées se saisissent dans « Modifier la fiche du
-// projet », et un projet sans coordonnées est COMPTÉ comme tel dans la
-// légende plutôt que placé au hasard ou passé sous silence.
+// Qui voit quoi : le repère et le NOMBRE de projets d'une ville sont
+// visibles de tous (project_cities est lisible par tout connecté,
+// 0050) ; les NOMS et les fiches restent derrière les policies
+// projets. Un projet hors droits est compté « sans accès », jamais
+// nommé — visualiser sans accéder.
 //
-// Rendu : le SVG ne porte que les contours ; les repères sont des
-// <Link> positionnés en % au-dessus, dans un conteneur qui fige le même
-// ratio que le viewBox — la navigation reste celle de l'application, et
-// l'infobulle est un vrai title. Sur téléphone, les panneaux s'empilent
-// (règle « rien ne sort du cadre »).
+// Tant que la migration 0050 n'est pas passée, les requêtes villes
+// échouent et la carte retombe sur l'ancien mode : un repère par
+// projet localisé (projects.lat/lng). Aucun écran cassé entre le
+// déploiement du code et le passage du SQL.
+//
+// La carte dit ce qu'elle ne montre pas : projets sans ville, villes
+// hors des deux territoires — comptés dans la légende, jamais placés
+// au hasard ni passés sous silence.
 
 type MapProject = {
   id: string
@@ -35,6 +39,19 @@ type MapProject = {
   country: string | null
   lat: number | null
   lng: number | null
+}
+
+export type MapCity = {
+  id: string
+  name: string
+  country: string | null
+  lat: number
+  lng: number
+  // Tous les projets liés à la ville, droits ou pas (le lien est
+  // lisible par tous — un identifiant opaque, jamais un nom)…
+  total: number
+  // …et ceux que les policies laissent voir à CE compte.
+  accessible: CityMarkerProject[]
 }
 
 const W = 200
@@ -72,8 +89,8 @@ type Territory = {
   key: string
   label: string
   outline: Outline
-  // Rattachement par le pays saisi sur le projet (texte libre,
-  // rapproché d'un code ISO par lib/flags)
+  // Rattachement par le pays (texte libre, rapproché d'un code ISO par
+  // lib/flags)
   codes: string[]
 }
 
@@ -82,7 +99,31 @@ const TERRITORIES: Territory[] = [
   { key: "liban", label: "Liban", outline: LIBAN_OUTLINE, codes: ["LB"] },
 ]
 
-export default function InterventionMap({ projects }: { projects: MapProject[] }) {
+function Card({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor: "#E3E6E2" }}>
+      <div className="px-6 py-4 border-b" style={{ borderColor: "#E3E6E2" }}>
+        <h2 className="font-semibold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>
+          Carte des interventions — Yvelines &amp; Liban
+        </h2>
+      </div>
+      {children}
+    </div>
+  )
+}
+
+export default function InterventionMap({ projects, cities, unlinkedCount = 0 }: {
+  projects: MapProject[]
+  // null / absent : la migration 0050 n'est pas passée → mode héritage
+  cities?: MapCity[] | null
+  // Projets visibles par ce compte qui n'ont encore aucune ville
+  unlinkedCount?: number
+}) {
+  if (cities != null) {
+    return <CitiesMap cities={cities} unlinkedCount={unlinkedCount} />
+  }
+
+  // ------- Mode héritage (avant la 0050) : un repère par projet -------
   const panels = TERRITORIES.map(t => {
     const proj = makeProjection(t.outline)
     const assigned = projects.filter(p => {
@@ -100,12 +141,7 @@ export default function InterventionMap({ projects }: { projects: MapProject[] }
   const nothingPlaced = panels.every(p => p.placed.length === 0)
 
   return (
-    <div className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor: "#E3E6E2" }}>
-      <div className="px-6 py-4 border-b" style={{ borderColor: "#E3E6E2" }}>
-        <h2 className="font-semibold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>
-          Carte des interventions — Yvelines &amp; Liban
-        </h2>
-      </div>
+    <Card>
       <div className="grid sm:grid-cols-2">
         {panels.map((panel, i) => (
           <div key={panel.key} className={`p-4 ${i > 0 ? "border-t sm:border-t-0 sm:border-l" : ""}`} style={{ borderColor: "#E3E6E2" }}>
@@ -166,6 +202,88 @@ export default function InterventionMap({ projects }: { projects: MapProject[] }
           )}
         </div>
       )}
-    </div>
+    </Card>
+  )
+}
+
+// ------- Mode villes (0050) : un repère par ville -------
+function CitiesMap({ cities, unlinkedCount }: { cities: MapCity[]; unlinkedCount: number }) {
+  // Une ville sans plus aucun projet (référentiel orphelin après un
+  // détachement) n'a rien à dire sur cette carte.
+  const active = cities.filter(c => c.total > 0 || c.accessible.length > 0)
+
+  const panels = TERRITORIES.map(t => {
+    const proj = makeProjection(t.outline)
+    const assigned = active.filter(c => {
+      const code = countryCode(c.country)
+      return code !== null && t.codes.includes(code)
+    })
+    const placed = assigned.filter(c => proj.contains(c.lat, c.lng))
+    // Projets ACCESSIBLES distincts du panneau — une triade liée à deux
+    // villes du même panneau ne compte qu'une fois.
+    const projectIds = new Set(placed.flatMap(c => c.accessible.map(p => p.id)))
+    return { ...t, proj, assigned, placed, projectCount: projectIds.size }
+  })
+
+  const placedIds = new Set(panels.flatMap(p => p.placed.map(c => c.id)))
+  const elsewhere = active.filter(c => !placedIds.has(c.id))
+  const nothingPlaced = panels.every(p => p.placed.length === 0)
+
+  return (
+    <Card>
+      <div className="grid sm:grid-cols-2">
+        {panels.map((panel, i) => (
+          <div key={panel.key} className={`p-4 ${i > 0 ? "border-t sm:border-t-0 sm:border-l" : ""}`} style={{ borderColor: "#E3E6E2" }}>
+            <div className="relative mx-auto max-w-xs" style={{ aspectRatio: `${W}/${H}` }}>
+              <svg viewBox={`0 0 ${W} ${H}`} className="absolute inset-0 w-full h-full" role="img"
+                aria-label={`${panel.label} — ${panel.placed.length} ville${panel.placed.length > 1 ? "s" : ""}`}>
+                <path d={panel.proj.path}
+                  fill="var(--brand-accent-soft,#E4F0EC)"
+                  stroke="var(--brand-accent,#0E6B5C)"
+                  strokeWidth="1.5"
+                  strokeLinejoin="round" />
+              </svg>
+              {panel.placed.map(c => {
+                const [x, y] = panel.proj.toXY(c.lat, c.lng)
+                return (
+                  <CityMarker
+                    key={c.id}
+                    name={c.name}
+                    flag={countryFlag(c.country)}
+                    xPct={(x / W) * 100}
+                    yPct={(y / H) * 100}
+                    projects={c.accessible}
+                    hiddenCount={Math.max(0, c.total - c.accessible.length)}
+                  />
+                )
+              })}
+            </div>
+            <div className="mt-2 text-center text-sm font-medium" style={{ color: "#17211D", fontFamily: "var(--font-sora)" }}>
+              {panel.label}
+            </div>
+            <div className="text-center text-xs" style={{ color: "#66716B" }}>
+              {panel.placed.length} ville{panel.placed.length > 1 ? "s" : ""}
+              {" · "}{panel.projectCount} projet{panel.projectCount > 1 ? "s" : ""}
+            </div>
+          </div>
+        ))}
+      </div>
+      {(elsewhere.length > 0 || unlinkedCount > 0 || nothingPlaced) && (
+        <div className="px-6 py-3 border-t text-xs space-y-0.5" style={{ borderColor: "#E3E6E2", color: "#66716B" }}>
+          {elsewhere.length > 0 && (
+            <p>{elsewhere.length} ville{elsewhere.length > 1 ? "s" : ""} hors de ces deux territoires.</p>
+          )}
+          {unlinkedCount > 0 && (
+            <p>
+              {unlinkedCount} projet{unlinkedCount > 1 ? "s" : ""} sans ville renseignée —
+              bouton « Villes » de la fiche projet.
+            </p>
+          )}
+          {nothingPlaced && (
+            <p>Les repères apparaîtront quand les villes des projets seront renseignées.</p>
+          )}
+        </div>
+      )}
+    </Card>
   )
 }
