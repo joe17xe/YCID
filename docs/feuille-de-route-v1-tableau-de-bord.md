@@ -1,5 +1,11 @@
 # Feuille de route — tableau de bord V1 (maquette du 27/07)
 
+> **État au 28/07 : lots 1 à 3 livrés** (sidebar sombre, tableau
+> enrichi, carte des interventions). Le lot 4 attend la décision logo,
+> qui revient à l'utilisateur. La passe de saisie des coordonnées
+> (Azour, Jeïta, Villepreux, Jouy-en-Josas…) se fait dans
+> l'application — fiche projet ▸ Modifier ▸ latitude / longitude.
+
 La cible : la maquette « YCID Pilot » fournie le 27/07 au soir —
 barre latérale sombre et groupée, tuiles d'en-tête, tableau des projets
 avec drapeaux et avancement, **carte des interventions Yvelines-Liban**,
@@ -43,7 +49,7 @@ l'**identité**.
 
 ## Les quatre lots
 
-### Lot 1 — Barre latérale sombre et groupée · **1 jour**
+### Lot 1 — Barre latérale sombre et groupée · **livré le 28/07**
 
 La sidebar actuelle est blanche, à plat. La cible : fond sombre teinté
 de la couleur de marque, sections groupées avec intitulés (Projets,
@@ -57,7 +63,7 @@ Suivi, Paramètres), état actif en pastille claire.
 
 *Risque : faible. Aucune donnée, aucun SQL.*
 
-### Lot 2 — Tableau « Statut des projets » enrichi · **0,5 jour**
+### Lot 2 — Tableau « Statut des projets » enrichi · **livré le 28/07**
 
 Le tableau du Pilotage s'enrichit vers la cible :
 
@@ -71,10 +77,18 @@ Le tableau du Pilotage s'enrichit vers la cible :
 
 *Risque : faible. Repose sur des données existantes.*
 
-### Lot 3 — Carte des interventions Yvelines-Liban · **1,5 à 2 jours**
+### Lot 3 — Carte des interventions Yvelines-Liban · **livré le 28/07**
 
 Le morceau neuf. Deux panneaux (Yvelines, Liban) avec un repère par
 projet, comme la maquette.
+
+Deux corrections constatées à la livraison : la migration prévue n'a
+pas eu lieu d'être — `projects.lat` / `projects.lng` existaient depuis
+la 0001, jamais branchés ; et les tracés ne sont pas dessinés à main
+levée mais dérivés des limites administratives réelles (IGN Admin
+Express via france-geojson pour les Yvelines, geoBoundaries ADM0 pour
+le Liban), simplifiées hors ligne et figées dans `lib/map-outlines.ts`
+— le principe « zéro fournisseur à l'exécution » tient.
 
 **Choix technique proposé : SVG dessiné, zéro dépendance.** Une
 bibliothèque de cartographie (Leaflet…) tirerait des fonds de carte
@@ -94,7 +108,7 @@ rendu est net à toutes les tailles.
 *Risque : moyen — le soin du tracé fait la qualité perçue. Demande une
 passe de saisie des coordonnées (Azour, Jeïta, Villepreux, Jouy…).*
 
-### Lot 4 — Identité visuelle · **0,5 jour de dev** + une décision
+### Lot 4 — Identité visuelle · **en attente d'une décision**
 
 Le logo « arbre » de la maquette et ses déclinaisons (icône, favicon,
 monochrome, icône d'app).
