@@ -1,12 +1,12 @@
 # Feuille de route — tableau de bord V1 (maquette du 27/07)
 
-> **État au 28/07 : lots 1 à 3 livrés** (sidebar sombre, tableau
-> enrichi, carte des interventions). Le lot 4 attend la décision logo,
-> qui revient à l'utilisateur. Les coordonnées des quatre communes
-> (Azour, Jeïta, Villepreux, Jouy-en-Josas) ont été fournies le 28/07 :
-> docs/projets-coordonnees-2026-07-28.sql, à passer une fois dans le
-> SQL Editor. La fiche projet (Modifier ▸ latitude / longitude) reste
-> le geste pour les corrections.
+> **Feuille de route SOLDÉE le 28/07 au soir : les quatre lots sont
+> livrés.** Lots 1 à 3 (sidebar sombre, tableau enrichi, carte) le
+> 28/07 en journée ; lot 4 clos le soir même — logo et favicon
+> téléversés par l'utilisateur dans Configuration ▸ Marque (0018,
+> 0049). La carte est depuis passée au modèle « villes » (0050,
+> docs/villes-des-projets.md), qui remplace le point unique par
+> projet.
 
 La cible : la maquette « YCID Pilot » fournie le 27/07 au soir —
 barre latérale sombre et groupée, tuiles d'en-tête, tableau des projets
@@ -110,7 +110,12 @@ rendu est net à toutes les tailles.
 *Risque : moyen — le soin du tracé fait la qualité perçue. Demande une
 passe de saisie des coordonnées (Azour, Jeïta, Villepreux, Jouy…).*
 
-### Lot 4 — Identité visuelle · **en attente d'une décision**
+### Lot 4 — Identité visuelle · **clos le 28/07 au soir**
+
+La décision a été prise et exécutée par l'utilisateur lui-même : logo
+et favicon téléversés dans Configuration ▸ Marque — l'écran existait
+(0018), le favicon y avait son champ (0049), aucun développement n'a
+été nécessaire.
 
 Le logo « arbre » de la maquette et ses déclinaisons (icône, favicon,
 monochrome, icône d'app).
