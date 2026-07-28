@@ -60,6 +60,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   // jamais nommée — visualiser sans accéder.
   let mapCities: MapCity[] | null = null
   let unlinkedCount = 0
+  let cityPairs: { a: string; b: string }[] = []
   if (!citiesRes.error && !linksRes.error) {
     const visibleName = new Map<string, string>((projects ?? []).map((p: { id: string; name: string }) => [p.id, p.name]))
     const byCity = new Map<string, { total: number; accessible: { id: string; name: string }[] }>()
@@ -81,6 +82,27 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     })
     const linked = new Set((linksRes.data ?? []).map(l => l.project_id))
     unlinkedCount = (projects ?? []).filter((p: { id: string }) => !linked.has(p.id)).length
+
+    // Paires de villes reliées par un même projet — les traits
+    // pointillés de la carte. Dédupliquées (deux triades sur le même
+    // couple = un seul trait) et anonymes : la paire ne dit jamais
+    // QUEL projet relie, seulement qu'un lien existe.
+    const byProject = new Map<string, string[]>()
+    for (const l of linksRes.data ?? []) {
+      byProject.set(l.project_id, [...(byProject.get(l.project_id) ?? []), l.city_id])
+    }
+    const pairKeys = new Set<string>()
+    for (const ids of byProject.values()) {
+      for (let i = 0; i < ids.length; i++) {
+        for (let j = i + 1; j < ids.length; j++) {
+          pairKeys.add([ids[i], ids[j]].sort().join("|"))
+        }
+      }
+    }
+    cityPairs = [...pairKeys].map(k => {
+      const [a, b] = k.split("|")
+      return { a, b }
+    })
   }
 
   function projectProgress(p: any): number {
@@ -159,6 +181,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           }))}
           cities={mapCities}
           unlinkedCount={unlinkedCount}
+          cityPairs={cityPairs}
         />
       </div>
 

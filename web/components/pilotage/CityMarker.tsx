@@ -21,7 +21,10 @@ const POP_WIDTH = 232
 
 export type CityMarkerProject = { id: string; name: string }
 
-export default function CityMarker({ name, flag, xPct, yPct, projects, hiddenCount }: {
+export default function CityMarker({ id, name, flag, xPct, yPct, projects, hiddenCount }: {
+  // Identifiant de la ville — ancre (data-city-dot) des liaisons
+  // dessinées par MapLinkOverlay entre villes d'un même projet.
+  id: string
   name: string
   flag: string | null
   xPct: number
@@ -72,6 +75,7 @@ export default function CityMarker({ name, flag, xPct, yPct, projects, hiddenCou
       <button
         type="button"
         onClick={toggle}
+        data-city-dot={id}
         aria-haspopup="true"
         aria-expanded={open}
         aria-label={`${name} — ${total} projet${total > 1 ? "s" : ""}`}
