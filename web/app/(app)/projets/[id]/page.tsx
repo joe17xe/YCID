@@ -173,7 +173,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
   // migration n'est pas passée elles échouent, et la fiche n'affiche
   // simplement ni la ligne ni le bouton « Villes » — jamais d'écran
   // cassé entre le déploiement du code et le passage du SQL.
-  const [{ data: projectCityRows, error: pcErr }, { data: allCities, error: cErr }, { data: mpRows, error: mpErr }, { data: orgMembers, error: omErr }, { data: progRows, error: prErr }] = await Promise.all([
+  const [{ data: projectCityRows, error: pcErr }, { data: allCities, error: cErr }, { data: mpRows, error: mpErr }, { data: orgMembers, error: omErr }, { data: progRows, error: prErr }, { data: viaRows, error: viaErr }] = await Promise.all([
     supabase.from("project_cities").select("city_id, cities(id, name, country)").eq("project_id", id),
     supabase.from("cities").select("id, name, country").order("name"),
     // Invités des réunions (0051) — même dégradation douce : tant que
@@ -187,10 +187,17 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
     // Programmes (0055) — même tolérance : sans la migration, le
     // dialogue garde son champ texte et la fiche son étiquette.
     supabase.from("programmes").select("id, name").order("name"),
+    // Sièges de directeur de programme (0055/0056) : la provenance
+    // via_programme fait le rôle AFFICHÉ et verrouille le retrait.
+    supabase.from("project_members").select("user_id, via_programme").eq("project_id", id),
   ])
   const citiesReady = !pcErr && !cErr
   const participantsReady = !mpErr
   const programmesList: { id: string; name: string }[] | undefined = prErr ? undefined : ((progRows ?? []) as { id: string; name: string }[])
+  const viaProgramme = new Set(
+    (viaErr ? [] : (viaRows ?? []) as { user_id: string; via_programme: boolean }[])
+      .filter(r => r.via_programme).map(r => r.user_id)
+  )
   const participantsByMeeting = new Map<string, { user_id: string; response: string }[]>()
   if (participantsReady) {
     for (const r of mpRows ?? []) {
@@ -619,10 +626,19 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                           autre (0047). Le rôle reste lisible par tous —
                           masquer QUI contrôle serait le contraire du
                           but. */}
-                      {canMembers && (!isAuditorSeat(pm.role) || canAuditorSeat)
-                        ? <MemberRoleSelect projectId={id} userId={pm.user_id} name={pm.profiles?.full_name ?? ""} role={pm.role} canAuditor={canAuditorSeat} />
-                        : <Badge label={r.short ?? r.label} fg={r.fg} bg={r.bg} />}
-                      {canMembers && (!isAuditorSeat(pm.role) || canAuditorSeat) && (
+                      {/* Le siège de directeur de programme (0055/0056)
+                          suit le motif de l'auditeur : le rôle affiché
+                          vient de la provenance, pas de sélecteur, et
+                          seul l'admin retire — la nomination se gère
+                          dans Admin ▸ Programmes, pas depuis le projet
+                          qu'elle gouverne. */}
+                      {viaProgramme.has(pm.user_id)
+                        ? <Badge label="Dir. de programme" fg="#6B4A8C" bg="#F0E9F5" />
+                        : canMembers && (!isAuditorSeat(pm.role) || canAuditorSeat)
+                          ? <MemberRoleSelect projectId={id} userId={pm.user_id} name={pm.profiles?.full_name ?? ""} role={pm.role} canAuditor={canAuditorSeat} />
+                          : <Badge label={r.short ?? r.label} fg={r.fg} bg={r.bg} />}
+                      {canMembers
+                        && (viaProgramme.has(pm.user_id) ? canAuditorSeat : (!isAuditorSeat(pm.role) || canAuditorSeat)) && (
                         <RemoveMemberButton projectId={id} userId={pm.user_id} name={pm.profiles?.full_name ?? ""} />
                       )}
                     </div>
