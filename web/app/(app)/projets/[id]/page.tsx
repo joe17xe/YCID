@@ -1354,11 +1354,25 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                       )}
                     </div>
                   </div>
-                  {(m.decisions ?? []).length > 0 && (
-                    <span className="text-xs px-2 py-1 rounded-full" style={{ background: "#E8ECF5", color: "#3B5488" }}>
-                      {m.decisions.length} décision{m.decisions.length > 1 ? "s" : ""}
-                    </span>
-                  )}
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {(m.decisions ?? []).length > 0 && (
+                      <span className="text-xs px-2 py-1 rounded-full" style={{ background: "#E8ECF5", color: "#3B5488" }}>
+                        {m.decisions.length} décision{m.decisions.length > 1 ? "s" : ""}
+                      </span>
+                    )}
+                    {/* Modifier la réunion (28/07 soir) : même dialogue
+                        qu'à la création, déclenché au crayon. */}
+                    {canMeetings && (
+                      <MeetingDialog projectId={id} members={memberOptions} participantsReady={participantsReady} orgGroups={orgGroups}
+                        meeting={{
+                          id: m.id, title: m.title, kind: m.kind, date: m.date ?? "",
+                          start_time: m.start_time ? String(m.start_time).slice(0, 5) : "",
+                          location: m.location ?? "", video_url: m.video_url ?? "",
+                          minutes: m.minutes ?? "",
+                          participantIds: invitees.map(p => p.user_id),
+                        }} />
+                    )}
+                  </div>
                 </div>
                 {/* Invités et réponses (0051) : chaque pastille porte un
                     nom, sa couleur dit la réponse — acceptée (accent),
