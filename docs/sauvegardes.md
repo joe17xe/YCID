@@ -29,9 +29,19 @@ retéléchargé, le quota de bande passante Free est ménagé).
 
 ## Installation sur le VPS (une fois, ~10 minutes)
 
-1. **Le client Postgres** :
+1. **Le client Postgres — version 17 minimum.** Constaté à la première
+   installation (28/07) : Supabase tourne en Postgres 17, et le
+   `postgresql-client` d'Ubuntu 24.04 est un 16 — `pg_dump` refuse un
+   serveur plus récent que lui (« server version mismatch »). Le
+   client 17 vient du dépôt officiel PostgreSQL :
    ```bash
-   sudo apt-get install -y postgresql-client
+   sudo install -d /usr/share/postgresql-common/pgdg
+   sudo curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail \
+     https://www.postgresql.org/media/keys/ACCC4CF8.asc
+   echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+     | sudo tee /etc/apt/sources.list.d/pgdg.list
+   sudo apt-get update && sudo apt-get install -y postgresql-client-17
+   pg_dump --version   # attendu : 17.x
    ```
 2. **Le fichier d'identifiants** — `/opt/ycid-app/backup.env`, en
    root, jamais commité :
