@@ -49,26 +49,70 @@ function ProgressBar({ value }: { value: number }) {
   )
 }
 
-export default async function ProjetDetailPage({ params, searchParams }: { params: Promise<{ id: string }>, searchParams: Promise<{ tab?: string, ligne?: string }> }) {
+// Journal paginé et filtrable (roadmap : « Le Journal s'arrête aux 20
+// derniers événements, sans filtre. Pour un contrôleur : pagination,
+// filtres par entité / personne / période »). Tout en LIENS et
+// formulaire GET serveur — même mécanique que le tri du Pilotage,
+// aucun état client. platform_settings et stockage n'apparaissent pas :
+// leurs événements n'ont pas de projet.
+const AUDIT_PAGE = 20
+const AUDIT_ENTITIES: Record<string, string> = {
+  project: "Projet", phase: "Phase", task: "Tâche", document: "Pièce",
+  budget_line: "Ligne budgétaire", validation: "Validation", decision: "Décision",
+  meeting: "Réunion", indicator: "Indicateur", indicator_measure: "Mesure",
+  project_member: "Membre", campagne_ia: "Campagne IA", rapport_ia: "Rapport IA",
+}
+// « Lien vers l'objet concerné quand il existe encore » : on pointe
+// l'ONGLET qui le porte — lui existe toujours, même si l'objet a été
+// supprimé depuis. Un lien mort vers une tâche disparue serait pire
+// que pas de lien.
+const AUDIT_TAB: Record<string, string> = {
+  phase: "taches", task: "taches", document: "documents",
+  budget_line: "budget", validation: "budget",
+  decision: "copil", meeting: "copil",
+  indicator: "impact", indicator_measure: "impact",
+  campagne_ia: "comm",
+}
+
+export default async function ProjetDetailPage({ params, searchParams }: { params: Promise<{ id: string }>, searchParams: Promise<{ tab?: string, ligne?: string, jpage?: string, jent?: string, jqui?: string, jde?: string, jau?: string }> }) {
   const { id } = await params
   // Un onglet inconnu (?tab=journal au lieu de ?tab=audit, lien périmé,
   // faute de frappe) affichait une page entièrement vide : aucune
   // section ne correspondait, et rien ne le disait. On retombe sur
   // l'aperçu, comportement attendu d'une URL qui ne mène nulle part.
   const VALID_TABS = ["apercu", "taches", "budget", "documents", "impact", "copil", "comm", "audit"]
-  const { tab: rawTab, ligne: ligneParam } = await searchParams
+  const { tab: rawTab, ligne: ligneParam, jpage, jent, jqui, jde, jau } = await searchParams
   const tab = rawTab && VALID_TABS.includes(rawTab) ? rawTab : "apercu"
+  // Filtres du Journal — assainis : une entité inconnue ou une page
+  // invalide retombent sur la vue par défaut, comme un onglet inconnu.
+  const auditPage = Math.max(1, Math.floor(Number(jpage)) || 1)
+  const auditEnt = jent && AUDIT_ENTITIES[jent] ? jent : ""
+  const auditQui = (jqui ?? "").trim()
+  const auditDe = /^\d{4}-\d{2}-\d{2}$/.test(jde ?? "") ? (jde as string) : ""
+  const auditAu = /^\d{4}-\d{2}-\d{2}$/.test(jau ?? "") ? (jau as string) : ""
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/")
 
-  const [{ data: project }, { data: phases }, { data: budgetLines }, { data: indicators }, { data: meetings }, { data: audit }, { data: phasePhotos }, { data: allDocs }, canEditCompleted] = await Promise.all([
+  const [{ data: project }, { data: phases }, { data: budgetLines }, { data: indicators }, { data: meetings }, { data: audit, count: auditCount }, { data: phasePhotos }, { data: allDocs }, canEditCompleted] = await Promise.all([
     supabase.from("projects").select("*, project_organizations(org_id, role, organizations(id, name, type)), project_members(user_id, role, profiles(id, full_name, email)), validation_rules(id, role, doc_type)").eq("id", id).single(),
     supabase.from("phases").select("*, tasks(*, profiles:assignee_id(full_name), documents(*))").eq("project_id", id).order("position"),
     supabase.from("budget_lines").select("*, funder:funder_org_id(name), owner:owner_org_id(name), phase:phase_id(name), allocations:budget_line_tasks(task_id, amount, task:task_id(title)), documents(id, filename, type, amount, paid, paid_at, uploaded_at, validations(id, org_id, decision, step, comment, org:org_id(name), decider:decided_by(full_name)))").eq("project_id", id).order("year"),
     supabase.from("indicators").select("*, measures:indicator_measures(*)").eq("project_id", id),
     supabase.from("meetings").select("*, decisions(*, owner:owner_user_id(full_name))").eq("project_id", id).order("date", { ascending: false }),
-    supabase.from("audit_log").select("*, profiles:user_id(full_name)").eq("project_id", id).order("at", { ascending: false }).limit(20),
+    // Journal : filtres + pagination (roadmap). Le compte exact vient
+    // avec la page — une seule requête pour les deux.
+    (() => {
+      let q = supabase.from("audit_log")
+        .select("*, profiles:user_id(full_name)", { count: "exact" })
+        .eq("project_id", id)
+      if (auditEnt) q = q.eq("entity", auditEnt)
+      if (auditQui) q = q.eq("user_id", auditQui)
+      if (auditDe) q = q.gte("at", auditDe)
+      // Borne du jour INCLUSE : « au 28/07 » veut dire jusqu'au soir.
+      if (auditAu) q = q.lte("at", `${auditAu}T23:59:59.999Z`)
+      return q.order("at", { ascending: false }).range((auditPage - 1) * AUDIT_PAGE, auditPage * AUDIT_PAGE - 1)
+    })(),
     // Photos de phase (PR 38c) : requête séparée car le join imbriqué
     // sur phases remonterait aussi les photos des tâches, qui portent
     // elles aussi un phase_id. Le critère est task_id IS NULL.
@@ -1356,27 +1400,99 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
       )}
 
       {/* ===== AUDIT ===== */}
-      {tab === "audit" && (
-        <div className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor: "#E3E6E2" }}>
-          <div className="divide-y" style={{ borderColor: "#E3E6E2" }}>
-            {(audit ?? []).map((a: any) => (
-              <div key={a.id} className="px-5 py-3 flex items-start gap-4">
-                <div className="flex-shrink-0 w-16 text-xs text-right" style={{ color: "#66716B" }}>
-                  {new Date(a.at).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" })}
+      {tab === "audit" && (() => {
+        const filtered = !!(auditEnt || auditQui || auditDe || auditAu)
+        const total = auditCount ?? (audit ?? []).length
+        const totalPages = Math.max(1, Math.ceil(total / AUDIT_PAGE))
+        // Les liens de pagination CONSERVENT les filtres : changer de
+        // page ne doit pas faire perdre la question posée.
+        const auditHref = (page: number) => {
+          const q = new URLSearchParams({ tab: "audit" })
+          if (auditEnt) q.set("jent", auditEnt)
+          if (auditQui) q.set("jqui", auditQui)
+          if (auditDe) q.set("jde", auditDe)
+          if (auditAu) q.set("jau", auditAu)
+          if (page > 1) q.set("jpage", String(page))
+          return `/projets/${id}?${q.toString()}`
+        }
+        const filterInput = "px-2.5 py-1.5 rounded-xl border text-xs"
+        return (
+          <div className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor: "#E3E6E2" }}>
+            {/* Filtres en GET pur : le formulaire recharge la page avec
+                ses paramètres, aucun état client — la même mécanique que
+                le tri du Pilotage. Une URL filtrée se partage. */}
+            <form method="get" className="px-5 py-3 border-b flex flex-wrap items-center gap-2" style={{ borderColor: "#E3E6E2" }}>
+              <input type="hidden" name="tab" value="audit" />
+              <label className="sr-only" htmlFor="j-ent">Entité</label>
+              <select id="j-ent" name="jent" defaultValue={auditEnt} className={filterInput} style={{ borderColor: "#E3E6E2", color: "#17211D" }}>
+                <option value="">Toutes les entités</option>
+                {Object.entries(AUDIT_ENTITIES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
+              <label className="sr-only" htmlFor="j-qui">Personne</label>
+              <select id="j-qui" name="jqui" defaultValue={auditQui} className={filterInput} style={{ borderColor: "#E3E6E2", color: "#17211D" }}>
+                <option value="">Tout le monde</option>
+                {memberOptions.map((m: { id: string; name: string }) => <option key={m.id} value={m.id}>{m.name}</option>)}
+              </select>
+              <label htmlFor="j-de" className="text-xs" style={{ color: "#66716B" }}>Du</label>
+              <input id="j-de" type="date" name="jde" defaultValue={auditDe} className={filterInput} style={{ borderColor: "#E3E6E2", color: "#17211D" }} />
+              <label htmlFor="j-au" className="text-xs" style={{ color: "#66716B" }}>au</label>
+              <input id="j-au" type="date" name="jau" defaultValue={auditAu} className={filterInput} style={{ borderColor: "#E3E6E2", color: "#17211D" }} />
+              <button type="submit" className="px-3 py-1.5 rounded-xl text-white text-xs font-semibold" style={{ background: "var(--brand-accent,#0E6B5C)" }}>
+                Filtrer
+              </button>
+              {filtered && (
+                <Link href={`/projets/${id}?tab=audit`} className="text-xs" style={{ color: "#66716B" }}>Réinitialiser</Link>
+              )}
+            </form>
+            <div className="divide-y" style={{ borderColor: "#E3E6E2" }}>
+              {(audit ?? []).map((a: any) => {
+                const entLabel = AUDIT_ENTITIES[a.entity] ?? a.entity
+                const entTab = AUDIT_TAB[a.entity]
+                return (
+                  <div key={a.id} className="px-5 py-3 flex items-start gap-4">
+                    <div className="flex-shrink-0 w-16 text-xs text-right" style={{ color: "#66716B" }}>
+                      {new Date(a.at).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" })}
+                    </div>
+                    <div className="flex-1">
+                      <span className="text-xs font-medium px-2 py-0.5 rounded" style={{ background: "var(--brand-accent-soft,#E4F0EC)", color: "var(--brand-accent,#0E6B5C)" }}>{a.action}</span>
+                      {" "}
+                      <span className="text-sm" style={{ color: "#17211D" }}>{a.label}</span>
+                      {a.comment && <span className="text-xs ml-2" style={{ color: "#66716B" }}>· {a.comment}</span>}
+                      <div className="text-xs mt-0.5" style={{ color: "#66716B" }}>
+                        par {a.profiles?.full_name ?? "—"}
+                        {/* Le lien pointe l'ONGLET qui porte l'entité —
+                            lui existe toujours, même si l'objet a été
+                            supprimé depuis. */}
+                        {entTab ? (
+                          <> · <Link href={`/projets/${id}?tab=${entTab}`} className="hover:underline" style={{ color: "var(--brand-accent,#0E6B5C)" }}>{entLabel}</Link></>
+                        ) : (
+                          <> · {entLabel}</>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+              {!(audit ?? []).length && (
+                <div className="p-8 text-center text-sm" style={{ color: "#66716B" }}>
+                  {filtered ? "Aucun événement ne correspond aux filtres." : "Aucun événement enregistré"}
                 </div>
-                <div className="flex-1">
-                  <span className="text-xs font-medium px-2 py-0.5 rounded" style={{ background: "var(--brand-accent-soft,#E4F0EC)", color: "var(--brand-accent,#0E6B5C)" }}>{a.action}</span>
-                  {" "}
-                  <span className="text-sm" style={{ color: "#17211D" }}>{a.label}</span>
-                  {a.comment && <span className="text-xs ml-2" style={{ color: "#66716B" }}>· {a.comment}</span>}
-                  <div className="text-xs mt-0.5" style={{ color: "#66716B" }}>par {a.profiles?.full_name ?? "—"}</div>
-                </div>
+              )}
+            </div>
+            <div className="px-5 py-3 border-t flex items-center justify-between text-xs" style={{ borderColor: "#E3E6E2", color: "#66716B" }}>
+              <span>{total} événement{total > 1 ? "s" : ""} · page {auditPage} / {totalPages}</span>
+              <div className="flex items-center gap-3">
+                {auditPage > 1 && (
+                  <Link href={auditHref(auditPage - 1)} className="font-medium" style={{ color: "var(--brand-accent,#0E6B5C)" }}>← Précédente</Link>
+                )}
+                {auditPage < totalPages && (
+                  <Link href={auditHref(auditPage + 1)} className="font-medium" style={{ color: "var(--brand-accent,#0E6B5C)" }}>Suivante →</Link>
+                )}
               </div>
-            ))}
-            {!(audit ?? []).length && <div className="p-8 text-center text-sm" style={{ color: "#66716B" }}>Aucun événement enregistré</div>}
+            </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
     </div>
   )
 }
