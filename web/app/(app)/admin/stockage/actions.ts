@@ -15,6 +15,10 @@ export interface ProjectStat { projectId: string; projectName: string; files: nu
 export async function loadStorage(): Promise<{
   ok: boolean; error?: string
   buckets?: BucketStat[]; orphans?: Orphan[]; projects?: ProjectStat[]
+  // Point de contrôle des sauvegardes VPS (0052) : date de la dernière
+  // réussie et son âge en heures — null tant qu'aucune n'a eu lieu ou
+  // que la migration n'est pas passée (lecture tolérante).
+  backup?: { at: string; ageHours: number } | null
 }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -30,8 +34,14 @@ export async function loadStorage(): Promise<{
   // écran vide qui laisserait croire que le stockage est vide.
   if (stats.error) return { ok: false, error: `Statistiques indisponibles — la migration 0034 est-elle appliquée ? (${stats.error.message})` }
 
+  const { data: bk } = await supabase.from('platform_settings').select('backup_last_at').maybeSingle()
+  const backup = bk?.backup_last_at
+    ? { at: bk.backup_last_at as string, ageHours: (Date.now() - new Date(bk.backup_last_at).getTime()) / 3600000 }
+    : null
+
   return {
     ok: true,
+    backup,
     buckets: ((stats.data ?? []) as { bucket: string; files: number; bytes: number }[])
       .map(b => ({ bucket: b.bucket, files: Number(b.files), bytes: Number(b.bytes) })),
     orphans: ((orphans.data ?? []) as { path: string; bytes: number; created_at: string }[])
