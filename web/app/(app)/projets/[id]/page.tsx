@@ -173,7 +173,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
   // migration n'est pas passée elles échouent, et la fiche n'affiche
   // simplement ni la ligne ni le bouton « Villes » — jamais d'écran
   // cassé entre le déploiement du code et le passage du SQL.
-  const [{ data: projectCityRows, error: pcErr }, { data: allCities, error: cErr }, { data: mpRows, error: mpErr }, { data: orgMembers, error: omErr }, { data: progRows, error: prErr }, { data: viaRows, error: viaErr }] = await Promise.all([
+  const [{ data: projectCityRows, error: pcErr }, { data: allCities, error: cErr }, { data: mpRows, error: mpErr }, { data: orgMembers, error: omErr }, { data: progRows, error: prErr }, { data: viaRows, error: viaErr }, { data: logoRows, error: logoErr }] = await Promise.all([
     supabase.from("project_cities").select("city_id, cities(id, name, country)").eq("project_id", id),
     supabase.from("cities").select("id, name, country").order("name"),
     // Invités des réunions (0051) — même dégradation douce : tant que
@@ -190,6 +190,10 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
     // Sièges de directeur de programme (0055/0056) : la provenance
     // via_programme fait le rôle AFFICHÉ et verrouille le retrait.
     supabase.from("project_members").select("user_id, via_programme").eq("project_id", id),
+    // Logos des organisations (0057) — requête séparée exprès : les
+    // demander dans le select imbriqué du projet casserait TOUTE la
+    // fiche tant que la colonne n'existe pas.
+    supabase.from("organizations").select("id, logo_url"),
   ])
   const citiesReady = !pcErr && !cErr
   const participantsReady = !mpErr
@@ -197,6 +201,10 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
   const viaProgramme = new Set(
     (viaErr ? [] : (viaRows ?? []) as { user_id: string; via_programme: boolean }[])
       .filter(r => r.via_programme).map(r => r.user_id)
+  )
+  const orgLogos = new Map(
+    (logoErr ? [] : (logoRows ?? []) as { id: string; logo_url: string | null }[])
+      .filter(r => r.logo_url).map(r => [r.id, r.logo_url as string])
   )
   const participantsByMeeting = new Map<string, { user_id: string; response: string }[]>()
   if (participantsReady) {
@@ -588,7 +596,13 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                 const r = PROJECT_ROLES[po.role] ?? { label: po.role, fg: "#66716B", bg: "#EEF0EE" }
                 return (
                   <div key={po.org_id} className="flex items-center justify-between">
-                    <span className="text-sm" style={{ color: "#17211D", fontFamily: "var(--font-inter)" }}>{po.organizations?.name}</span>
+                    <span className="text-sm flex items-center gap-2" style={{ color: "#17211D", fontFamily: "var(--font-inter)" }}>
+                      {orgLogos.has(po.org_id) && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={orgLogos.get(po.org_id)} alt="" className="w-5 h-5 rounded object-contain flex-shrink-0" />
+                      )}
+                      {po.organizations?.name}
+                    </span>
                     <Badge label={r.label} fg={r.fg} bg={r.bg} />
                   </div>
                 )

@@ -146,9 +146,9 @@ export default function InterventionMap({ projects, cities, unlinkedCount = 0, c
 
   return (
     <Card>
-      <div className="grid sm:grid-cols-2">
+      <div className="grid grid-cols-2">
         {panels.map((panel, i) => (
-          <div key={panel.key} className={`p-4 ${i > 0 ? "border-t sm:border-t-0 sm:border-l" : ""}`} style={{ borderColor: "#E3E6E2" }}>
+          <div key={panel.key} className={`p-2.5 sm:p-4 ${i > 0 ? "border-l" : ""}`} style={{ borderColor: "#E3E6E2" }}>
             {/* Le conteneur fige le ratio du viewBox : les repères en %
                 tombent exactement sur la géométrie rendue. */}
             <div className="relative mx-auto max-w-xs" style={{ aspectRatio: `${W}/${H}` }}>
@@ -241,9 +241,9 @@ function CitiesMap({ cities, unlinkedCount, cityPairs }: { cities: MapCity[]; un
       {/* `relative` : la grille porte le calque des liaisons
           (MapLinkOverlay), qui mesure les repères rendus pour tracer
           d'un panneau à l'autre. */}
-      <div className="relative grid sm:grid-cols-2">
+      <div className="relative grid grid-cols-2">
         {panels.map((panel, i) => (
-          <div key={panel.key} className={`p-4 ${i > 0 ? "border-t sm:border-t-0 sm:border-l" : ""}`} style={{ borderColor: "#E3E6E2" }}>
+          <div key={panel.key} className={`p-2.5 sm:p-4 ${i > 0 ? "border-l" : ""}`} style={{ borderColor: "#E3E6E2" }}>
             <div className="relative mx-auto max-w-xs" style={{ aspectRatio: `${W}/${H}` }}>
               <svg viewBox={`0 0 ${W} ${H}`} className="absolute inset-0 w-full h-full" role="img"
                 aria-label={`${panel.label} — ${panel.placed.length} ville${panel.placed.length > 1 ? "s" : ""}`}>
