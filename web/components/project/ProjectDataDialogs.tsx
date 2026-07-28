@@ -373,9 +373,29 @@ export function MeasureDialog({ indicatorId, indicatorName, unit }: { indicatorI
 }
 
 /* ============ Réunion ============ */
-export function MeetingDialog({ projectId }: { projectId: string }) {
-  const [form, setForm] = useState<Omit<MeetingInput, "projectId">>({ title: "", kind: "copil", date: "", minutes: "" })
-  const d = useDialog(() => createMeeting({ projectId, ...form }))
+// Calendrier des réunions (0051) : heure, lieu et invités par compte.
+// `participantsReady` dit si la migration est passée — sans elle, le
+// dialogue reste celui d'avant (titre, type, date, compte rendu) et
+// n'envoie aucun champ nouveau.
+export function MeetingDialog({ projectId, members = [], participantsReady = false }: {
+  projectId: string; members?: Option[]; participantsReady?: boolean
+}) {
+  const [form, setForm] = useState<Omit<MeetingInput, "projectId" | "participantIds">>({
+    title: "", kind: "copil", date: "", minutes: "", start_time: "", location: "",
+  })
+  const [invited, setInvited] = useState<Set<string>>(new Set())
+  const d = useDialog(() => createMeeting({
+    projectId, ...form,
+    ...(participantsReady ? { participantIds: [...invited] } : {}),
+  }))
+
+  function toggleInvite(id: string) {
+    const next = new Set(invited)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    setInvited(next)
+  }
+
   return (
     <>
       <button onClick={() => d.setOpen(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold" style={{ background: "var(--brand-accent,#0E6B5C)" }}>
@@ -396,7 +416,41 @@ export function MeetingDialog({ projectId }: { projectId: string }) {
               <Field label="Date *">{id => (
                 <input id={id} type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} required className={inputCls} style={border} />
               )}</Field>
+              {participantsReady && (
+                <>
+                  <Field label="Heure">{id => (
+                    <input id={id} type="time" value={form.start_time} onChange={e => setForm({ ...form, start_time: e.target.value })} className={inputCls} style={border} />
+                  )}</Field>
+                  <Field label="Lieu">{id => (
+                    <input id={id} value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} className={inputCls} style={border} placeholder="Mairie de Villepreux, visio…" />
+                  )}</Field>
+                </>
+              )}
             </div>
+            {participantsReady && (
+              <div>
+                <div className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Invités</div>
+                {/* Les invités cochés reçoivent cloche + email et
+                    répondent depuis l'onglet COPIL. L'organisateur qui
+                    se coche naît « accepté » : il programme, il vient. */}
+                <div className="space-y-1 max-h-44 overflow-y-auto pr-1">
+                  {members.map(m => (
+                    <label key={m.id} className="flex items-center gap-2.5 px-3 py-2 rounded-xl border cursor-pointer"
+                      style={{ ...border, background: invited.has(m.id) ? "var(--brand-accent-soft,#E4F0EC)" : "#fff" }}>
+                      <input type="checkbox" checked={invited.has(m.id)} onChange={() => toggleInvite(m.id)}
+                        className="accent-emerald-700" />
+                      <span className="text-sm" style={{ color: "#17211D" }}>{m.name}</span>
+                    </label>
+                  ))}
+                  {members.length === 0 && (
+                    <p className="text-xs" style={{ color: "#66716B" }}>Aucun membre dans ce projet.</p>
+                  )}
+                </div>
+                <p className="text-xs mt-1" style={{ color: "#66716B" }}>
+                  Chaque invité est prévenu (notification et email) et répond — accepte ou refuse — dans l&apos;application.
+                </p>
+              </div>
+            )}
             <Field label="Compte rendu">{id => (
               <textarea id={id} value={form.minutes} onChange={e => setForm({ ...form, minutes: e.target.value })} rows={3} className={inputCls} style={border} />
             )}</Field>

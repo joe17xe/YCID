@@ -7,6 +7,7 @@ import { adminClient } from '@/lib/supabase/admin'
 import { adminCreateUser } from '@/lib/supabase/auth-admin'
 import { canEditCompletedTasks, canManagePhases, canManageMembers, canManageAuditors, canManageTasks, canManageBudget, canManageMeetings, isUserAdmin } from '@/lib/permissions'
 import { notifyUser } from '@/lib/notify'
+import { fmtDate } from '@/lib/constants'
 import { ASSIGNABLE_ROLES, isAuditorSeat } from '@/lib/rbac'
 import { notifyPeople, projectLeads } from '@/lib/notify-circuit'
 import type { TaskStatus } from '@/lib/types'
@@ -542,6 +543,12 @@ export interface MeetingInput {
   kind: string
   date: string
   minutes: string
+  // Calendrier des réunions (0051). Le dialogue n'envoie ces champs
+  // que lorsque la migration est passée — absents, la réunion se crée
+  // comme avant.
+  start_time?: string
+  location?: string
+  participantIds?: string[]
 }
 
 export async function createMeeting(input: MeetingInput): Promise<{ ok: boolean; error?: string }> {
@@ -556,12 +563,93 @@ export async function createMeeting(input: MeetingInput): Promise<{ ok: boolean;
   if (!['copil', 'technique', 'terrain'].includes(input.kind)) return { ok: false, error: 'Type de réunion invalide.' }
   if (!input.date) return { ok: false, error: 'La date est obligatoire.' }
 
-  const { data: created, error } = await supabase.from('meetings').insert({
+  const values: Record<string, unknown> = {
     project_id: input.projectId, title, kind: input.kind, date: input.date,
     minutes: input.minutes?.trim() || null, created_by: user.id,
-  }).select('id').single()
+  }
+  // Colonnes de la 0051 — ajoutées seulement si fournies : tant que la
+  // migration n'est pas passée, le dialogue ne les envoie pas et
+  // l'insert ne nomme pas de colonne inexistante.
+  if (input.start_time?.trim()) values.start_time = input.start_time
+  if (input.location?.trim()) values.location = input.location.trim()
+
+  const { data: created, error } = await supabase.from('meetings').insert(values).select('id').single()
   if (error) return { ok: false, error: `Échec de la création : ${error.message}` }
   await supabase.from('audit_log').insert({ project_id: input.projectId, entity: 'meeting', entity_id: created?.id, label: title, action: 'cree', user_id: user.id })
+
+  // Invitations (0051) : la ligne de l'organisateur naît « acceptée »
+  // (il programme, il vient) ; les autres naissent « en attente » et
+  // sont prévenus — cloche + email — avec de quoi répondre en
+  // connaissance de cause.
+  const invitees = [...new Set(input.participantIds ?? [])]
+  if (created && invitees.length) {
+    const { error: mpError } = await supabase.from('meeting_participants').insert(
+      invitees.map(uid => uid === user.id
+        ? { meeting_id: created.id, user_id: uid, response: 'acceptee', responded_at: new Date().toISOString() }
+        : { meeting_id: created.id, user_id: uid })
+    )
+    if (mpError) {
+      return { ok: false, error: `Réunion créée, mais invitations non enregistrées : ${mpError.message}` }
+    }
+    const when = `${fmtDate(input.date)}${input.start_time?.trim() ? ` à ${input.start_time.trim().slice(0, 5)}` : ''}`
+    await notifyPeople(invitees.filter(uid => uid !== user.id), {
+      type: 'meeting_invite',
+      title: `Invitation — ${title}`,
+      body: [
+        `Vous êtes invité·e à la réunion « ${title} », le ${when}${input.location?.trim() ? `, ${input.location.trim()}` : ''}.`,
+        'Merci d\'accepter ou de refuser depuis l\'onglet COPIL du projet.',
+      ],
+      path: `/projets/${input.projectId}?tab=copil`,
+      linkLabel: 'Répondre dans Solid’Pilot',
+    })
+  }
+  revalidatePath(`/projets/${input.projectId}`)
+  return { ok: true }
+}
+
+// ------------------------------------------------------------
+// Répondre à une invitation (0051)
+// ------------------------------------------------------------
+// Chacun répond pour lui-même — la RLS ne laisse modifier que SA
+// ligne. La réponse est notifiée à l'organisateur : une réunion se
+// prépare avec ceux qui viennent, pas avec ceux qu'on espère.
+export async function respondToMeeting(input: { projectId: string; meetingId: string; response: string }): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Non authentifié.' }
+  if (!['acceptee', 'refusee'].includes(input.response)) {
+    return { ok: false, error: 'Réponse invalide.' }
+  }
+
+  const { data: updated, error } = await supabase.from('meeting_participants')
+    .update({ response: input.response, responded_at: new Date().toISOString() })
+    .eq('meeting_id', input.meetingId).eq('user_id', user.id)
+    .select('meeting_id')
+  if (error) return { ok: false, error: `Échec de la réponse : ${error.message}` }
+  if (!updated?.length) return { ok: false, error: 'Vous n\'êtes pas dans la liste des invités de cette réunion.' }
+
+  const accepted = input.response === 'acceptee'
+  const { data: meeting } = await supabase.from('meetings')
+    .select('title, created_by').eq('id', input.meetingId).maybeSingle()
+  const { data: me } = await supabase.from('profiles')
+    .select('full_name').eq('id', user.id).maybeSingle()
+  const who = me?.full_name ?? 'Un invité'
+
+  await supabase.from('audit_log').insert({
+    project_id: input.projectId, entity: 'meeting', entity_id: input.meetingId,
+    label: meeting?.title ?? 'Réunion', action: 'modifie', user_id: user.id,
+    comment: `Invitation ${accepted ? 'acceptée' : 'refusée'}`,
+  })
+
+  if (meeting?.created_by && meeting.created_by !== user.id) {
+    await notifyPeople([meeting.created_by], {
+      type: 'meeting_response',
+      title: `${who} a ${accepted ? 'accepté' : 'refusé'} — ${meeting.title}`,
+      body: [`${who} a ${accepted ? 'accepté' : 'refusé'} l'invitation à « ${meeting.title} ».`],
+      path: `/projets/${input.projectId}?tab=copil`,
+      linkLabel: 'Voir la réunion',
+    })
+  }
   revalidatePath(`/projets/${input.projectId}`)
   return { ok: true }
 }
