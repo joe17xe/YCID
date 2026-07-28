@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { PROJECT_STATUS, fmtEur } from "@/lib/constants"
+import { isEngagedDoc, isPaidDoc, type DocLike } from "@/lib/budget"
 import { countryFlag } from "@/lib/flags"
 import Link from "next/link"
 import { AlertTriangle, CalendarClock, MapPin } from "lucide-react"
@@ -31,6 +32,7 @@ function orgName(o: OrgRef): string {
 // ne l'intéresse pas. Le typage du client Supabase lui-même reste le
 // chantier de la PR 20.
 type TaskRow = { id: string; progress: number; status: string; end_date: string | null }
+type LineRow = { planned_amount: number | null; is_valorisation: boolean; documents?: DocLike[] | null }
 type ProjectRow = {
   id: string
   name: string
@@ -39,6 +41,7 @@ type ProjectRow = {
   programme: string | null
   budget: number | null
   public_token: string | null
+  budget_lines?: LineRow[] | null
   phases?: { tasks?: TaskRow[] | null }[] | null
   project_organizations?: { role: string; organizations: OrgRef }[] | null
 }
@@ -52,7 +55,7 @@ export default async function PilotagePage({ searchParams }: { searchParams: Pro
   const tri = rawTri && TRIS[rawTri] ? rawTri : "pays"
 
   const [{ data: projects }, { data: decisions }] = await Promise.all([
-    supabase.from("projects").select("*, project_organizations(role, organizations(name)), phases(tasks(id, progress, status, end_date)), budget_lines(planned_amount, is_valorisation)").order("name"),
+    supabase.from("projects").select("*, project_organizations(role, organizations(name)), phases(tasks(id, progress, status, end_date)), budget_lines(planned_amount, is_valorisation, documents(type, amount, paid, validations(decision)))").order("name"),
     supabase.from("decisions").select("*, project:project_id(name), owner:owner_user_id(full_name)").neq("status", "fait").order("due_date"),
   ])
 
@@ -60,6 +63,23 @@ export default async function PilotagePage({ searchParams }: { searchParams: Pro
     const tasks = (p.phases ?? []).flatMap(ph => ph.tasks ?? [])
     if (!tasks.length) return 0
     return Math.round(tasks.reduce((s, t) => s + t.progress, 0) / tasks.length)
+  }
+
+  // L'exécution d'un projet (roadmap : « le portefeuille montre le
+  // voté, pas l'exécution »). Mêmes règles que l'onglet Budget parce
+  // que ce sont les mêmes fonctions (lib/budget.ts) : engagé = devis
+  // validés à l'unanimité, payé = pièces réglées hors devis. La
+  // valorisation est écartée — de l'argent, pas du temps donné.
+  function execution(p: ProjectRow): { engaged: number; paid: number } {
+    let engaged = 0, paid = 0
+    for (const l of p.budget_lines ?? []) {
+      if (l.is_valorisation) continue
+      for (const d of l.documents ?? []) {
+        if (isEngagedDoc(d)) engaged += d.amount ?? 0
+        if (isPaidDoc(d)) paid += d.amount ?? 0
+      }
+    }
+    return { engaged, paid }
   }
 
   // Les organisations du projet : la porteuse d'abord (c'est elle qui
@@ -98,6 +118,7 @@ export default async function PilotagePage({ searchParams }: { searchParams: Pro
   function projectRow(p: ProjectRow, showCountry: boolean) {
     const s = PROJECT_STATUS[p.status] ?? { label: p.status, fg: "#66716B", bg: "#EEF0EE" }
     const prog = progress(p)
+    const ex = execution(p)
     const allTasks = (p.phases ?? []).flatMap(ph => ph.tasks ?? [])
     const lateTasks = allTasks.filter(t => t.end_date && t.end_date < today && t.status !== "terminee")
     const orgs = partners(p)
@@ -134,6 +155,8 @@ export default async function PilotagePage({ searchParams }: { searchParams: Pro
           </div>
         </td>
         <td data-label="Montant voté" className="px-5 py-3" style={{ color: "#17211D" }}>{fmtEur(p.budget)}</td>
+        <td data-label="Engagé" className="px-5 py-3 whitespace-nowrap" style={{ color: "#17211D" }}>{fmtEur(ex.engaged)}</td>
+        <td data-label="Payé" className="px-5 py-3 whitespace-nowrap" style={{ color: "#17211D" }}>{fmtEur(ex.paid)}</td>
         <td data-label="Tâches en retard" className="px-5 py-3">
           {lateTasks.length > 0 ? (
             <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "#F6E7E5", color: "#A3342C" }}>
@@ -218,6 +241,8 @@ export default async function PilotagePage({ searchParams }: { searchParams: Pro
               {th("Statut")}
               {th("Avancement")}
               {th("Montant voté")}
+              {th("Engagé")}
+              {th("Payé")}
               {th("Tâches en retard")}
               <th className="px-5 py-3"><span className="sr-only">Actions</span></th>
             </tr>
@@ -239,6 +264,12 @@ export default async function PilotagePage({ searchParams }: { searchParams: Pro
                     </td>
                     <td data-label="Montant voté" className="px-5 py-2.5 text-xs font-semibold" style={{ color: "#17211D" }}>
                       {fmtEur(group.reduce((s, p) => s + (p.budget ?? 0), 0))}
+                    </td>
+                    <td data-label="Engagé" className="px-5 py-2.5 text-xs font-semibold" style={{ color: "#17211D" }}>
+                      {fmtEur(group.reduce((s, p) => s + execution(p).engaged, 0))}
+                    </td>
+                    <td data-label="Payé" className="px-5 py-2.5 text-xs font-semibold" style={{ color: "#17211D" }}>
+                      {fmtEur(group.reduce((s, p) => s + execution(p).paid, 0))}
                     </td>
                     <td />
                     <td />
