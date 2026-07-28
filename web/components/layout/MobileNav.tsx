@@ -1,11 +1,11 @@
 "use client"
 import { useEffect, useState, useTransition } from "react"
-import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
+import Link from "next/link"
 import { Menu, X, Settings, LogOut } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { useTranslations, useLocale } from "next-intl"
-import { NAV, ADMIN_NAV } from "@/components/layout/Sidebar"
+import { NAV_GROUPS, ADMIN_NAV, NavLink } from "@/components/layout/Sidebar"
 import NotificationsBell from "@/components/layout/NotificationsBell"
 import InstallAppButton from "@/components/layout/InstallAppButton"
 
@@ -19,9 +19,10 @@ interface MobileNavProps {
 }
 
 // Navigation mobile (« mode application ») : barre supérieure compacte +
-// tiroir latéral reprenant la navigation de la Sidebar, l'identité, les
-// préférences, la langue et la déconnexion. Visible uniquement < md ;
-// la Sidebar et le Header classiques restent inchangés sur desktop.
+// tiroir latéral reprenant la navigation de la Sidebar — mêmes groupes,
+// même habillage sombre (V1) : une seule liste, une seule identité
+// visuelle. Visible uniquement < md ; la Sidebar et le Header classiques
+// restent inchangés sur desktop.
 export default function MobileNav({ showAdmin, brandName, logoUrl, name, email, avatarUrl }: MobileNavProps) {
   const pathname = usePathname()
   const router = useRouter()
@@ -58,6 +59,7 @@ export default function MobileNav({ showAdmin, brandName, logoUrl, name, email, 
   }
 
   const initials = (name || email || "?").split(/[\s@.]+/).filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase()).join("")
+  const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/")
 
   return (
     <div className="md:hidden">
@@ -82,80 +84,65 @@ export default function MobileNav({ showAdmin, brandName, logoUrl, name, email, 
         <NotificationsBell />
       </div>
 
-      {/* Tiroir de navigation */}
+      {/* Tiroir de navigation — même fond sombre dérivé de la marque que
+          la Sidebar : le téléphone et l'écran racontent le même produit. */}
       {open && (
         <div className="fixed inset-0 z-50">
-          <div className="absolute inset-0 bg-black/30" onClick={() => setOpen(false)} aria-hidden />
+          <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} aria-hidden />
           <div role="dialog" aria-modal="true" aria-label="Menu de navigation"
-            className="absolute inset-y-0 left-0 w-72 max-w-[85vw] bg-white flex flex-col overflow-y-auto shadow-xl">
+            className="absolute inset-y-0 left-0 w-72 max-w-[85vw] flex flex-col overflow-y-auto shadow-xl"
+            style={{ background: "var(--sidebar-bg)" }}>
             {/* En-tête : identité */}
-            <div className="flex items-center gap-3 px-4 py-4 border-b" style={{ borderColor: "#E3E6E2" }}>
+            <div className="flex items-center gap-3 px-4 py-4 border-b" style={{ borderColor: "var(--sidebar-border)" }}>
               {avatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={avatarUrl} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
               ) : (
                 <span className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0"
-                  style={{ background: "var(--brand-accent-soft,#E4F0EC)", color: "var(--brand-accent,#0E6B5C)" }}>
+                  style={{ background: "var(--sidebar-bg-raised)", color: "var(--sidebar-fg)" }}>
                   {initials || "?"}
                 </span>
               )}
               <div className="min-w-0 flex-1">
-                <div className="text-sm font-semibold truncate" style={{ color: "#17211D", fontFamily: "var(--font-sora)" }}>{name || "—"}</div>
-                <div className="text-xs truncate" style={{ color: "#66716B" }}>{email}</div>
+                <div className="text-sm font-semibold truncate" style={{ color: "var(--sidebar-fg)", fontFamily: "var(--font-sora)" }}>{name || "—"}</div>
+                <div className="text-xs truncate" style={{ color: "var(--sidebar-muted)" }}>{email}</div>
               </div>
-              <button onClick={() => setOpen(false)} aria-label="Fermer le menu" className="p-1.5 rounded-lg hover:bg-gray-50" style={{ color: "#66716B" }}>
+              <button onClick={() => setOpen(false)} aria-label="Fermer le menu" className="p-1.5 rounded-lg sidebar-link">
                 <X size={20} />
               </button>
             </div>
 
-            {/* Navigation */}
+            {/* Navigation : mêmes groupes que la Sidebar (NAV_GROUPS) */}
             <nav className="flex-1 py-3 px-2 space-y-1">
-              {NAV.map(({ href, key, Icon }) => {
-                const active = pathname === href || pathname.startsWith(href + "/")
-                return (
-                  <Link key={href} href={href} onClick={() => setOpen(false)}
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
-                    style={{
-                      background: active ? "var(--brand-accent-soft,#E4F0EC)" : "transparent",
-                      color: active ? "var(--brand-accent,#0E6B5C)" : "#66716B",
-                      fontFamily: "var(--font-inter)",
-                      fontWeight: active ? 600 : 400,
-                    }}>
-                    <Icon size={18} className="flex-shrink-0" />
-                    <span className="text-sm">{t(key)}</span>
-                  </Link>
-                )
-              })}
+              {NAV_GROUPS.map((group, gi) => (
+                <div key={group.key ?? `g${gi}`} className="space-y-1">
+                  {group.key && (
+                    <div className="px-3 pt-4 pb-1 text-[11px] font-semibold tracking-wider uppercase" style={{ color: "var(--sidebar-muted)" }}>
+                      {t(group.key)}
+                    </div>
+                  )}
+                  {group.items.map(({ href, key, Icon }) => (
+                    <NavLink key={href} href={href} label={t(key)} Icon={Icon} active={isActive(href)} onNavigate={() => setOpen(false)} />
+                  ))}
+                </div>
+              ))}
               {showAdmin && (
-                <>
-                  <div className="px-3 pt-4 pb-1 text-xs font-semibold tracking-wider" style={{ color: "#66716B" }}>
+                <div className="space-y-1">
+                  <div className="px-3 pt-4 pb-1 text-[11px] font-semibold tracking-wider uppercase" style={{ color: "var(--sidebar-muted)" }}>
                     {t("administration")}
                   </div>
-                  {ADMIN_NAV.map(({ href, key, Icon }) => {
-                    const active = pathname === href || pathname.startsWith(href + "/")
-                    return (
-                      <Link key={href} href={href} onClick={() => setOpen(false)}
-                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
-                        style={{
-                          background: active ? "var(--brand-accent-soft,#E4F0EC)" : "transparent",
-                          color: active ? "var(--brand-accent,#0E6B5C)" : "#66716B",
-                          fontFamily: "var(--font-inter)",
-                          fontWeight: active ? 600 : 400,
-                        }}>
-                        <Icon size={18} className="flex-shrink-0" />
-                        <span className="text-sm">{t(key)}</span>
-                      </Link>
-                    )
-                  })}
-                </>
+                  {ADMIN_NAV.map(({ href, key, Icon }) => (
+                    <NavLink key={href} href={href} label={t(key)} Icon={Icon} active={isActive(href)} onNavigate={() => setOpen(false)} />
+                  ))}
+                </div>
               )}
             </nav>
 
             {/* Pied : installation, préférences, langue, déconnexion */}
-            <div className="border-t p-2 space-y-1" style={{ borderColor: "#E3E6E2" }}>
-              <InstallAppButton />
-              <Link href="/preferences" onClick={() => setOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm" style={{ color: "#17211D" }}>
-                <Settings size={18} style={{ color: "#66716B" }} /> {ta("preferences")}
+            <div className="border-t p-2 space-y-1" style={{ borderColor: "var(--sidebar-border)" }}>
+              <InstallAppButton variant="drawer" />
+              <Link href="/preferences" onClick={() => setOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm sidebar-link">
+                <Settings size={18} /> {ta("preferences")}
               </Link>
               <div className="flex items-center gap-2 px-3 py-1.5" role="group" aria-label="Langue de l'interface">
                 {(["fr", "en"] as const).map(l => (
@@ -164,15 +151,15 @@ export default function MobileNav({ showAdmin, brandName, logoUrl, name, email, 
                     aria-label={l === "fr" ? "Français" : "English"}
                     className="px-3 py-1 rounded-xl border text-xs font-semibold uppercase"
                     style={{
-                      background: locale === l ? "var(--brand-accent-soft,#E4F0EC)" : "#fff",
-                      borderColor: locale === l ? "var(--brand-accent,#0E6B5C)" : "#E3E6E2",
-                      color: locale === l ? "var(--brand-accent,#0E6B5C)" : "#66716B",
+                      background: locale === l ? "#F4F7F5" : "transparent",
+                      borderColor: locale === l ? "#F4F7F5" : "var(--sidebar-border)",
+                      color: locale === l ? "#17211D" : "var(--sidebar-muted)",
                     }}>
                     {l}
                   </button>
                 ))}
               </div>
-              <button onClick={signOut} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium" style={{ color: "#A3342C" }}>
+              <button onClick={signOut} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium" style={{ color: "#F0B9B3" }}>
                 <LogOut size={18} /> {t("signOut")}
               </button>
             </div>

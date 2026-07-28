@@ -7,6 +7,17 @@
      par app/layout.tsx à partir de la table platform_settings. */
   --brand-accent: #0E6B5C;
   --brand-accent-soft: #E4F0EC;
+  /* Barre latérale sombre (V1, maquette du 27/07) : le fond se DÉRIVE de
+     la couleur de marque par color-mix — jamais une valeur en dur, sans
+     quoi une autre collectivité (white-label, 0018) garderait notre vert
+     sous sa propre couleur. Les textes restent des neutres clairs :
+     lisibles sur n'importe quelle teinte sombre (RGAA ≥ 4,5:1). */
+  --sidebar-bg: color-mix(in oklab, var(--brand-accent) 24%, #101512);
+  --sidebar-bg-raised: color-mix(in oklab, var(--brand-accent) 32%, #141a16);
+  --sidebar-border: color-mix(in oklab, var(--brand-accent) 20%, #202823);
+  --sidebar-fg: #F2F5F3;
+  --sidebar-muted: #AFBDB6;
+  --sidebar-hover: rgba(255, 255, 255, 0.07);
 }
 
 @theme inline {
@@ -46,6 +57,28 @@ input::placeholder,
 textarea::placeholder {
   color: #9AA39D;
   opacity: 1;
+}
+
+/* Barre latérale sombre (V1) : les trois états d'une entrée vivent ici,
+   pas en styles inline — un style inline aurait interdit le :hover.
+   L'état actif est une pastille CLAIRE où le texte repasse en foncé :
+   deux couples figés, dont le contraste ne dépend jamais de la couleur
+   d'accent choisie par la collectivité (white-label 0018, RGAA). */
+.sidebar-link {
+  color: var(--sidebar-muted);
+  font-family: var(--font-inter);
+}
+.sidebar-link:hover {
+  background: var(--sidebar-hover);
+  color: var(--sidebar-fg);
+}
+.sidebar-link[data-active] {
+  background: #F4F7F5;
+  color: #17211D;
+  font-weight: 600;
+}
+.sidebar-link[data-active] .sidebar-link-icon {
+  color: var(--brand-accent);
 }
 
 /* ============================================================

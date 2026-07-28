@@ -33,7 +33,7 @@ function isIos(): boolean {
     || (/macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1)
 }
 
-export default function InstallAppButton({ variant = "menu" }: { variant?: "menu" | "button" }) {
+export default function InstallAppButton({ variant = "menu" }: { variant?: "menu" | "button" | "drawer" }) {
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null)
   const [installed, setInstalled] = useState(true) // masqué tant qu'on n'a pas vérifié côté client
   const [ios, setIos] = useState(false)
@@ -82,6 +82,13 @@ export default function InstallAppButton({ variant = "menu" }: { variant?: "menu
           className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold"
           style={{ background: "var(--brand-accent,#0E6B5C)" }}>
           <Download size={15} aria-hidden="true" /> {label}
+        </button>
+      ) : variant === "drawer" ? (
+        // Tiroir mobile (V1) : fond sombre — l'accent de marque n'y est
+        // plus lisible, l'entrée prend les états clairs de .sidebar-link.
+        <button onClick={onClick}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors sidebar-link">
+          <Download size={18} aria-hidden="true" /> {label}
         </button>
       ) : (
         <button onClick={onClick}
