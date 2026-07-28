@@ -2,9 +2,11 @@
 
 > **État au 28/07 : lots 1 à 3 livrés** (sidebar sombre, tableau
 > enrichi, carte des interventions). Le lot 4 attend la décision logo,
-> qui revient à l'utilisateur. La passe de saisie des coordonnées
-> (Azour, Jeïta, Villepreux, Jouy-en-Josas…) se fait dans
-> l'application — fiche projet ▸ Modifier ▸ latitude / longitude.
+> qui revient à l'utilisateur. Les coordonnées des quatre communes
+> (Azour, Jeïta, Villepreux, Jouy-en-Josas) ont été fournies le 28/07 :
+> docs/projets-coordonnees-2026-07-28.sql, à passer une fois dans le
+> SQL Editor. La fiche projet (Modifier ▸ latitude / longitude) reste
+> le geste pour les corrections.
 
 La cible : la maquette « YCID Pilot » fournie le 27/07 au soir —
 barre latérale sombre et groupée, tuiles d'en-tête, tableau des projets
