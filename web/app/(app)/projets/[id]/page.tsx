@@ -32,7 +32,7 @@ import ProjectEditDialog from "@/components/project/ProjectEditDialog"
 import ProjectCitiesDialog from "@/components/project/ProjectCitiesDialog"
 import MeetingRSVP from "@/components/project/MeetingRSVP"
 import ProjectDocUpload from "@/components/project/ProjectDocUpload"
-import { ChevronLeft, User, CalendarDays, MapPin } from "lucide-react"
+import { ChevronLeft, User, CalendarDays, MapPin, Download } from "lucide-react"
 
 function Badge({ label, fg, bg }: { label: string; fg: string; bg: string }) {
   return <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ color: fg, background: bg }}>{label}</span>
@@ -821,11 +821,20 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
               </div>
             )
           })()}
-          {canBudget && (
-            <div className="flex justify-end mb-4">
-              <BudgetLineDialog projectId={id} orgs={orgOptions} phases={phaseOptions} tasks={taskOptions} />
-            </div>
-          )}
+          <div className="flex justify-end items-center gap-2 mb-4">
+            {/* Export CSV (roadmap, priorisé le 28/07) : le compte
+                rendu au Département et au MEAE se fait sur tableur.
+                Mêmes règles de calcul que l'écran — la route s'appuie
+                sur lib/budget.ts, source unique. Ouvert à qui VOIT le
+                budget (l'auditeur exporte pour contrôler) : la RLS
+                filtre, l'export n'ouvre rien de plus que l'onglet. */}
+            <a href={`/projets/${id}/budget.csv`} download
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border text-sm font-medium"
+              style={{ borderColor: "#E3E6E2", color: "#17211D" }}>
+              <Download size={14} aria-hidden="true" /> Export CSV
+            </a>
+            {canBudget && <BudgetLineDialog projectId={id} orgs={orgOptions} phases={phaseOptions} tasks={taskOptions} />}
+          </div>
           {/* Enveloppe votée (PR 39). La répartition entre lignes bouge
               librement ; c'est l'écart au montant VOTÉ qui alerte. */}
           {voted != null && envelopeGap && Math.abs(envelopeGap.value) >= 1 && (
