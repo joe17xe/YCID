@@ -2,6 +2,7 @@ import Link from "next/link"
 import { countryCode, countryFlag } from "@/lib/flags"
 import { YVELINES_OUTLINE, LIBAN_OUTLINE, type Outline } from "@/lib/map-outlines"
 import CityMarker, { type CityMarkerProject } from "@/components/pilotage/CityMarker"
+import MapLinkOverlay, { type CityPair } from "@/components/pilotage/MapLinkOverlay"
 
 // ============================================================
 // Carte des interventions Yvelines–Liban (V1, Lot 3 · villes 28/07)
@@ -112,15 +113,18 @@ function Card({ children }: { children: React.ReactNode }) {
   )
 }
 
-export default function InterventionMap({ projects, cities, unlinkedCount = 0 }: {
+export default function InterventionMap({ projects, cities, unlinkedCount = 0, cityPairs = [] }: {
   projects: MapProject[]
   // null / absent : la migration 0050 n'est pas passée → mode héritage
   cities?: MapCity[] | null
   // Projets visibles par ce compte qui n'ont encore aucune ville
   unlinkedCount?: number
+  // Paires de villes reliées par un même projet — les traits pointillés
+  // de MapLinkOverlay. Anonymes, comme les nombres.
+  cityPairs?: CityPair[]
 }) {
   if (cities != null) {
-    return <CitiesMap cities={cities} unlinkedCount={unlinkedCount} />
+    return <CitiesMap cities={cities} unlinkedCount={unlinkedCount} cityPairs={cityPairs} />
   }
 
   // ------- Mode héritage (avant la 0050) : un repère par projet -------
@@ -207,7 +211,7 @@ export default function InterventionMap({ projects, cities, unlinkedCount = 0 }:
 }
 
 // ------- Mode villes (0050) : un repère par ville -------
-function CitiesMap({ cities, unlinkedCount }: { cities: MapCity[]; unlinkedCount: number }) {
+function CitiesMap({ cities, unlinkedCount, cityPairs }: { cities: MapCity[]; unlinkedCount: number; cityPairs: CityPair[] }) {
   // Une ville sans plus aucun projet (référentiel orphelin après un
   // détachement) n'a rien à dire sur cette carte.
   const active = cities.filter(c => c.total > 0 || c.accessible.length > 0)
@@ -228,10 +232,16 @@ function CitiesMap({ cities, unlinkedCount }: { cities: MapCity[]; unlinkedCount
   const placedIds = new Set(panels.flatMap(p => p.placed.map(c => c.id)))
   const elsewhere = active.filter(c => !placedIds.has(c.id))
   const nothingPlaced = panels.every(p => p.placed.length === 0)
+  // Un trait ne se dessine qu'entre deux repères rendus : une paire
+  // dont une ville est hors des deux territoires n'a rien à relier.
+  const drawablePairs = cityPairs.filter(p => placedIds.has(p.a) && placedIds.has(p.b))
 
   return (
     <Card>
-      <div className="grid sm:grid-cols-2">
+      {/* `relative` : la grille porte le calque des liaisons
+          (MapLinkOverlay), qui mesure les repères rendus pour tracer
+          d'un panneau à l'autre. */}
+      <div className="relative grid sm:grid-cols-2">
         {panels.map((panel, i) => (
           <div key={panel.key} className={`p-4 ${i > 0 ? "border-t sm:border-t-0 sm:border-l" : ""}`} style={{ borderColor: "#E3E6E2" }}>
             <div className="relative mx-auto max-w-xs" style={{ aspectRatio: `${W}/${H}` }}>
@@ -248,6 +258,7 @@ function CitiesMap({ cities, unlinkedCount }: { cities: MapCity[]; unlinkedCount
                 return (
                   <CityMarker
                     key={c.id}
+                    id={c.id}
                     name={c.name}
                     flag={countryFlag(c.country)}
                     xPct={(x / W) * 100}
@@ -267,9 +278,13 @@ function CitiesMap({ cities, unlinkedCount }: { cities: MapCity[]; unlinkedCount
             </div>
           </div>
         ))}
+        {drawablePairs.length > 0 && <MapLinkOverlay pairs={drawablePairs} />}
       </div>
-      {(elsewhere.length > 0 || unlinkedCount > 0 || nothingPlaced) && (
+      {(elsewhere.length > 0 || unlinkedCount > 0 || nothingPlaced || drawablePairs.length > 0) && (
         <div className="px-6 py-3 border-t text-xs space-y-0.5" style={{ borderColor: "#E3E6E2", color: "#66716B" }}>
+          {drawablePairs.length > 0 && (
+            <p>Les pointillés relient les villes d&apos;un même projet.</p>
+          )}
           {elsewhere.length > 0 && (
             <p>{elsewhere.length} ville{elsewhere.length > 1 ? "s" : ""} hors de ces deux territoires.</p>
           )}
