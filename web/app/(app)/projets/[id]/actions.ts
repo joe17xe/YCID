@@ -1071,6 +1071,9 @@ export interface ProjectEditInput {
   // manuelle, jamais géocodée
   lat: string
   lng: string
+  // Programme de rattachement (0055). Absent tant que la migration
+  // n'est pas passée — le dialogue ne l'envoie pas.
+  programme_id?: string
 }
 
 const PROJECT_STATUSES = ['en_preparation', 'en_cours', 'suspendu', 'termine']
@@ -1130,6 +1133,10 @@ export async function updateProject(input: ProjectEditInput): Promise<{ ok: bool
     budget,
     lat,
     lng,
+    // Rattachement au programme (0055) : le déclencheur pose les
+    // appartenances des directeurs du nouveau programme et retire
+    // celles de l'ancien (via_programme uniquement).
+    ...(input.programme_id !== undefined ? { programme_id: input.programme_id || null } : {}),
   }).eq('id', input.projectId)
   if (error) return { ok: false, error: `Échec de la modification : ${error.message}` }
 

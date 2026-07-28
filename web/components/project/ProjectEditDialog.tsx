@@ -34,9 +34,13 @@ export interface ProjectEditable {
   lng: number | null
 }
 
-export default function ProjectEditDialog({ project, organizations }: {
+export default function ProjectEditDialog({ project, organizations, programmes, programmeId }: {
   project: ProjectEditable
   organizations: { id: string; name: string }[]
+  // Programmes (0055) — absent tant que la migration n'est pas passée :
+  // le sélecteur ne s'affiche pas et rien n'est envoyé.
+  programmes?: { id: string; name: string }[]
+  programmeId?: string | null
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -55,6 +59,7 @@ export default function ProjectEditDialog({ project, organizations }: {
     lead_org_id: project.lead_org_id ?? "",
     lat: project.lat != null ? String(project.lat) : "",
     lng: project.lng != null ? String(project.lng) : "",
+    ...(programmes ? { programme_id: programmeId ?? "" } : {}),
   })
 
   const leadChanged = form.lead_org_id !== (project.lead_org_id ?? "")
@@ -104,11 +109,27 @@ export default function ProjectEditDialog({ project, organizations }: {
                 <input id="pe-zone" value={form.zone} onChange={e => setForm({ ...form, zone: e.target.value })}
                   className={inputCls} style={border} />
               </div>
-              <div>
-                <label htmlFor="pe-prog" className={label} style={{ color: "#17211D" }}>Programme</label>
-                <input id="pe-prog" value={form.programme} onChange={e => setForm({ ...form, programme: e.target.value })}
-                  className={inputCls} style={border} placeholder="CEM" />
-              </div>
+              {programmes ? (
+                // Le programme est devenu un NIVEAU (0055) : on rattache
+                // à une entité, on ne tape plus une étiquette. Le
+                // rattachement déclenche les appartenances des
+                // directeurs du programme (via_programme).
+                <div>
+                  <label htmlFor="pe-prog-id" className={label} style={{ color: "#17211D" }}>Programme</label>
+                  <select id="pe-prog-id" value={(form as { programme_id?: string }).programme_id ?? ""}
+                    onChange={e => setForm({ ...form, programme_id: e.target.value })}
+                    className={inputCls} style={border}>
+                    <option value="">— Aucun —</option>
+                    {programmes.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                </div>
+              ) : (
+                <div>
+                  <label htmlFor="pe-prog" className={label} style={{ color: "#17211D" }}>Programme</label>
+                  <input id="pe-prog" value={form.programme} onChange={e => setForm({ ...form, programme: e.target.value })}
+                    className={inputCls} style={border} placeholder="CEM" />
+                </div>
+              )}
               <div>
                 <label htmlFor="pe-status" className={label} style={{ color: "#17211D" }}>Statut</label>
                 <select id="pe-status" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}
