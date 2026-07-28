@@ -173,7 +173,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
   // migration n'est pas passée elles échouent, et la fiche n'affiche
   // simplement ni la ligne ni le bouton « Villes » — jamais d'écran
   // cassé entre le déploiement du code et le passage du SQL.
-  const [{ data: projectCityRows, error: pcErr }, { data: allCities, error: cErr }, { data: mpRows, error: mpErr }, { data: orgMembers, error: omErr }] = await Promise.all([
+  const [{ data: projectCityRows, error: pcErr }, { data: allCities, error: cErr }, { data: mpRows, error: mpErr }, { data: orgMembers, error: omErr }, { data: progRows, error: prErr }] = await Promise.all([
     supabase.from("project_cities").select("city_id, cities(id, name, country)").eq("project_id", id),
     supabase.from("cities").select("id, name, country").order("name"),
     // Invités des réunions (0051) — même dégradation douce : tant que
@@ -184,9 +184,13 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
     // une réunion PAR organisation. Tolérant : sans la migration, le
     // dialogue garde sa liste à plat.
     supabase.rpc("project_org_members", { pid: id }),
+    // Programmes (0055) — même tolérance : sans la migration, le
+    // dialogue garde son champ texte et la fiche son étiquette.
+    supabase.from("programmes").select("id, name").order("name"),
   ])
   const citiesReady = !pcErr && !cErr
   const participantsReady = !mpErr
+  const programmesList: { id: string; name: string }[] | undefined = prErr ? undefined : ((progRows ?? []) as { id: string; name: string }[])
   const participantsByMeeting = new Map<string, { user_id: string; response: string }[]>()
   if (participantsReady) {
     for (const r of mpRows ?? []) {
@@ -445,7 +449,8 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
               status: project.status, budget: project.budget ?? null,
               lead_org_id: project.lead_org_id ?? null,
               lat: project.lat ?? null, lng: project.lng ?? null,
-            }} organizations={orgOptions} />
+            }} organizations={orgOptions}
+              programmes={programmesList} programmeId={project.programme_id ?? null} />
           )}
           {canPhases && citiesReady && (
             <ProjectCitiesDialog projectId={id} linkedIds={linkedCities.map(c => c.id)}
@@ -468,7 +473,12 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
           <div className="flex items-center gap-2 flex-wrap mb-1">
             <h1 className="text-xl sm:text-2xl font-bold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>{project.name}</h1>
             <Badge label={s.label} fg={s.fg} bg={s.bg} />
-            {project.programme && <Badge label={project.programme} fg="#6B4A8C" bg="#F0E9F5" />}
+            {/* Le programme-ENTITÉ (0055) prime sur l'étiquette texte
+                héritée (0020) — celle-ci reste le repli d'affichage. */}
+            {(() => {
+              const programmeLabel = programmesList?.find(p => p.id === project.programme_id)?.name ?? project.programme
+              return programmeLabel ? <Badge label={programmeLabel} fg="#6B4A8C" bg="#F0E9F5" /> : null
+            })()}
           </div>
           {project.description && (
             <p className="text-sm line-clamp-2 sm:line-clamp-none" style={{ color: "#66716B" }}>{project.description}</p>

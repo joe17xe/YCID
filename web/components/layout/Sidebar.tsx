@@ -1,7 +1,7 @@
 "use client"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { LayoutDashboard, FolderKanban, Building2, Upload, PieChart, Lightbulb, Users, ShieldCheck, Settings, HardDrive, HelpCircle, LogOut, ChevronLeft, ChevronRight, CheckSquare, type LucideIcon } from "lucide-react"
+import { LayoutDashboard, FolderKanban, Building2, Upload, PieChart, Lightbulb, Users, ShieldCheck, Settings, HardDrive, HelpCircle, LogOut, ChevronLeft, ChevronRight, CheckSquare, Layers, type LucideIcon } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { useState } from "react"
 import { useTranslations } from "next-intl"
@@ -38,6 +38,9 @@ export const NAV_GROUPS: NavGroup[] = [
 
 export const ADMIN_NAV: NavItem[] = [
   { href: "/admin/utilisateurs", key: "users", Icon: Users },
+  // Programmes (0055) : le niveau au-dessus des projets — création et
+  // directeurs, admin seul.
+  { href: "/admin/programmes", key: "programmes", Icon: Layers },
   { href: "/admin/acces", key: "access", Icon: ShieldCheck },
   { href: "/admin/stockage", key: "storage", Icon: HardDrive },
   { href: "/admin/configuration", key: "configuration", Icon: Settings },

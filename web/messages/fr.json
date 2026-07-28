@@ -15,7 +15,8 @@
     "storage": "Stockage",
     "configuration": "Configuration",
     "signOut": "Déconnexion",
-    "toValidate": "À valider"
+    "toValidate": "À valider",
+    "programmes": "Programmes"
   },
   "account": {
     "roles": "RÔLES",
