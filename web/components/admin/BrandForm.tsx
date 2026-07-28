@@ -25,6 +25,7 @@ export default function BrandForm({ settings }: { settings: PlatformSettings }) 
     accentColor: normalize(settings.accentColor, "#0E6B5C"),
     accentSoftColor: normalize(settings.accentSoftColor, "#E4F0EC"),
     logoUrl: settings.logoUrl,
+    faviconUrl: settings.faviconUrl,
   })
 
   function set<K extends keyof typeof form>(k: K, v: (typeof form)[K]) {
@@ -32,17 +33,17 @@ export default function BrandForm({ settings }: { settings: PlatformSettings }) 
     setSaved(false)
   }
 
-  async function uploadLogo(file: File) {
+  async function uploadImage(file: File, kind: "logo" | "favicon") {
     setError("")
     if (!file.type.startsWith("image/")) { setError("Choisissez un fichier image (PNG, JPG ou SVG)."); return }
-    if (file.size > 1024 * 1024) { setError("Logo trop lourd (1 Mo maximum)."); return }
+    if (file.size > 1024 * 1024) { setError("Fichier trop lourd (1 Mo maximum)."); return }
     setUploading(true)
     const ext = file.name.split(".").pop()?.toLowerCase() || "png"
-    const path = `logo.${ext}`
+    const path = `${kind}.${ext}`
     const { error: upErr } = await supabase.storage.from("branding").upload(path, file, { upsert: true })
     if (upErr) { setError(`Échec de l'envoi : ${upErr.message}`); setUploading(false); return }
     const { data } = supabase.storage.from("branding").getPublicUrl(path)
-    set("logoUrl", `${data.publicUrl}?v=${Date.now()}`)
+    set(kind === "logo" ? "logoUrl" : "faviconUrl", `${data.publicUrl}?v=${Date.now()}`)
     setUploading(false)
   }
 
@@ -99,7 +100,37 @@ export default function BrandForm({ settings }: { settings: PlatformSettings }) 
           </div>
           <p className="text-xs mt-2" style={{ color: "#66716B" }}>PNG, JPG ou SVG &middot; 1 Mo maximum. À défaut, une pastille de couleur est utilisée.</p>
           <input ref={fileRef} type="file" accept="image/*" className="hidden"
-            onChange={e => e.target.files?.[0] && uploadLogo(e.target.files[0])} />
+            onChange={e => e.target.files?.[0] && uploadImage(e.target.files[0], "logo")} />
+        </div>
+
+        {/* Favicon — l'icône d'onglet. Champ SÉPARÉ du logo : un logo
+            est souvent horizontal, un favicon doit être carré et
+            lisible à 16 pixels. À défaut, le logo sert de repli (0049). */}
+        <div>
+          <div className="text-xs font-semibold tracking-wider mb-2" style={{ color: "#66716B" }}>ICÔNE D&apos;ONGLET (FAVICON)</div>
+          <div className="flex items-center gap-3 flex-wrap">
+            {form.faviconUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={form.faviconUrl} alt="Favicon" className="w-8 h-8 rounded object-contain border" style={border} />
+            ) : (
+              <div className="w-8 h-8 rounded border grid place-items-center text-[10px]" style={{ ...border, color: "#9AA39D" }}>16px</div>
+            )}
+            <label className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-medium cursor-pointer"
+              style={{ ...border, color: "#17211D" }}>
+              <Upload size={14} /> {uploading ? "…" : "Choisir une icône"}
+              <input type="file" accept="image/*" className="hidden"
+                onChange={e => e.target.files?.[0] && uploadImage(e.target.files[0], "favicon")} />
+            </label>
+            {form.faviconUrl && (
+              <button type="button" onClick={() => set("faviconUrl", null)}
+                className="text-sm underline decoration-dotted" style={{ color: "#A3342C" }}>
+                Retirer
+              </button>
+            )}
+          </div>
+          <p className="text-xs mt-2" style={{ color: "#66716B" }}>
+            Image carrée, lisible en tout petit. À défaut, le logo est utilisé dans l&apos;onglet du navigateur.
+          </p>
         </div>
 
         {/* Couleurs */}

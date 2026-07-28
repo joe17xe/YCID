@@ -4,6 +4,8 @@ import { redirect } from "next/navigation"
 import { ACCESS_ROLES, REVIEW_STATES } from "@/lib/constants"
 import { HELP_INTRO, HELP_SECURITY, HELP_ROLES, HELP_STEPS, HELP_FAQ } from "@/lib/help-content"
 import { BookOpen, ShieldCheck, Users, MessageCircleQuestion } from "lucide-react"
+import WelcomeTour from "@/components/onboarding/WelcomeTour"
+import { buildTourSteps } from "@/lib/tour"
 
 function Card({ id, icon, title, children }: { id?: string; icon: React.ReactNode; title: string; children: React.ReactNode }) {
   return (
@@ -23,12 +25,18 @@ export default async function AidePage() {
   if (!user) redirect("/")
 
   const FLOW = ["brouillon", "soumis", "en_revue", "valide"]
+  // La même visite que la première connexion, personnalisée par les
+  // rôles du moment — pas une copie figée du jour de l'arrivée.
+  const tourSteps = await buildTourSteps(supabase, user.id)
 
   return (
     <div className="p-4 sm:p-8 max-w-3xl mx-auto">
       <div className="mb-8">
         <h1 className="text-2xl font-bold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>Aide et prise en main</h1>
         <p className="mt-1 text-sm leading-relaxed" style={{ color: "#66716B" }}>{HELP_INTRO}</p>
+        <div className="mt-3">
+          <WelcomeTour userId={user.id} steps={tourSteps} mode="button" />
+        </div>
       </div>
 
       <div className="space-y-6">

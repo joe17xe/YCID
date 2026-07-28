@@ -4,7 +4,7 @@
 -- ⚠️⚠️⚠️  SCRIPT DESTRUCTIF  ⚠️⚠️⚠️
 -- Ce script SUPPRIME toutes les tables métier existantes (ancien schéma
 -- simple comme nouveau schéma) puis installe le schéma complet du dépôt
--- (migrations 0001 → 0047 concaténées, à jour des correctifs).
+-- (migrations 0001 → 0049 concaténées, à jour des correctifs).
 -- À exécuter EN UNE FOIS dans le SQL Editor Supabase, uniquement après
 -- avoir acté que les données actuelles sont jetables.
 -- Généré depuis web/supabase/migrations/ — ne pas éditer à la main :
@@ -3465,6 +3465,78 @@ create policy "Auditor seat remove" on project_members
 --
 -- Essai réel, en chef de projet non administrateur : retirer un
 -- auditeur doit échouer. Retirer un contributeur doit réussir.
+
+-- ============================================================================
+-- MIGRATION 0048 — welcome tour
+-- ============================================================================
+
+-- ============================================================
+-- 0048 — Visite guidée de première connexion
+-- ============================================================
+-- Demande du 27/07 : « lors de la première connexion il faut faire un
+-- tour d'application et montrer les choses à savoir pour un nouveau
+-- venu ».
+--
+-- Le marqueur vit en BASE, pas dans le navigateur : un compte se
+-- connecte au bureau puis au téléphone, et une visite qui se rejoue à
+-- chaque appareil apprend surtout à cliquer « Passer ». Une date plutôt
+-- qu'un booléen : elle dit aussi QUAND la visite a été vue, donc quelle
+-- version de l'application elle décrivait.
+--
+-- Écriture par l'intéressé lui-même, via la policy « Own profile »
+-- (0001) — même chemin que la photo de profil. Le trigger
+-- protect_profile_flags ne s'y oppose pas : il ne garde que les
+-- colonnes de pouvoir, et savoir si quelqu'un a vu la visite n'en est
+-- pas un.
+
+alter table profiles
+  add column if not exists tour_seen_at timestamptz;
+
+comment on column profiles.tour_seen_at is
+  'Visite guidée de première connexion : vue (ou passée) à cette date. Nul = jamais montrée.';
+
+-- ------------------------------------------------------------
+-- Contrôle
+-- ------------------------------------------------------------
+--   select count(*) filter (where tour_seen_at is null) as jamais_vue,
+--          count(*)                                     as comptes
+--     from profiles;
+--
+-- Après application, tous les comptes existants ont `jamais_vue` : les
+-- utilisateurs déjà rodés verront la visite UNE fois à leur prochaine
+-- connexion. C'est voulu — elle décrit un écran qui vient de changer
+-- (pouls, pastilles, file « À valider »), et ils ne le connaissent pas
+-- davantage qu'un nouveau.
+
+-- ============================================================================
+-- MIGRATION 0049 — brand favicon
+-- ============================================================================
+
+-- ============================================================
+-- 0049 — Favicon paramétrable
+-- ============================================================
+-- Constat du 27/07, en téléversant les logos : « je n'ai pas l'endroit
+-- pour paramétrer le favicon ». Exact — c'était un fichier figé dans le
+-- code, invisible de l'écran Marque, donc impossible à changer sans
+-- redéployer. Pour une application white-label (0018), l'icône d'onglet
+-- fait partie de la marque au même titre que le logo et les couleurs.
+--
+-- Colonne séparée de logo_url : un logo est souvent horizontal
+-- (marque + texte), un favicon doit être carré et lisible à 16 pixels.
+-- Forcer l'un dans l'autre donnerait une icône d'onglet illisible.
+-- Repli en cascade côté application : favicon dédié → logo → fichier
+-- par défaut du dépôt.
+
+alter table platform_settings
+  add column if not exists favicon_url text;
+
+comment on column platform_settings.favicon_url is
+  'Icône d''onglet (favicon), carrée. Nulle = repli sur logo_url puis sur le fichier par défaut.';
+
+-- ------------------------------------------------------------
+-- Contrôle
+-- ------------------------------------------------------------
+--   select logo_url, favicon_url from platform_settings;
 
 -- ============================================================================
 -- FIN — Prochaines étapes (voir docs/procedure-deploiement.md) :

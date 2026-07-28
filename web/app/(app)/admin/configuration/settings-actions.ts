@@ -16,6 +16,7 @@ interface BrandInput {
   accentColor: string
   accentSoftColor: string
   logoUrl: string | null
+  faviconUrl: string | null
 }
 
 export async function updateBrandSettings(input: BrandInput): Promise<{ ok: boolean; error?: string }> {
@@ -36,6 +37,7 @@ export async function updateBrandSettings(input: BrandInput): Promise<{ ok: bool
       accent_color: input.accentColor,
       accent_soft_color: input.accentSoftColor,
       logo_url: input.logoUrl,
+      favicon_url: input.faviconUrl,
       updated_at: new Date().toISOString(),
       updated_by: user.id,
     }).eq('id', true)
