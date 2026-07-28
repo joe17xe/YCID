@@ -1,5 +1,6 @@
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { sendMail, renderMail, getEmailSettings, isUsable, unusableReason, recordSendOutcome } from './mailer'
+import { isUsableEmail } from './email'
 import { rolesWith } from './rbac'
 
 // ============================================================
@@ -83,8 +84,9 @@ export async function notifyPeople(userIds: (string | null | undefined)[], notic
     // Une adresse manifestement invalide ne part pas : l'import CSV en a
     // produit qui commencent par un point. Tenter l'envoi ferait rejeter
     // le message par le relais, et pourrait abîmer la réputation de
-    // l'expéditeur pour les destinataires légitimes.
-    if (!p.email || !/^[^\s@.][^\s@]*@[^\s@]+\.[^\s@]+$/.test(p.email)) {
+    // l'expéditeur pour les destinataires légitimes. La règle vit dans
+    // lib/email.ts — la même qui garde désormais la porte d'entrée.
+    if (!isUsableEmail(p.email)) {
       console.warn('[notify-circuit] adresse inexploitable, email non envoyé:', p.email)
       continue
     }

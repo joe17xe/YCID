@@ -1,6 +1,7 @@
 'use server'
 
 import { randomBytes } from 'crypto'
+import { EMAIL_RE } from '@/lib/email'
 import { revalidatePath } from 'next/cache'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
@@ -29,7 +30,7 @@ export async function saveOrganization(input: OrgInput): Promise<Result> {
   if (!name) return { ok: false, error: "Le nom de l'organisation est obligatoire." }
   if (!ORG_TYPES.includes(input.type)) return { ok: false, error: 'Type invalide.' }
   const email = (input.email ?? '').trim().toLowerCase()
-  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, error: 'Adresse email invalide.' }
+  if (email && !EMAIL_RE.test(email)) return { ok: false, error: 'Adresse email invalide.' }
   const status = input.status === 'inactive' ? 'inactive' : 'active'
 
   const values = { name, type: input.type, country: (input.country ?? '').trim() || 'France', email: email || null, status }
@@ -73,7 +74,7 @@ export async function createUserAccount(input: { email: string; fullName: string
 
   const email = (input.email ?? '').trim().toLowerCase()
   const fullName = (input.fullName ?? '').trim()
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, error: 'Adresse email invalide.' }
+  if (!EMAIL_RE.test(email)) return { ok: false, error: 'Adresse email invalide.' }
   if (!fullName) return { ok: false, error: 'Le nom est obligatoire.' }
 
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY

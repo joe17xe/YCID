@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { EMAIL_RE } from '@/lib/email'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { isUserAdmin } from '@/lib/permissions'
@@ -15,7 +16,7 @@ export async function inviteUser(input: { email: string; fullName: string }): Pr
 
   const email = (input.email ?? '').trim().toLowerCase()
   const fullName = (input.fullName ?? '').trim()
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, error: 'Adresse email invalide.' }
+  if (!EMAIL_RE.test(email)) return { ok: false, error: 'Adresse email invalide.' }
   if (!fullName) return { ok: false, error: 'Le nom complet est obligatoire.' }
 
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY

@@ -3,6 +3,7 @@ import { useState, useMemo, useTransition } from "react"
 import Link from "next/link"
 import { Search, Settings, Trash2 } from "lucide-react"
 import { PLATFORM_ROLES } from "@/lib/constants"
+import { isUsableEmail } from "@/lib/email"
 import { deleteUser } from "@/app/(app)/admin/utilisateurs/user-actions"
 
 export interface AdminUserRow {
@@ -88,7 +89,19 @@ export default function UsersTable({ users }: { users: AdminUserRow[] }) {
                   {u.full_name || "—"}
                   {u.isSelf && <span className="ml-2 text-xs px-1.5 py-0.5 rounded-full" style={{ background: "var(--brand-accent-soft,#E4F0EC)", color: "var(--brand-accent,#0E6B5C)" }}>Vous</span>}
                 </td>
-                <td data-label="Email" className="px-5 py-3 font-mono text-xs" style={{ color: "#66716B" }}>{u.email}</td>
+                <td data-label="Email" className="px-5 py-3 font-mono text-xs" style={{ color: "#66716B" }}>
+                  {u.email}
+                  {/* Adresse inexploitable (règle de lib/email.ts, la
+                      même que l'envoi) : la personne ne reçoit AUCUN
+                      email de l'application. Le badge rend le défaut
+                      visible ici — l'écran Modifier le corrige. */}
+                  {u.email && !isUsableEmail(u.email) && (
+                    <span className="ml-2 font-sans text-xs px-1.5 py-0.5 rounded-full" style={{ background: "#F6E7E5", color: "#A3342C" }}
+                      title="Adresse invalide : les notifications email n'arrivent pas — corrigez-la via Modifier.">
+                      Adresse invalide
+                    </span>
+                  )}
+                </td>
                 <td data-label="Rôle et périmètre" className="px-5 py-3">
                   <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: r.bg, color: r.fg }}>{r.label}</span>
                   {/* Ce qui explique réellement le périmètre : les

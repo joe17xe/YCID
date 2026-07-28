@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { EMAIL_RE } from '@/lib/email'
 import { createClient } from '@/lib/supabase/server'
 import { adminClient } from '@/lib/supabase/admin'
 import { AI_PROVIDERS, getAiConfig } from '@/lib/ai-settings'
@@ -187,7 +188,7 @@ export async function updateLegalSettings(input: LegalInput): Promise<{ ok: bool
     const entity = (input.legalEntity ?? '').trim()
     if (!entity) return { ok: false, error: "Le nom de l'éditeur est obligatoire." }
     const email = (input.legalEmail ?? '').trim()
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, error: 'Adresse email de contact invalide.' }
+    if (email && !EMAIL_RE.test(email)) return { ok: false, error: 'Adresse email de contact invalide.' }
 
     const supabase = await createClient()
     const { error } = await supabase.from('platform_settings').update({
@@ -263,7 +264,7 @@ export async function updateEmailSettings(input: EmailInput): Promise<{ ok: bool
     if (input.enabled) {
       if (!host) return { ok: false, error: 'Le serveur SMTP est obligatoire pour activer l’envoi.' }
       if (!Number.isInteger(port) || port < 1 || port > 65535) return { ok: false, error: 'Port invalide (1 à 65535).' }
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fromEmail)) return { ok: false, error: 'Adresse d’expéditeur invalide.' }
+      if (!EMAIL_RE.test(fromEmail)) return { ok: false, error: 'Adresse d’expéditeur invalide.' }
       if (siteUrl && !/^https?:\/\/.+/i.test(siteUrl)) return { ok: false, error: 'L’adresse de l’application doit commencer par http:// ou https://' }
     }
 

@@ -1,6 +1,7 @@
 'use server'
 
 import { createHash, randomBytes } from 'crypto'
+import { EMAIL_RE, isUsableEmail } from '@/lib/email'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
@@ -114,7 +115,7 @@ async function syncMemberships(userId: string, orgIds: string[] | undefined) {
 
 function validate(input: UserFormInput, requirePassword: boolean): string | null {
   if (!input.fullName?.trim()) return 'Le nom complet est obligatoire.'
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((input.email ?? '').trim())) return 'Adresse email invalide.'
+  if (!EMAIL_RE.test((input.email ?? '').trim())) return 'Adresse email invalide.'
   if (!PLATFORM_ROLES.includes(input.role)) return 'Rôle invalide.'
   if (requirePassword || input.password) {
     if ((input.password ?? '').length < 12) return 'Le mot de passe doit contenir au moins 12 caractères.'
@@ -318,6 +319,14 @@ export async function createUsersBulk(raw: string, role: string): Promise<{ ok: 
 
     const lines: BulkLine[] = []
     for (const r of recipients) {
+      // Le rejet se SIGNALE dans le rapport, il ne se tait pas : deux
+      // adresses à point en tête sont passées ici, dont celle d'un
+      // référent mairie — injoignable par notification sans que rien
+      // ne le dise. La règle est celle de l'envoi (lib/email.ts).
+      if (!isUsableEmail(r.email)) {
+        lines.push({ ...r, status: 'echec', error: 'Adresse malformée (un point en tête, par exemple) — corrigez-la dans le texte collé et réimportez.' })
+        continue
+      }
       if (known.has(r.email)) {
         lines.push({ ...r, status: 'existe' })
         continue

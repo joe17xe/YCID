@@ -1,6 +1,7 @@
 'use server'
 
 import { randomBytes, randomUUID } from 'crypto'
+import { EMAIL_RE } from '@/lib/email'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { adminClient } from '@/lib/supabase/admin'
@@ -772,7 +773,7 @@ export async function createProjectUser(input: {
     const fullName = (input.fullName ?? '').trim()
     if (!fullName) return { ok: false, error: 'Le nom complet est obligatoire.' }
     const email = (input.email ?? '').trim().toLowerCase()
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, error: 'Adresse email invalide.' }
+    if (!EMAIL_RE.test(email)) return { ok: false, error: 'Adresse email invalide.' }
     if (!MEMBER_ROLES.includes(input.role)) return { ok: false, error: 'Rôle invalide.' }
 
     const admin = adminClient()
