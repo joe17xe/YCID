@@ -384,7 +384,7 @@ export function MeetingDialog({ projectId, members = [], participantsReady = fal
   orgGroups?: { name: string; memberIds: string[] }[]
 }) {
   const [form, setForm] = useState<Omit<MeetingInput, "projectId" | "participantIds">>({
-    title: "", kind: "copil", date: "", minutes: "", start_time: "", location: "",
+    title: "", kind: "copil", date: "", minutes: "", start_time: "", location: "", video_url: "",
   })
   const [invited, setInvited] = useState<Set<string>>(new Set())
   const d = useDialog(() => createMeeting({
@@ -437,11 +437,25 @@ export function MeetingDialog({ projectId, members = [], participantsReady = fal
                     <input id={id} type="time" value={form.start_time} onChange={e => setForm({ ...form, start_time: e.target.value })} className={inputCls} style={border} />
                   )}</Field>
                   <Field label="Lieu">{id => (
-                    <input id={id} value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} className={inputCls} style={border} placeholder="Mairie de Villepreux, visio…" />
+                    <input id={id} value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} className={inputCls} style={border} placeholder="Mairie de Villepreux…" />
                   )}</Field>
                 </>
               )}
             </div>
+            {participantsReady && (
+              <Field label="Lien visio (Teams, Meet…)">{id => (
+                <>
+                  <input id={id} type="url" value={form.video_url} onChange={e => setForm({ ...form, video_url: e.target.value })}
+                    className={inputCls} style={border} placeholder="https://meet.google.com/…" />
+                  {/* Pas d'intégration native (OAuth par organisateur
+                      pour gagner dix secondes) : meet.new crée une
+                      réunion instantanée, on colle son lien ici. */}
+                  <p className="text-xs mt-1" style={{ color: "#66716B" }}>
+                    Besoin d&apos;un lien immédiat ? Ouvrez <span className="font-mono">meet.new</span> (Google) ou créez la réunion dans Teams, puis collez le lien — il partira dans l&apos;invitation.
+                  </p>
+                </>
+              )}</Field>
+            )}
             {participantsReady && (
               <div>
                 <div className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Invités</div>

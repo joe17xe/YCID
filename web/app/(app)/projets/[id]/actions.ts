@@ -549,6 +549,8 @@ export interface MeetingInput {
   // comme avant.
   start_time?: string
   location?: string
+  // Lien visio (0054) — collé par l'organisateur, jamais généré.
+  video_url?: string
   participantIds?: string[]
 }
 
@@ -573,6 +575,15 @@ export async function createMeeting(input: MeetingInput): Promise<{ ok: boolean;
   // l'insert ne nomme pas de colonne inexistante.
   if (input.start_time?.trim()) values.start_time = input.start_time
   if (input.location?.trim()) values.location = input.location.trim()
+  const videoUrl = (input.video_url ?? '').trim()
+  if (videoUrl) {
+    // Un lien de visio est une URL, pas un texte : « salle 2 » collé
+    // ici donnerait un bouton « Rejoindre » qui ne mène nulle part.
+    if (!/^https:\/\/\S+$/i.test(videoUrl)) {
+      return { ok: false, error: 'Le lien visio doit être une adresse https (Teams, Meet…).' }
+    }
+    values.video_url = videoUrl
+  }
 
   const { data: created, error } = await supabase.from('meetings').insert(values).select('id').single()
   if (error) return { ok: false, error: `Échec de la création : ${error.message}` }
@@ -598,6 +609,7 @@ export async function createMeeting(input: MeetingInput): Promise<{ ok: boolean;
       title: `Invitation — ${title}`,
       body: [
         `Vous êtes invité·e à la réunion « ${title} », le ${when}${input.location?.trim() ? `, ${input.location.trim()}` : ''}.`,
+        ...(videoUrl ? [`Rejoindre en visio : ${videoUrl}`] : []),
         'Merci d\'accepter ou de refuser depuis l\'onglet COPIL du projet.',
       ],
       path: `/projets/${input.projectId}?tab=copil`,

@@ -1340,6 +1340,18 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                       {fmtDate(m.date)}
                       {m.start_time ? ` · ${String(m.start_time).slice(0, 5)}` : ""}
                       {m.location ? ` · ${m.location}` : ""}
+                      {/* Lien visio (0054) : collé par l'organisateur,
+                          jamais généré — il part aussi dans l'email
+                          d'invitation. */}
+                      {m.video_url && (
+                        <>
+                          {" · "}
+                          <a href={m.video_url} target="_blank" rel="noopener noreferrer"
+                            className="font-medium hover:underline" style={{ color: "var(--brand-accent,#0E6B5C)" }}>
+                            Rejoindre la visio
+                          </a>
+                        </>
+                      )}
                     </div>
                   </div>
                   {(m.decisions ?? []).length > 0 && (
