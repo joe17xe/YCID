@@ -592,13 +592,16 @@ export async function createMeeting(input: MeetingInput): Promise<{ ok: boolean;
   // Invitations (0051) : la ligne de l'organisateur naît « acceptée »
   // (il programme, il vient) ; les autres naissent « en attente » et
   // sont prévenus — cloche + email — avec de quoi répondre en
-  // connaissance de cause.
+  // connaissance de cause. `response` est TOUJOURS explicite : dans un
+  // insert groupé aux lignes hétérogènes, PostgREST remplit les champs
+  // absents avec null — pas avec le défaut SQL — et viole le not null
+  // dès que l'organisateur s'invite en même temps que d'autres.
   const invitees = [...new Set(input.participantIds ?? [])]
   if (created && invitees.length) {
     const { error: mpError } = await supabase.from('meeting_participants').insert(
       invitees.map(uid => uid === user.id
         ? { meeting_id: created.id, user_id: uid, response: 'acceptee', responded_at: new Date().toISOString() }
-        : { meeting_id: created.id, user_id: uid })
+        : { meeting_id: created.id, user_id: uid, response: 'en_attente', responded_at: null })
     )
     if (mpError) {
       return { ok: false, error: `Réunion créée, mais invitations non enregistrées : ${mpError.message}` }
@@ -696,10 +699,12 @@ export async function updateMeeting(input: MeetingInput & { meetingId: string })
         .delete().eq('meeting_id', input.meetingId).in('user_id', toRemove)
     }
     if (toAdd.length) {
+      // `response` explicite sur chaque ligne — même raison qu'à la
+      // création : l'insert groupé hétérogène met null, pas le défaut.
       const { error: addErr } = await supabase.from('meeting_participants').insert(
         toAdd.map(uid => uid === user.id
           ? { meeting_id: input.meetingId, user_id: uid, response: 'acceptee', responded_at: new Date().toISOString() }
-          : { meeting_id: input.meetingId, user_id: uid })
+          : { meeting_id: input.meetingId, user_id: uid, response: 'en_attente', responded_at: null })
       )
       if (addErr) return { ok: false, error: `Réunion modifiée, mais invitations non enregistrées : ${addErr.message}` }
       await notifyPeople(toAdd.filter(uid => uid !== user.id), {
