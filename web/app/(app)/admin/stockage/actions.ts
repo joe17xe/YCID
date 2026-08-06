@@ -75,11 +75,35 @@ export async function purgeOrphans(): Promise<{ ok: boolean; removed?: number; e
     removed += batch.length
   }
 
-  await supabase.from('audit_log').insert({
+  // C'est la seule trace de la purge : les fichiers effacés du bucket ne
+  // laissent rien derrière eux, et `storage_orphans()` ne les listera
+  // plus. Jusqu'à la 0050, `supprime` n'existait pas dans l'enum
+  // `audit_action` — cet insert était donc rejeté par PostgreSQL, et son
+  // erreur n'était même pas lue. Des fichiers disparaissaient du
+  // stockage sans que rien, nulle part, ne dise qui les avait purgés.
+  const trace = {
     project_id: null, entity: 'stockage', entity_id: null,
     label: 'Fichiers orphelins', action: 'supprime', user_id: user.id,
     comment: `${removed} fichier(s) orphelin(s) purgé(s) du bucket documents`,
-  })
+  }
+  const { error: auditErr } = await supabase.from('audit_log').insert(trace)
+  // Même règle que les suppressions de projet (deleteTask,
+  // projets/[id]/actions.ts) : les fichiers sont déjà effacés, répondre
+  // `ok: false` ferait croire à l'administrateur qu'ils sont encore là.
+  // Le journal serveur porte donc l'intégralité de la trace, de quoi la
+  // réinscrire à la main.
+  //
+  // Une raison de plus d'y veiller ici : `project_id` est nul, donc la
+  // policy « Insert audit » (0005) ne passe que par
+  // `is_project_member(null)`, qui se réduit à `is_admin()` depuis la
+  // 0037. La purge étant réservée aux administrateurs, c'est vrai — mais
+  // cela tient à un enchaînement de trois migrations, pas à une règle
+  // écrite quelque part. Si un jour la purge s'ouvre à un autre profil,
+  // c'est ce log qui le dira.
+  if (auditErr) {
+    console.error('[audit] SUPPRESSION NON TRACÉE — à réinscrire à la main :',
+      JSON.stringify(trace), '—', auditErr.message)
+  }
   revalidatePath('/admin/stockage')
   return { ok: true, removed }
 }

@@ -1,0 +1,86 @@
+-- ============================================================
+-- 0050 — « supprime » manquait à l'enum : AUCUNE suppression n'était tracée
+-- ============================================================
+-- La 0001 (l.31) a déclaré les actions du journal d'audit :
+--
+--   create type audit_action as enum
+--     ('cree','modifie','soumis','en_revue','valide','rejete','paye','archive');
+--
+-- Huit valeurs, et pas « supprime ». Aucune migration ne l'a jamais
+-- ajoutée. Or trois écrans l'écrivent depuis leur mise en service :
+-- la suppression d'une tâche, celle d'une pièce jointe, et la purge des
+-- fichiers orphelins de l'écran Stockage. Chacun de ces inserts est
+-- rejeté par PostgreSQL :
+--
+--   invalid input value for enum audit_action: "supprime"   (22P02)
+--
+-- **Conséquence : depuis l'origine, pas une seule suppression n'a laissé
+-- de trace au journal.** Le journal d'un projet montre fidèlement ce
+-- qu'on y a créé et modifié, et rien là où une tâche, une pièce ou un
+-- fichier a disparu. Pour une application qui justifie de l'argent
+-- public devant le MEAE et le Département, c'est l'endroit exact où le
+-- trou coûte le plus cher : ce qui reste se relit dans la base, ce qui
+-- a été détruit ne se relit QUE dans le journal.
+--
+-- Pourquoi cela a tenu si longtemps : rien ne se voit. L'insert refusé
+-- est une valeur de retour de supabase-js, pas une exception ;
+-- le geste de l'utilisateur, lui, a bel et bien réussi — la ligne EST
+-- supprimée. Il ne restait qu'une ligne de console serveur, « [audit]
+-- trace NON enregistrée », qui ne disait même pas QUELLE trace. Le
+-- troisième appel, la purge, ne regardait pas l'erreur du tout.
+--
+-- Le correctif applicatif accompagne celui-ci : les trois appels
+-- reprennent leur valeur `supprime`, et deux suppressions récentes
+-- (phase, ligne budgétaire) abandonnent le contournement `archive`
+-- qu'elles avaient adopté faute d'enum valide — « archivé » et
+-- « supprimé » ne veulent pas dire la même chose devant un financeur.
+
+-- ------------------------------------------------------------
+-- La valeur manquante
+-- ------------------------------------------------------------
+-- Migration DÉDIÉE, et c'est le fond de l'affaire : `alter type ... add
+-- value` ne peut pas être suivi, dans la MÊME transaction, d'un usage de
+-- la valeur ajoutée — PostgreSQL répond « unsafe use of new value ... of
+-- enum type ». Le SQL Editor de Supabase enveloppe le script collé dans
+-- une transaction : glisser cette ligne en tête d'une migration qui
+-- écrirait ensuite une trace `supprime` ferait échouer le tout. Isolée
+-- ici, elle est validée avant que quoi que ce soit ne s'en serve.
+--
+-- `if not exists` par la règle du dépôt (README, « idempotente autant
+-- que possible ») : rejouer l'ensemble des migrations sur une base déjà
+-- à jour ne doit pas échouer.
+--
+-- La valeur s'ajoute EN FIN d'énumération, sans `before` / `after` : le
+-- rang d'un enum ne pèse que sur les comparaisons et les tris, et rien
+-- n'ordonne `audit_action` — ni policy, ni requête, ni écran. Le journal
+-- se trie sur `at`.
+alter type audit_action add value if not exists 'supprime';
+
+-- ------------------------------------------------------------
+-- Ce que cette migration NE fait pas
+-- ------------------------------------------------------------
+-- Aucune reprise de données. Les traces perdues le sont : l'insert a été
+-- refusé, rien n'a été écrit nulle part, et l'objet supprimé n'existe
+-- plus pour qu'on reconstitue son nom ou sa date. Le journal reste donc
+-- muet sur toutes les suppressions ANTÉRIEURES à l'application de cette
+-- migration — à savoir, et il faut pouvoir le dire à un contrôleur, sur
+-- la totalité de celles qui ont eu lieu jusqu'ici.
+
+-- ------------------------------------------------------------
+-- Contrôle
+-- ------------------------------------------------------------
+-- 1. La valeur est bien là — « supprime » doit figurer en fin de liste :
+--
+--      select enum_range(null::audit_action);
+--
+-- 2. Puis, dans l'application : supprimer une tâche d'essai, et vérifier
+--    que la trace atterrit (elle n'atterrissait jamais) :
+--
+--      select at, entity, label, action
+--        from audit_log
+--       where action = 'supprime'
+--       order by at desc
+--       limit 5;
+--
+--    Zéro ligne après une suppression = le correctif applicatif n'est
+--    pas déployé, ou la policy « Insert audit » (0005) a refusé.
