@@ -19,6 +19,12 @@ name: Contrôles Solid'Pilot
 #   · check:mobile — un tableau qui sort du cadre du téléphone. Rien
 #                     ne doit défiler latéralement : chaque tableau se
 #                     replie en cartes sous 640 px
+#   · check:valorisation — un agrégat budgétaire qui compte du bénévolat
+#                     comme de l'argent. La règle « prévu hors
+#                     valorisation » n'était appliquée qu'à moitié : la
+#                     somme des sous-totaux de phase ne faisait pas le
+#                     total du projet, et une cérémonie valorisée
+#                     1 500 € pesait dans le prévu d'une phase
 #   · build        — ce que le déploiement ferait, mais AVANT le merge
 #
 # Aucun secret n'est nécessaire : le build passe sans les variables
@@ -66,6 +72,9 @@ jobs:
 
       - name: Rien ne sort du cadre du téléphone
         run: npm run check:mobile
+
+      - name: Le prévu reste hors valorisation
+        run: npm run check:valorisation
 
       - name: Build
         run: npm run build

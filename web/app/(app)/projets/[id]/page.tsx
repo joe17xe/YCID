@@ -12,6 +12,7 @@ import TaskDialog from "@/components/tasks/TaskDialog"
 import { BudgetLineDialog, CreateTaskFromLineButton, IndicatorDialog, MeasureDialog, MeetingDialog, DecisionDialog } from "@/components/project/ProjectDataDialogs"
 import TaskDocuments from "@/components/project/TaskDocuments"
 import DeleteTaskButton from "@/components/tasks/DeleteTaskButton"
+import { DeleteBudgetLineButton, DeletePhaseButton } from "@/components/project/DeleteInTwoSteps"
 import BudgetLineDocuments from "@/components/project/BudgetLineDocuments"
 import ProjectPulse from "@/components/project/ProjectPulse"
 import { StatTile } from "@/components/ui/StatTile"
@@ -292,11 +293,24 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
   // plusieurs tâches (40 000 € = 10 000 € + 30 000 €). Le budget d'une
   // tâche est donc TOUJOURS une somme d'affectations — 0 € quand il n'y
   // en a aucune, jamais « inconnu ».
-  const taskOptions = (phases ?? []).flatMap((ph: any) =>
-    (ph.tasks ?? []).map((t: any) => ({ id: t.id, name: t.title, phase_id: ph.id })))
   const plannedByTask = new Map<string, number>()
   const plannedByPhase = new Map<string, number>()
   const linesByPhase = new Map<string, any[]>()
+  // Le lien ligne → tâche se lit dans le tableau budgétaire, colonne
+  // « Tâche financée ». Le sens inverse manquait : une tâche affichait
+  // un budget sans dire d'où il venait, et pour retrouver la ligne qui
+  // le porte il fallait ouvrir l'onglet Budget et parcourir chaque
+  // ligne. C'est le même angle mort que celui du dialogue de
+  // répartition, vu de l'autre côté — et c'est ce qui permet de
+  // comprendre pourquoi le budget d'une tâche a bougé.
+  const linesByTask = new Map<string, { poste: string; amount: number; valo: boolean }[]>()
+  const creditTask = (taskId: string, poste: string, amount: number, valo: boolean) =>
+    linesByTask.set(taskId, [...(linesByTask.get(taskId) ?? []), { poste, amount, valo }])
+  // Ce que la phase et la tâche reçoivent EN NATURE. Deux compteurs
+  // séparés, jamais fusionnés avec les précédents : c'est justement
+  // leur fusion qui constituait le défaut.
+  const valoByPhase = new Map<string, number>()
+  const valoByTask = new Map<string, number>()
   // Prévu / engagé / payé (PR 39). Le calcul vit dans lib/budget.ts,
   // partagé avec le rapport IA : deux implémentations des mêmes règles
   // finiraient par diverger, et un chiffre affiché contredisant le même
@@ -304,18 +318,85 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
   // destinée à un financeur.
   const finByLine = new Map<string, Financials>()
   const finByPhase = new Map<string, Financials>()
+  // « Prévu HORS valorisation, et valorisations à part » (spec §10.4).
+  // Cette règle n'était appliquée qu'à MOITIÉ, et c'est pire que pas du
+  // tout : le total du projet et la répartition par financeur écartaient
+  // les valorisations, les agrégats de phase les prenaient. La somme des
+  // sous-totaux de phase ne faisait donc pas le total du projet — un
+  // écran de suivi budgétaire dont les colonnes ne s'additionnent pas se
+  // fait reprendre au premier COPIL. Constaté par le Product Owner : une
+  // « Cérémonie et randonnée d'inauguration » valorisée 1 500 € pesait
+  // dans le prévu d'une phase comme de l'argent voté, alors qu'aucun
+  // euro ne sortira jamais pour elle.
+  //
+  // Une seule boucle, deux univers qui ne se rencontrent plus : les
+  // euros dans plannedBy*/finBy*, les apports en nature dans valoBy*.
+  //
+  // Sort de plannedByTask, tranché ici : une valorisation ne pèse PAS
+  // dans le budget d'une tâche. Trois raisons, dans l'ordre où elles
+  // ont pesé.
+  //   1. Le budget d'une tâche sert de POIDS à l'avancement de phase
+  //      (voir plus bas), et ce poids est rapporté à un plancher calculé
+  //      sur plannedByPhase. Laisser la nature d'un côté et pas de
+  //      l'autre ferait peser une tâche plus lourd que la phase entière :
+  //      ce n'est plus une pondération, c'est une erreur d'arithmétique.
+  //   2. La pondération répond à « où est l'argent du projet ». Du
+  //      bénévolat ne se réaffecte pas, ne se dépasse pas, ne se
+  //      justifie pas devant un financeur de la même manière.
+  //   3. C'est déjà la doctrine du dépôt : « les lignes is_valorisation
+  //      ne sont pas des tâches à exécuter » (roadmap, N:M ligne↔tâche),
+  //      le dialogue de ligne dit « laissez sans tâche affectée pour les
+  //      valorisations », et « Créer la tâche » est masqué sur une ligne
+  //      valorisée.
+  // L'affectation reste POSSIBLE en base et rien ne l'interdit : on la
+  // compte donc dans valoByTask et on l'affiche à part sur la tâche,
+  // plutôt que de la perdre en silence — l'invisibiliser serait le
+  // défaut inverse de celui qu'on corrige.
   for (const l of budgetLines ?? []) {
     const amount = l.planned_amount ?? 0
-    for (const a of (l.allocations ?? []) as { task_id: string; amount: number }[]) {
-      plannedByTask.set(a.task_id, (plannedByTask.get(a.task_id) ?? 0) + (a.amount ?? 0))
-    }
     const key = l.phase_id ?? "__hors_phase__"
-    plannedByPhase.set(key, (plannedByPhase.get(key) ?? 0) + amount)
+    // Le tableau détaillé montre TOUTES les lignes, valorisations
+    // comprises : c'est l'écran de saisie du budget, pas l'enveloppe.
+    // Une ligne qu'on ne voit plus est une ligne qu'on ne peut plus
+    // corriger.
     linesByPhase.set(key, [...(linesByPhase.get(key) ?? []), l])
+    // Calculé pour toute ligne, y compris valorisée : une valorisation
+    // porte des pièces (feuilles d'émargement, convention de mise à
+    // disposition) et sa propre colonne « engagé / payé » doit dire la
+    // vérité — 0 €, faute de devis et de facture.
     const fin = financialsFor(amount, (l.documents ?? []) as any[])
     finByLine.set(l.id, fin)
+
+    if (l.is_valorisation) {
+      valoByPhase.set(key, (valoByPhase.get(key) ?? 0) + amount)
+      for (const a of (l.allocations ?? []) as { task_id: string; amount: number }[]) {
+        valoByTask.set(a.task_id, (valoByTask.get(a.task_id) ?? 0) + (a.amount ?? 0))
+        // La provenance se garde AUSSI pour la nature : le montant sort
+        // du budget de la tâche, il ne doit pas sortir de l'écran.
+        creditTask(a.task_id, l.poste, a.amount ?? 0, true)
+      }
+      continue
+    }
+
+    for (const a of (l.allocations ?? []) as { task_id: string; amount: number }[]) {
+      plannedByTask.set(a.task_id, (plannedByTask.get(a.task_id) ?? 0) + (a.amount ?? 0))
+      creditTask(a.task_id, l.poste, a.amount ?? 0, false)
+    }
+    plannedByPhase.set(key, (plannedByPhase.get(key) ?? 0) + amount)
     finByPhase.set(key, sumFinancials([finByPhase.get(key) ?? EMPTY_FIN, fin]))
   }
+
+  // Options de tâche du dialogue de ligne. Déclarées APRÈS la boucle,
+  // et non plus avant : elles portent désormais le budget DÉJÀ affecté à
+  // chaque tâche, ce qui permet au dialogue de dire, avant
+  // d'enregistrer, ce que devient ce budget si l'on réduit ou retire une
+  // affectation. Déclarées avant, `plannedByTask` était vide et chaque
+  // tâche aurait annoncé 0 € — soit exactement l'information inverse de
+  // celle qu'on cherche.
+  const taskOptions = (phases ?? []).flatMap((ph: any) =>
+    (ph.tasks ?? []).map((t: any) => ({
+      id: t.id, name: t.title, phase_id: ph.id, budget: plannedByTask.get(t.id) ?? 0,
+    })))
 
   // Enveloppe : les valorisations (bénévolat, locaux) ne sont pas de
   // l'argent voté — les mêler au prévisionnel gonflerait l'enveloppe
@@ -383,8 +464,9 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
     .map(([key, v]) => ({ key, ...v }))
     .sort((a, b) => a.key === '__sans__' ? 1 : b.key === '__sans__' ? -1 : b.amount - a.amount)
 
-  const totalValorisation = (budgetLines ?? []).filter((l: any) => l.is_valorisation)
-    .reduce((s: number, l: any) => s + (l.planned_amount ?? 0), 0)
+  // Repris de `valoLines` et non d'un troisième filtre sur budgetLines :
+  // le même tri écrit deux fois est le début d'une divergence.
+  const totalValorisation = valoLines.reduce((s: number, l: any) => s + (l.planned_amount ?? 0), 0)
   // Le montant VOTÉ est la référence : la répartition entre lignes peut
   // bouger librement, l'enveloppe non (règle YCID du 25/07/2026).
   const voted = project.budget ?? null
@@ -426,7 +508,9 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
       ).length
     }, 0), 0)
   // Le budget d'une tâche existe toujours : à défaut d'affectation, 0 €.
+  // De l'ARGENT uniquement — voir l'arbitrage au-dessus de la boucle.
   const taskBudget = (taskId: string) => plannedByTask.get(taskId) ?? 0
+  const taskValo = (taskId: string) => valoByTask.get(taskId) ?? 0
   // Regroupement du tableau budgétaire : phases dans l'ordre du projet,
   // puis les lignes non rattachées. Les groupes vides sont omis.
   const budgetGroups = [
@@ -719,6 +803,10 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
             // l'écart au lieu de laisser croire qu'ils sont synchronisés.
             const phaseLinesTotal = plannedByPhase.get(ph.id) ?? 0
             const phaseFin = finByPhase.get(ph.id) ?? EMPTY_FIN
+            // Tenu à part, jamais additionné au prévu — mais affiché :
+            // pour le MEAE la valorisation est du COFINANCEMENT, et une
+            // phase portée par du bénévolat mérite qu'on le voie.
+            const phaseValo = valoByPhase.get(ph.id) ?? 0
             return (
               <div key={ph.id} className="bg-white rounded-2xl border" style={{ borderColor: "#E3E6E2" }}>
                 <div className="p-4 border-b" style={{ borderColor: "#E3E6E2" }}>
@@ -732,10 +820,20 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                     <div className="flex items-center gap-2 min-w-0 flex-1">
                       <h3 className="font-semibold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>{ph.name}</h3>
                       {canPhases && (
-                        <PhaseDialog projectId={id} phase={{
-                          id: ph.id, name: ph.name, start_date: ph.start_date ?? null,
-                          end_date: ph.end_date ?? null, status: ph.status,
-                        }} />
+                        <>
+                          <PhaseDialog projectId={id} phase={{
+                            id: ph.id, name: ph.name, start_date: ph.start_date ?? null,
+                            end_date: ph.end_date ?? null, status: ph.status,
+                          }} />
+                          {/* Une phase créée par erreur — ou une phase
+                              d'essai — n'avait aucun moyen de partir : il
+                              fallait la garder à l'écran, vide, pour
+                              toujours. Le bouton ne décide de rien ; c'est
+                              l'action qui, selon qu'elle porte des tâches
+                              ou non, supprime tout de suite ou demande la
+                              recopie du nom. */}
+                          <DeletePhaseButton projectId={id} phaseId={ph.id} phaseName={ph.name} />
+                        </>
                       )}
                     </div>
                     {canTasks && <span className="flex-shrink-0"><TaskDialog phaseId={ph.id} members={memberOptions} /></span>}
@@ -746,8 +844,19 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                     </span>
                     {phaseLinesTotal > 0 && (
                       <span className="px-2 py-1 rounded-lg" style={{ background: "#F5F6F4", color: "#66716B" }}
-                        title="Somme des lignes budgétaires de la phase">
+                        title="Somme des lignes budgétaires de la phase, hors valorisation">
                         {fmtEur(phaseLinesTotal)}
+                      </span>
+                    )}
+                    {/* Une pastille SÉPARÉE, dans la gamme beige de la
+                        valorisation, et le signe « + » pour dire qu'elle
+                        s'ajoute au projet sans s'ajouter au prévu. La
+                        fondre dans le montant précédent est exactement le
+                        défaut qu'on corrige. */}
+                    {phaseValo > 0 && (
+                      <span className="px-2 py-1 rounded-lg" style={{ background: "#F5EFE2", color: "#8A6A1F" }}
+                        title="Contributions en nature rattachées à cette phase (bénévolat, locaux, matériel prêtés). Elles comptent dans le cofinancement, jamais dans le prévu : personne ne les paiera.">
+                        + {fmtEur(phaseValo)} en nature
                       </span>
                     )}
                     <span className="px-2 py-1 rounded-lg font-medium"
@@ -824,9 +933,14 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                                 }} />
                                 {/* Aucun moyen de supprimer une tâche n'existait :
                                     deux clics sur « Créer la tâche » suffisaient à
-                                    en laisser une en double, définitivement. */}
+                                    en laisser une en double, définitivement.
+                                    Ici, et ici seulement, argent et nature se
+                                    somment : l'avertissement porte sur ce que
+                                    la suppression DÉTACHE, et une affectation
+                                    valorisée se perd tout aussi silencieusement
+                                    qu'une autre. */}
                                 <DeleteTaskButton taskId={t.id} projectId={id} title={t.title}
-                                  budget={taskBudget(t.id)} docCount={(t.documents ?? []).length} />
+                                  budget={taskBudget(t.id) + taskValo(t.id)} docCount={(t.documents ?? []).length} />
                               </>
                             )}
                           </div>
@@ -874,11 +988,30 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                               manquante alors que 0 € est une décision. */}
                           <span className="px-2 py-1 rounded-lg"
                             title={taskBudget(t.id) > 0
-                              ? "Somme affectée à cette tâche par les lignes budgétaires"
-                              : "Aucune ligne budgétaire n'est affectée à cette tâche"}
+                              ? "Somme affectée à cette tâche par les lignes budgétaires, hors valorisation"
+                              : weighted
+                                // 0 € n'est pas neutre quand la phase est pondérée :
+                                // la tâche compte pour le poids plancher, ni plus ni
+                                // moins. Le dire ici, c'est expliquer d'avance le
+                                // saut d'avancement que provoque une affectation
+                                // retirée.
+                                ? "Aucune ligne budgétaire n'est affectée à cette tâche : elle ne pèse que le poids plancher dans l'avancement pondéré de la phase."
+                                : "Aucune ligne budgétaire n'est affectée à cette tâche"}
                             style={{ background: "#F5F6F4", color: taskBudget(t.id) > 0 ? "var(--brand-accent,#0E6B5C)" : "#9AA39D", fontWeight: taskBudget(t.id) > 0 ? 600 : 400 }}>
                             {fmtEur(taskBudget(t.id))}
                           </span>
+                          {/* Rare — le dialogue de ligne conseille de ne
+                              pas affecter une valorisation à une tâche —
+                              mais la base l'autorise. Sans cette pastille,
+                              le montant sortait du budget de la tâche sans
+                              réapparaître nulle part : il faut le sortir
+                              du calcul, pas de l'écran. */}
+                          {taskValo(t.id) > 0 && (
+                            <span className="px-2 py-1 rounded-lg" style={{ background: "#F5EFE2", color: "#8A6A1F" }}
+                              title="Contribution en nature affectée à cette tâche. Elle ne compte ni dans son budget ni dans la pondération de l'avancement : personne ne la paiera.">
+                              + {fmtEur(taskValo(t.id))} en nature
+                            </span>
+                          )}
                           {/* Sens inverse de la création croisée : la
                               tâche existe, son financement reste à
                               saisir. Le dialogue s'ouvre déjà rattaché. */}
@@ -887,6 +1020,32 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                               preset={{ phase_id: ph.id, task_id: t.id }} triggerLabel="ligne" />
                           )}
                         </div>
+                        {/* D'OÙ vient ce budget. La pastille disait
+                            COMBIEN et jamais QUI : pour retrouver la
+                            ligne qui finance une tâche il fallait ouvrir
+                            l'onglet Budget et lire la colonne « Tâche
+                            financée » de chaque ligne, une à une. Le lien
+                            existe dans les deux sens en base depuis la
+                            PR 40b ; il se lit maintenant dans les deux
+                            sens à l'écran. C'est ce qui permet de savoir
+                            QUELLE ligne modifier quand un budget de tâche
+                            n'est pas celui qu'on attendait — et de
+                            comprendre après coup pourquoi il a changé. */}
+                        {(linesByTask.get(t.id) ?? []).length > 0 && (
+                          <p className="mt-1.5 text-xs" style={{ color: "#66716B" }}>
+                            Financée par{" "}
+                            {(linesByTask.get(t.id) ?? []).map((src, k) => (
+                              <span key={`${src.poste}-${k}`}>
+                                {k > 0 && " · "}
+                                « {src.poste} » {fmtEur(src.amount)}
+                                {/* La provenance en nature reste marquée :
+                                    additionner ces montants avec les autres
+                                    donnerait un budget que la tâche n'a pas. */}
+                                {src.valo && <span style={{ color: "#8A6A1F" }}> en nature</span>}
+                              </span>
+                            ))}
+                          </p>
+                        )}
                         <div className="mt-2 flex items-center gap-3">
                           <div className="flex-1"><ProgressBar value={t.progress} /></div>
                           <span className="text-xs w-8 text-right" style={{ color: "#66716B" }}>{t.progress}%</span>
@@ -1161,12 +1320,28 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                   <tr data-group="" style={{ background: "#EEF0EE", borderBottom: "1px solid #E3E6E2" }}>
                     <th scope="colgroup" colSpan={5} className="text-left px-4 py-2 text-xs font-semibold" style={{ color: "#17211D" }}>
                       {group.name}
+                      {/* Dit à voix haute ce que le sous-total NE contient
+                          pas. Sans cette mention, un lecteur qui additionne
+                          les lignes affichées — valorisations comprises —
+                          trouve un autre chiffre et croit à une erreur. */}
+                      {(valoByPhase.get(group.id) ?? 0) > 0 && (
+                        <span className="ml-2 font-normal" style={{ color: "#8A6A1F" }}>
+                          + {fmtEur(valoByPhase.get(group.id) ?? 0)} en nature, hors prévu
+                        </span>
+                      )}
                     </th>
                     {(() => {
                       // Sous-total de phase sur les trois montants : lire
                       // « prévu » sans « engagé » ne dit pas où en est
                       // l'exécution.
-                      const gf = sumFinancials(group.lines.map((l: any) => finByLine.get(l.id) ?? EMPTY_FIN))
+                      //
+                      // Repris de finByPhase — donc HORS valorisation, et
+                      // sur la même clé que le regroupement — et non plus
+                      // recalculé sur `group.lines`, qui contient toutes
+                      // les lignes affichées. C'est ce recalcul qui faisait
+                      // que la somme des sous-totaux dépassait le total du
+                      // projet affiché juste au-dessus.
+                      const gf = finByPhase.get(group.id) ?? EMPTY_FIN
                       return (
                         <>
                           <td data-label="Prévu" className="px-4 py-2 text-xs font-bold" style={{ color: "#17211D" }}>{fmtEur(gf.planned)}</td>
@@ -1181,7 +1356,23 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                     const ls = LINE_STATUS[l.status] ?? { label: l.status, fg: "#66716B", bg: "#EEF0EE" }
                     const lc = LINE_CATEGORIES[l.category] ?? { label: l.category, fg: "#66716B", bg: "#EEF0EE" }
                     return (
-                      <tr key={l.id} style={{ borderBottom: "1px solid #E3E6E2", background: i % 2 === 0 ? "#fff" : "#FAFAFA" }}>
+                      // Une ligne valorisée change de couleur, fond ET
+                      // bordure : le badge seul se lisait après le montant,
+                      // trop tard — on avait déjà compté 1 500 € d'argent.
+                      // La carte dit « ceci n'est pas de l'argent » avant
+                      // même qu'on la lise.
+                      //
+                      // La couleur n'est JAMAIS le seul signal (RGAA 3.1) :
+                      // le badge « Valorisation » reste, et il est le seul
+                      // porteur de l'information pour qui ne distingue pas
+                      // ces beiges — ou lit la page en noir et blanc.
+                      // Le liseré, lui, survit à l'impression.
+                      <tr key={l.id} style={{
+                        borderBottom: "1px solid #E3E6E2",
+                        ...(l.is_valorisation
+                          ? { background: "#FBF7EE", borderLeft: "3px solid #8A6A1F" }
+                          : { background: i % 2 === 0 ? "#fff" : "#FAFAFA" }),
+                      }}>
                         <td data-primary="" className="px-4 py-3 font-medium" style={{ color: "#17211D" }}>
                           {l.poste}
                           {l.is_valorisation && <span className="ml-1 text-xs px-1.5 py-0.5 rounded" style={{ background: "#F5EFE2", color: "#8A6A1F" }}>Valorisation</span>}
@@ -1217,7 +1408,11 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                         <td data-label="Catégorie" className="px-4 py-3"><Badge label={lc.label} fg={lc.fg} bg={lc.bg} /></td>
                         <td data-label="Financeur" className="px-4 py-3 text-xs" style={{ color: "#66716B" }}>{l.funder?.name ?? "—"}</td>
                         <td data-label="Année" className="px-4 py-3 text-xs" style={{ color: "#66716B" }}>{l.year ?? "—"}</td>
-                        <td data-label="Prévu" className="px-4 py-3 font-semibold" style={{ color: "#17211D" }}>
+                        {/* Le montant d'une valorisation reprend la couleur
+                            de la valorisation : c'est LE chiffre qu'on
+                            risque d'additionner par réflexe, et il ne
+                            compte dans aucun sous-total de cette colonne. */}
+                        <td data-label="Prévu" className="px-4 py-3 font-semibold" style={{ color: l.is_valorisation ? "#8A6A1F" : "#17211D" }}>
                           {fmtEur(l.planned_amount)}
                           {/* Devis, factures et reçus de la ligne (PR 38b) :
                               c'est ici que « engagé » et « payé » prennent
@@ -1266,14 +1461,26 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                           <div className="flex items-center gap-1">
                             <Badge label={ls.label} fg={ls.fg} bg={ls.bg} />
                             {canBudget && (
-                              <BudgetLineDialog projectId={id} orgs={orgOptions} phases={phaseOptions} tasks={taskOptions} line={{
-                                id: l.id, poste: l.poste, description: l.description ?? "",
-                                category: l.category, funder_org_id: l.funder_org_id ?? "",
-                                owner_org_id: l.owner_org_id ?? "", phase_id: l.phase_id ?? "",
-                                allocations: (l.allocations ?? []).map((a: any) => ({ task_id: a.task_id, amount: String(a.amount ?? 0) })),
-                                year: l.year != null ? String(l.year) : "", planned_amount: String(l.planned_amount ?? 0),
-                                is_valorisation: !!l.is_valorisation, status: l.status, comment: l.comment ?? "",
-                              }} />
+                              <>
+                                <BudgetLineDialog projectId={id} orgs={orgOptions} phases={phaseOptions} tasks={taskOptions} line={{
+                                  id: l.id, poste: l.poste, description: l.description ?? "",
+                                  category: l.category, funder_org_id: l.funder_org_id ?? "",
+                                  owner_org_id: l.owner_org_id ?? "", phase_id: l.phase_id ?? "",
+                                  allocations: (l.allocations ?? []).map((a: any) => ({ task_id: a.task_id, amount: String(a.amount ?? 0) })),
+                                  year: l.year != null ? String(l.year) : "", planned_amount: String(l.planned_amount ?? 0),
+                                  is_valorisation: !!l.is_valorisation, status: l.status, comment: l.comment ?? "",
+                                }} />
+                                {/* Une ligne saisie en double, ou une ligne
+                                    d'essai à 1 €, ne se corrigeait pas : on
+                                    pouvait la modifier indéfiniment, jamais
+                                    la retirer. Aucun montant n'est testé ici
+                                    — l'engagé et le payé se lisent dans
+                                    lib/budget.ts, côté action, et une
+                                    seconde lecture ici finirait par juger
+                                    vide une ligne que l'écran affiche
+                                    engagée. */}
+                                <DeleteBudgetLineButton projectId={id} lineId={l.id} poste={l.poste} />
+                              </>
                             )}
                           </div>
                         </td>
