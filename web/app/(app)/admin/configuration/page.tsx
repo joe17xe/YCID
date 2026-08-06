@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic'
 import Link from "next/link"
-import { Palette, Sparkles, Scale, Mail, GitBranch } from "lucide-react"
+import { Palette, Sparkles, Scale, Mail, GitBranch, ShieldCheck } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { isUserAdmin } from "@/lib/permissions"
@@ -12,6 +12,8 @@ import LegalForm from "@/components/admin/LegalForm"
 import EmailForm from "@/components/admin/EmailForm"
 import ValidationForm from "@/components/admin/ValidationForm"
 import AiUsagePanel from "@/components/admin/AiUsagePanel"
+import DataPanel from "./DataPanel"
+import { loadRetention } from "./settings-actions"
 import { getAiUsageSummary } from "@/lib/ai-usage"
 import { getEmailSettings, getEmailTestStatus } from "@/lib/mailer"
 
@@ -21,6 +23,11 @@ const SECTIONS = [
   { key: "email", label: "Email", Icon: Mail },
   { key: "validation", label: "Validation", Icon: GitBranch },
   { key: "legal", label: "Mentions légales", Icon: Scale },
+  // 0056 — la conservation et le droit d'accès. Séparé des mentions
+  // légales à dessein : celles-ci sont un TEXTE à publier, ceci est un
+  // RÉGLAGE qui détruit des lignes. Les mêler ferait cliquer sur
+  // « Purger » celui qui venait corriger une adresse postale.
+  { key: "donnees", label: "Données personnelles", Icon: ShieldCheck },
 ]
 
 export default async function ConfigurationPage({ searchParams }: { searchParams: Promise<{ section?: string }> }) {
@@ -34,6 +41,7 @@ export default async function ConfigurationPage({ searchParams }: { searchParams
   const isLegal = section === "legal"
   const isEmail = section === "email"
   const isValidation = section === "validation"
+  const isDonnees = section === "donnees"
   const [settings, ai, email] = await Promise.all([
     getPlatformSettings(),
     isAi ? getAiConfigPublic() : Promise.resolve(null),
@@ -44,6 +52,11 @@ export default async function ConfigurationPage({ searchParams }: { searchParams
   // c'est le même sujet, et la séparer inviterait à ne jamais la
   // regarder.
   const aiUsage = isAi ? await getAiUsageSummary() : null
+
+  // Chargé uniquement sur sa section : `retention_preview()` compte des
+  // lignes sur cinq tables, ce n'est pas gratuit et personne ne le
+  // demande en venant changer un logo.
+  const retention = isDonnees ? await loadRetention() : null
 
   // Réglages du circuit + aperçu projet par projet : un réglage dont on
   // ne voit pas l'effet se règle à l'aveugle.
@@ -75,6 +88,8 @@ export default async function ConfigurationPage({ searchParams }: { searchParams
       <p className="text-sm mb-5" style={{ color: "#66716B" }}>
         {isAi
           ? "Choisissez le fournisseur d'intelligence artificielle utilisé par le rapport d'expert et la génération des contenus de communication."
+          : isDonnees
+          ? "Ce que la plateforme conserve, pendant combien de temps, et comment répondre à une demande d'accès. Les durées réglées ici sont celles que publie la page Politique de confidentialité — et celles que la purge applique."
           : isValidation
           ? "Qui valide un devis, et dans quel ordre. L'organisation porteuse approuve d'abord, l'organisation coordinatrice entérine ensuite."
           : isEmail
@@ -84,12 +99,16 @@ export default async function ConfigurationPage({ searchParams }: { searchParams
           : "Personnalisez le nom, l'accroche, le logo et les couleurs de la plateforme. Les changements s'appliquent immédiatement à toute l'application."}
       </p>
 
-      <div className="flex gap-2 p-1 rounded-2xl mb-6" style={{ background: "#EEF0EE" }}>
+      {/* `flex-wrap` : six onglets ne tiennent pas sur la largeur d'un
+          téléphone, et sans repli c'est la barre elle-même qui pousse la
+          page hors du cadre — le défaut que check-mobile.mjs traque sur
+          les tableaux, ici sur une barre d'onglets. */}
+      <div className="flex flex-wrap gap-2 p-1 rounded-2xl mb-6" style={{ background: "#EEF0EE" }}>
         {SECTIONS.map(({ key, label, Icon }) => {
           const active = section === key
           return (
             <Link key={key} href={`/admin/configuration?section=${key}`}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-colors"
+              className="flex-1 min-w-[8rem] flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-colors"
               style={{
                 background: active ? "#FFFFFF" : "transparent",
                 color: active ? "var(--brand-accent,#0E6B5C)" : "#66716B",
@@ -146,6 +165,18 @@ export default async function ConfigurationPage({ searchParams }: { searchParams
               {" "}dans le SQL Editor Supabase, et vérifiez que <code>SUPABASE_SERVICE_ROLE_KEY</code> est bien posée sur le serveur.
             </div>
           )
+        )
+        : isDonnees ? (
+          retention?.ok
+            ? <DataPanel rows={retention.rows ?? []} runs={retention.runs ?? []} lastRunAt={retention.lastRunAt ?? null} />
+            : (
+              <div className="rounded-xl px-4 py-3 text-sm" style={{ background: "#F7EDDD", color: "#8A6A1F" }}>
+                {retention?.error ?? "Politique de conservation illisible."}
+                {" "}Tant que la migration <code>0056_retention_et_export_rgpd.sql</code> n&apos;est pas appliquée,
+                la page Politique de confidentialité n&apos;annonce aucune durée — ce qui est exact,
+                puisque rien ne serait purgé.
+              </div>
+            )
         )
         : isLegal ? <LegalForm settings={settings} />
         : <BrandForm settings={settings} />}

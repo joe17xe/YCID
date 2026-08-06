@@ -25,6 +25,33 @@ export async function isUserAdmin(supabase: SupabaseClient, userId: string): Pro
   return (await platformRole(supabase, userId)) === 'admin'
 }
 
+// Anonymiser un compte — l'exercice du droit à l'effacement (RGPD
+// art. 17), tel que la migration 0055 le rend possible : l'identité est
+// remplacée par une pierre tombale, les traces restent.
+//
+// Nommé plutôt que laissé à `isUserAdmin` sur place, pour deux raisons
+// qui ne sont pas cosmétiques :
+//
+//   · c'est la seule opération de l'application qu'on ne peut pas
+//     défaire — ni par une restauration d'écran, ni par une saisie
+//     inverse. La règle qui en décide mérite d'être trouvable en la
+//     cherchant par son nom, pas en relisant une action de 300 lignes ;
+//   · ce n'est PAS une capacité de projet, et il ne faut pas qu'elle le
+//     devienne par imitation. Même raisonnement que `canManageAuditors`
+//     (0047) : passer par `hasCapability` commencerait par accorder le
+//     droit à l'administrateur, puis irait interroger un rôle projet
+//     pour rien — en laissant croire qu'un chef de projet pourrait, un
+//     jour, effacer quelqu'un.
+//
+// Volontairement PLUS STRICT que le `is_admin()` du SQL, qui reconnaît
+// encore l'ancien rôle « ycid » (0017) : `isUserAdmin` ne rend vrai que
+// pour `platform_role = 'admin'`. La fonction SQL reste le dernier
+// verrou, celui qu'on ne peut pas contourner depuis le navigateur ;
+// celui-ci est le premier, et il n'a aucune raison d'être plus large.
+export async function canAnonymizeAccounts(supabase: SupabaseClient, userId: string): Promise<boolean> {
+  return isUserAdmin(supabase, userId)
+}
+
 // Modifier une tâche terminée est réservé aux mêmes admins.
 export async function canEditCompletedTasks(supabase: SupabaseClient, userId: string): Promise<boolean> {
   return isUserAdmin(supabase, userId)

@@ -1,5 +1,6 @@
 import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
+import type { RetentionPolicy } from '@/lib/retention'
 
 export interface PlatformSettings {
   brandName: string
@@ -56,5 +57,50 @@ export const getPlatformSettings = cache(async (): Promise<PlatformSettings> => 
     }
   } catch {
     return DEFAULT_SETTINGS
+  }
+})
+
+// ============================================================
+// Durées de conservation (migration 0056)
+// ============================================================
+// `legalRetention`, juste au-dessus, est une PHRASE : un texte libre que
+// la page de confidentialité réaffiche. Rien ne l'applique. Ce qui suit
+// est la politique que le code APPLIQUE réellement, catégorie par
+// catégorie — et c'est elle que la page publie désormais.
+
+// Le type et la mise en forme vivent dans `lib/retention.ts`, sans
+// dépendance à Supabase : l'écran de configuration les utilise DANS LE
+// NAVIGATEUR, et ce fichier-ci est serveur uniquement. Ré-exportés ici
+// pour que les pages n'aient qu'un import à écrire.
+export type { RetentionPolicy } from '@/lib/retention'
+export { formatRetentionDays } from '@/lib/retention'
+
+// Retourne `null` — et non un tableau vide — quand la table n'existe pas
+// encore (0056 non appliquée). La distinction est le cœur du sujet : un
+// tableau vide se lirait « aucune donnée n'est purgée », et la page
+// afficherait une politique de conservation vide comme si c'en était
+// une. `null` fait retirer la section entière, c'est-à-dire ne rien
+// promettre — la règle du dépôt : soit on livre, soit on retire la
+// phrase.
+//
+// Lecture PUBLIQUE : la policy « Retention policies read » (0056) rend
+// la table lisible sans connexion, parce que /confidentialite l'est.
+export const getRetentionPolicies = cache(async (): Promise<RetentionPolicy[] | null> => {
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from('retention_policies')
+      .select('category, label, description, retention_days, enabled')
+      .order('retention_days')
+    if (error || !data || !data.length) return null
+    return data.map(r => ({
+      category: r.category as string,
+      label: r.label as string,
+      description: r.description as string,
+      retentionDays: Number(r.retention_days),
+      enabled: !!r.enabled,
+    }))
+  } catch {
+    return null
   }
 })

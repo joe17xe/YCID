@@ -458,3 +458,255 @@ export async function updateAiPricing(input: { priceIn: string; priceOut: string
     return { ok: false, error: `Échec : ${e instanceof Error ? e.message : String(e)}` }
   }
 }
+
+// ============================================================
+// Données personnelles (0056) — conservation, purge, export RGPD
+// ============================================================
+// Deux sujets dans un seul écran, et c'est délibéré : ce sont les deux
+// obligations que la page /confidentialite annonce (limitation de la
+// durée de conservation, art. 5.1.e ; droit d'accès, art. 15 et 20), et
+// les séparer inviterait à n'en tenir qu'une.
+//
+// Tout passe par les fonctions SQL de la 0056. Rien n'est réimplémenté
+// ici : la liste de ce qui se purge et la règle « ne pas déverser les
+// données d'autrui » vivent dans la base, à un seul endroit. Une seconde
+// version côté application dériverait — c'est ce que check-rbac.mjs
+// existe pour empêcher ailleurs.
+
+export interface RetentionRow {
+  category: string
+  label: string
+  description: string
+  retentionDays: number
+  enabled: boolean
+  operation: string
+  affected: number
+}
+
+export interface RetentionRun {
+  at: string
+  source: string
+  totalAffected: number
+  byUser: string | null
+}
+
+export async function loadRetention(): Promise<{
+  ok: boolean; error?: string
+  rows?: RetentionRow[]; runs?: RetentionRun[]; lastRunAt?: string | null
+}> {
+  try {
+    const ctx = await requireAdmin()
+    if ('error' in ctx) return { ok: false, error: ctx.error }
+    const supabase = await createClient()
+
+    const [preview, runs] = await Promise.all([
+      supabase.rpc('retention_preview'),
+      supabase.from('retention_runs')
+        .select('at, source, total_affected, by_user, profiles:by_user(full_name)')
+        .order('at', { ascending: false }).limit(5),
+    ])
+    // Migration non appliquée : on le dit, plutôt que d'afficher un
+    // écran vide qui laisserait croire qu'il n'y a rien à purger.
+    if (preview.error) {
+      return { ok: false, error: `Politique de conservation illisible — la migration 0056 est-elle appliquée ? (${preview.error.message})` }
+    }
+
+    const rows = ((preview.data ?? []) as {
+      category: string; label: string; description: string
+      retention_days: number; enabled: boolean; operation: string; affected: number
+    }[]).map(r => ({
+      category: r.category, label: r.label, description: r.description,
+      retentionDays: Number(r.retention_days), enabled: !!r.enabled,
+      operation: r.operation, affected: Number(r.affected),
+    }))
+
+    const runRows = ((runs.data ?? []) as {
+      at: string; source: string; total_affected: number
+      profiles: { full_name: string } | { full_name: string }[] | null
+    }[]).map(r => ({
+      at: r.at, source: r.source, totalAffected: Number(r.total_affected),
+      byUser: (Array.isArray(r.profiles) ? r.profiles[0]?.full_name : r.profiles?.full_name) ?? null,
+    }))
+
+    return { ok: true, rows, runs: runRows, lastRunAt: runRows[0]?.at ?? null }
+  } catch (e) {
+    console.error('[loadRetention] exception:', e)
+    return { ok: false, error: `Échec : ${e instanceof Error ? e.message : String(e)}` }
+  }
+}
+
+// Borne haute à 20 ans, borne basse à 30 jours (la contrainte `check`
+// de la table pose déjà le plancher — on le double ici pour rendre un
+// message en français plutôt qu'une erreur Postgres).
+//
+// La borne haute n'est pas décorative : au-delà, « conserver » cesse
+// d'être une durée et redevient « pour toujours ». Qui veut cela décoche
+// la catégorie, ce qui a le mérite de s'afficher comme tel sur la page
+// publique au lieu de se déguiser en durée de deux siècles.
+const RETENTION_MIN_DAYS = 30
+const RETENTION_MAX_DAYS = 7300
+
+export async function updateRetentionPolicy(input: {
+  category: string; retentionDays: number; enabled: boolean
+}): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const ctx = await requireAdmin()
+    if ('error' in ctx) return { ok: false, error: ctx.error }
+
+    const days = Math.round(Number(input.retentionDays))
+    if (!Number.isFinite(days) || days < RETENTION_MIN_DAYS || days > RETENTION_MAX_DAYS) {
+      return { ok: false, error: `La durée doit être comprise entre ${RETENTION_MIN_DAYS} et ${RETENTION_MAX_DAYS} jours. Pour ne rien purger, décochez la catégorie.` }
+    }
+
+    const supabase = await createClient()
+    // L'état AVANT, relevé pour la trace : après l'update, plus rien ne
+    // peut dire ce qui a changé.
+    const { data: before } = await supabase.from('retention_policies')
+      .select('label, retention_days, enabled').eq('category', input.category).maybeSingle()
+    if (!before) return { ok: false, error: 'Catégorie inconnue. Les catégories sont fixées par la migration 0056.' }
+
+    const { error } = await supabase.from('retention_policies').update({
+      retention_days: days,
+      enabled: !!input.enabled,
+      updated_at: new Date().toISOString(),
+      updated_by: ctx.user.id,
+    }).eq('category', input.category)
+    if (error) {
+      console.error('[updateRetentionPolicy] échec:', { code: error.code, message: error.message })
+      return { ok: false, error: `Échec de l'enregistrement : ${error.message}` }
+    }
+
+    // Changer une durée de conservation n'est pas un réglage
+    // d'affichage : c'est ce que la plateforme annonce aux personnes
+    // concernées, et ce qu'elle détruira. La trace est portée au
+    // journal, sans projet rattaché puisque le réglage est global —
+    // comme le circuit de validation plus haut.
+    const changed = Number(before.retention_days) !== days || !!before.enabled !== !!input.enabled
+    if (changed) {
+      const state = (on: boolean) => on ? 'appliquée' : 'désactivée'
+      const { error: auditErr } = await supabase.from('audit_log').insert({
+        project_id: null, entity: 'retention_policy', entity_id: null,
+        label: before.label, action: 'modifie', user_id: ctx.user.id,
+        comment: `Conservation « ${before.label} » : ${before.retention_days} j (${state(!!before.enabled)}) → ${days} j (${state(!!input.enabled)})`,
+      })
+      if (auditErr) console.error('[audit] trace NON enregistrée:', auditErr.message)
+    }
+
+    revalidatePath('/admin/configuration')
+    revalidatePath('/confidentialite')
+    return { ok: true }
+  } catch (e) {
+    console.error('[updateRetentionPolicy] exception:', e)
+    return { ok: false, error: `Échec : ${e instanceof Error ? e.message : String(e)}` }
+  }
+}
+
+// `dryRun` à vrai : la fonction SQL compte sans rien détruire et
+// n'inscrit rien au journal des purges. C'est le bouton « Aperçu ».
+export async function runRetentionPurge(dryRun: boolean): Promise<{
+  ok: boolean; error?: string; total?: number
+  categories?: { categorie: string; libelle: string; operation: string; lignes: number }[]
+}> {
+  try {
+    const ctx = await requireAdmin()
+    if ('error' in ctx) return { ok: false, error: ctx.error }
+
+    const supabase = await createClient()
+    const { data, error } = await supabase.rpc('retention_purge', { p_dry_run: dryRun })
+    if (error) {
+      console.error('[runRetentionPurge] échec:', { code: error.code, message: error.message })
+      const missing = /retention_purge|PGRST202|schema cache/i.test(`${error.code} ${error.message}`)
+      return {
+        ok: false,
+        error: missing
+          ? 'Purge indisponible : appliquez la migration 0056_retention_et_export_rgpd.sql dans le SQL Editor Supabase.'
+          : `Purge interrompue — rien n'a été supprimé : ${error.message}`,
+      }
+    }
+    const res = (data ?? {}) as { total?: number; categories?: { categorie: string; libelle: string; operation: string; lignes: number }[] }
+    revalidatePath('/admin/configuration')
+    return { ok: true, total: Number(res.total ?? 0), categories: res.categories ?? [] }
+  } catch (e) {
+    console.error('[runRetentionPurge] exception:', e)
+    return { ok: false, error: `Échec : ${e instanceof Error ? e.message : String(e)}` }
+  }
+}
+
+// ------------------------------------------------------------
+// Export des données d'une personne (art. 15 et 20)
+// ------------------------------------------------------------
+// Réservé à l'administrateur : c'est lui qui répond à une demande
+// d'exercice de droits, et c'est lui qui RELIT l'export avant de le
+// transmettre. L'arbitrage complet est écrit en tête de la 0056.
+
+export interface PersonHit { id: string; fullName: string; email: string }
+
+export async function searchPeople(query: string): Promise<{ ok: boolean; error?: string; people?: PersonHit[] }> {
+  try {
+    const ctx = await requireAdmin()
+    if ('error' in ctx) return { ok: false, error: ctx.error }
+    const q = (query ?? '').trim()
+    // Deux caractères au minimum : une recherche vide renverrait
+    // l'annuaire complet de la plateforme dans un écran dont ce n'est
+    // pas l'objet.
+    if (q.length < 2) return { ok: true, people: [] }
+
+    const supabase = await createClient()
+    // `%` et `,` sont des métacaractères du filtre PostgREST : les
+    // laisser passer permettrait de sortir de la clause `or(...)`.
+    const safe = q.replace(/[%,()\\]/g, ' ').trim()
+    if (!safe) return { ok: true, people: [] }
+
+    const { data, error } = await supabase.from('profiles')
+      .select('id, full_name, email')
+      .or(`full_name.ilike.%${safe}%,email.ilike.%${safe}%`)
+      .order('full_name').limit(10)
+    if (error) return { ok: false, error: `Recherche impossible : ${error.message}` }
+    return {
+      ok: true,
+      people: ((data ?? []) as { id: string; full_name: string; email: string }[])
+        .map(p => ({ id: p.id, fullName: p.full_name || p.email, email: p.email })),
+    }
+  } catch (e) {
+    return { ok: false, error: `Échec : ${e instanceof Error ? e.message : String(e)}` }
+  }
+}
+
+export async function exportPersonData(userId: string): Promise<{
+  ok: boolean; error?: string; filename?: string; json?: string
+}> {
+  try {
+    const ctx = await requireAdmin()
+    if ('error' in ctx) return { ok: false, error: ctx.error }
+    if (!userId) return { ok: false, error: 'Aucune personne sélectionnée.' }
+
+    const supabase = await createClient()
+    const { data, error } = await supabase.rpc('export_person_data', { p_user_id: userId })
+    if (error) {
+      console.error('[exportPersonData] échec:', { code: error.code, message: error.message })
+      const missing = /export_person_data|PGRST202|schema cache/i.test(`${error.code} ${error.message}`)
+      return {
+        ok: false,
+        error: missing
+          ? 'Export indisponible : appliquez la migration 0056_retention_et_export_rgpd.sql dans le SQL Editor Supabase.'
+          : `Export impossible : ${error.message}`,
+      }
+    }
+
+    // Le nom du fichier porte l'email et la date : une réponse à une
+    // demande d'exercice de droits se classe dans un dossier, et
+    // « export.json » ne s'y retrouve pas.
+    const { data: me } = await supabase.from('profiles').select('email').eq('id', userId).maybeSingle()
+    const slug = (me?.email ?? userId).replace(/[^a-zA-Z0-9._-]/g, '_')
+    const day = new Date().toISOString().slice(0, 10)
+
+    return {
+      ok: true,
+      filename: `donnees-personnelles_${slug}_${day}.json`,
+      json: JSON.stringify(data, null, 2),
+    }
+  } catch (e) {
+    console.error('[exportPersonData] exception:', e)
+    return { ok: false, error: `Échec : ${e instanceof Error ? e.message : String(e)}` }
+  }
+}

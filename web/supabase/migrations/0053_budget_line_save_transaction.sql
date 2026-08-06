@@ -286,9 +286,15 @@ $$;
 -- reste `security invoker` — elle ne peut rien faire que son appelant ne
 -- puisse déjà faire — mais elle vaut pour le jour où quelqu'un la
 -- basculerait en `security definer` sans relire ce fichier.
+-- `anon` est NOMMÉ, et ce n'est pas une redondance : sur Supabase,
+-- `revoke ... from public` ne lui retire rien. `public` est le
+-- pseudo-rôle par défaut ; `anon` est un rôle réel à qui la plateforme
+-- accorde l'exécution par un `alter default privileges` distinct.
+-- Vérifié sur cluster : après le seul `revoke ... from public`, l'ACL
+-- de la fonction porte encore `anon=X`.
 revoke all on function public.save_budget_line(
   uuid, uuid, text, text, text, uuid, uuid, uuid, int, numeric, boolean, text, text, jsonb
-) from public;
+) from public, anon;
 grant execute on function public.save_budget_line(
   uuid, uuid, text, text, text, uuid, uuid, uuid, int, numeric, boolean, text, text, jsonb
 ) to authenticated;

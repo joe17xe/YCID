@@ -101,7 +101,14 @@ as $$
   );
 $$;
 
-revoke all on function public.document_has_decision(uuid) from public;
+-- `anon` est NOMMÉ, et ce n'est pas une redondance : sur Supabase,
+-- `revoke ... from public` ne lui retire rien. `public` est le
+-- pseudo-rôle par défaut ; `anon` est un rôle réel à qui la plateforme
+-- accorde l'exécution par un `alter default privileges` distinct.
+-- Sans cette mention, cette fonction `security definer` resterait
+-- appelable sans authentification, et dirait à qui la sonde si un
+-- document porte une décision.
+revoke all on function public.document_has_decision(uuid) from public, anon;
 grant execute on function public.document_has_decision(uuid) to authenticated;
 
 -- ------------------------------------------------------------

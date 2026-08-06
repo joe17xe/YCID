@@ -8,7 +8,11 @@ import { createClient } from '@/lib/supabase/server'
 import { adminCreateUser } from '@/lib/supabase/auth-admin'
 import { parseRecipients } from '@/lib/recipients'
 import { adminClient } from '@/lib/supabase/admin'
-import { isUserAdmin } from '@/lib/permissions'
+import { canAnonymizeAccounts, isUserAdmin } from '@/lib/permissions'
+import {
+  anonymizationConfirmationTarget, anonymizationConfirmed,
+  asTraceCount, describeTraces, type TraceCount,
+} from './anonymisation'
 
 // Deux rôles seulement (0037). Les garde-fous « ycid » plus bas sont
 // conservés à dessein : ils protègent encore les bases où la migration
@@ -182,8 +186,21 @@ export async function updateUser(userId: string, input: UserFormInput): Promise<
     const ctx = await currentContext(supabase)
     if ('error' in ctx) return { ok: false, error: ctx.error }
 
-    const { data: target } = await supabase.from('profiles').select('platform_role, email').eq('id', userId).maybeSingle()
+    const { data: target } = await supabase.from('profiles').select('platform_role, email, anonymized_at').eq('id', userId).maybeSingle()
     if (!target) return { ok: false, error: 'Utilisateur introuvable.' }
+    // Une anonymisation qu'on peut défaire n'est pas une anonymisation.
+    // Sans ce refus, « Modifier » suffirait à réattribuer un nom et une
+    // adresse réelle à une pierre tombale — donc à RE-IDENTIFIER toutes
+    // les traces qu'on venait d'anonymiser, en trois clics et sans que
+    // rien ne le signale. L'écran masque déjà le bouton (page.tsx) ;
+    // ceci est le verrou, l'autre n'est que la politesse.
+    if (target.anonymized_at) {
+      return {
+        ok: false,
+        error: "Ce compte a été anonymisé : son identité ne peut plus être modifiée. "
+          + "L'effacement RGPD est irréversible par construction — voir la migration 0055.",
+      }
+    }
     // Un YCID ne peut ni modifier un Administrateur, ni promouvoir en Administrateur
     if (ctx.myRole === 'ycid' && (target.platform_role === 'admin' || input.role === 'admin')) {
       return { ok: false, error: "Le rôle YCID ne peut pas modifier ni créer un Administrateur." }
@@ -241,7 +258,7 @@ export async function deleteUser(userId: string): Promise<Result> {
     if ('error' in ctx) return { ok: false, error: ctx.error }
     if (ctx.user.id === userId) return { ok: false, error: 'Vous ne pouvez pas supprimer votre propre compte.' }
 
-    const { data: target } = await supabase.from('profiles').select('platform_role').eq('id', userId).maybeSingle()
+    const { data: target } = await supabase.from('profiles').select('platform_role, anonymized_at').eq('id', userId).maybeSingle()
     if (!target) return { ok: false, error: 'Utilisateur introuvable.' }
     if (ctx.myRole === 'ycid' && target.platform_role === 'admin') {
       return { ok: false, error: "Le rôle YCID ne peut pas supprimer un Administrateur." }
@@ -250,6 +267,48 @@ export async function deleteUser(userId: string): Promise<Result> {
     if (target.platform_role === 'admin') {
       const { count } = await supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('platform_role', 'admin')
       if ((count ?? 0) <= 1) return { ok: false, error: 'Impossible de supprimer le dernier Administrateur.' }
+    }
+    // Une pierre tombale ne se supprime pas : elle EST l'attestation que
+    // l'effacement a eu lieu, et c'est elle qui porte l'auteur des
+    // traces conservées. Le cas se produit vraiment — un compte anonymisé
+    // n'ayant laissé AUCUNE trace n'est retenu par aucune clé étrangère,
+    // la suppression aboutirait donc en silence.
+    if (target.anonymized_at) {
+      return { ok: false, error: "Ce compte a déjà été anonymisé : il n'y a plus rien à supprimer, et sa pierre tombale atteste l'effacement." }
+    }
+
+    // ----------------------------------------------------------
+    // Le bouton qui ne pouvait pas marcher
+    // ----------------------------------------------------------
+    // `auth.admin.deleteUser` supprime la ligne `auth.users`, d'où le
+    // profil part en cascade (0001 : `references auth.users(id) on
+    // delete cascade`). Mais treize clés étrangères visent `profiles`
+    // SANS action de suppression — `audit_log.user_id` en tête — et
+    // PostgreSQL refuse (23503). GoTrue rend alors un « Database error
+    // deleting user » qui ne dit ni pourquoi ni quoi faire.
+    //
+    // Autrement dit : pour tout compte ayant validé, déposé ou créé quoi
+    // que ce soit, ce bouton échouait à coup sûr. On pose la question
+    // AVANT, plutôt que de traduire après coup une erreur de service
+    // dont le texte ne nous appartient pas.
+    const { data: rawTraces, error: traceErr } = await supabase.rpc('profile_trace_count', { p_user_id: userId })
+    if (traceErr) {
+      // Migration 0055 non appliquée : on ne bloque pas une
+      // fonctionnalité qui existait avant elle. Le comportement
+      // d'origine reprend, avec son erreur opaque — et le journal
+      // serveur dit pourquoi on n'a pas pu faire mieux.
+      console.error('[deleteUser] inventaire des traces indisponible (migration 0055 appliquée ?) :', traceErr.message)
+    } else {
+      const traces = asTraceCount(rawTraces)
+      if (traces.blocking > 0) {
+        return {
+          ok: false,
+          error: `Ce compte a laissé ${traces.blocking} trace${traces.blocking > 1 ? 's' : ''} que l'application doit conserver `
+            + `(${describeTraces(traces.detail).slice(0, 3).join(', ')}…). La base refuse de les détacher de leur auteur : `
+            + `une décision de validation sans décideur ne vaut rien devant un financeur. `
+            + `Utilisez « Anonymiser » — l'identité disparaît, les traces restent.`,
+        }
+      }
     }
 
     const admin = adminClient()
@@ -265,6 +324,263 @@ export async function deleteUser(userId: string): Promise<Result> {
   } catch (e) {
     console.error('[deleteUser] exception non gérée:', e)
     return { ok: false, error: `Échec de la suppression : ${withKeyHint(describeError(e))}` }
+  }
+}
+
+// ============================================================
+// Effacement RGPD (art. 17) par ANONYMISATION
+// ============================================================
+// L'écran Confidentialité promet aux personnes un droit d'effacement que
+// la base refusait de tenir (migration 0055, qui raconte l'arbitrage en
+// entier). Le geste retenu n'est pas une suppression : c'est le
+// remplacement, EN PLACE et sans retour, de l'identité par une pierre
+// tombale. La décision de validation du 12 mars reste la décision de
+// validation du 12 mars ; son auteur devient « Utilisateur supprimé
+// #1000 ».
+//
+// Cette action enchaîne quatre gestes que rien ne peut rendre atomiques —
+// ils s'adressent à trois systèmes différents (Postgres, GoTrue,
+// Storage). L'ORDRE est donc la seule garantie qu'on ait, et il est
+// choisi pour que chaque échec laisse un état DÉFENDABLE :
+//
+//   1. la base (rpc `anonymize_profile`). Irréversible, donc en premier :
+//      si elle échoue, rien d'autre n'a bougé. Elle pose `active = false`,
+//      ce qui ferme l'accès à l'application dès la navigation suivante
+//      (app/(app)/layout.tsx) — la personne est donc DÉJÀ dehors quand
+//      les étapes suivantes s'exécutent ;
+//   2. le fichier d'avatar (Storage). Une photo est une donnée
+//      personnelle ; `avatar_url` a été vidée en 1, le fichier non ;
+//   3. le compte d'authentification (GoTrue) : adresse remplacée par la
+//      MÊME pierre tombale, métadonnée `full_name` écrasée, mot de passe
+//      remplacé par une valeur que personne ne connaît, compte banni. On
+//      ne le SUPPRIME jamais : la cascade `auth.users → profiles`
+//      emporterait la pierre tombale et, avec elle, l'auteur de toutes
+//      les traces ;
+//   4. la trace au journal.
+//
+// Un échec en 2 ou 3 ne fait pas échouer l'opération — le profil EST
+// anonymisé et le nier serait mentir — mais il remonte tel quel à
+// l'écran ET dans la trace : c'est ce qui reste à finir à la main.
+
+export interface AnonymizeResult extends Result {
+  tombstone?: string
+  warning?: string
+}
+
+// Supprime les fichiers d'avatar d'un compte. Passe par la clé de
+// service : la policy « Avatar delete » (0009) n'autorise que le
+// PROPRIÉTAIRE du dossier, un administrateur agissant pour autrui serait
+// donc écarté — et un `remove` écarté par la RLS ne lève pas d'erreur,
+// il rend une liste vide et l'écran annoncerait une photo effacée qui
+// reste servie.
+async function removeAvatarFiles(userId: string): Promise<{ removed: number; error?: string }> {
+  const admin = adminClient()
+  if (!admin) return { removed: 0, error: 'clé de service absente du serveur (SUPABASE_SERVICE_ROLE_KEY)' }
+  const { data: files, error: listErr } = await admin.storage.from('avatars').list(userId)
+  if (listErr) return { removed: 0, error: listErr.message }
+  const paths = (files ?? []).map(f => `${userId}/${f.name}`)
+  if (!paths.length) return { removed: 0 }
+  const { data: gone, error: rmErr } = await admin.storage.from('avatars').remove(paths)
+  if (rmErr) return { removed: 0, error: rmErr.message }
+  return { removed: (gone ?? []).length }
+}
+
+// Inventaire lu AVANT le geste, pour l'écran de confirmation : « voici
+// ce qui sera conservé ». Sans lui, l'écran demande un geste
+// irréversible sans en montrer la portée — et l'administrateur ne peut
+// pas répondre à la personne qui lui écrit « qu'est-ce qu'il reste de
+// moi ? ».
+export async function loadAnonymizationPreview(userId: string): Promise<{
+  ok: boolean; error?: string; traces?: TraceCount
+}> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Non authentifié.' }
+  if (!(await canAnonymizeAccounts(supabase, user.id))) {
+    return { ok: false, error: "L'anonymisation est réservée aux administrateurs de la plateforme." }
+  }
+  const { data, error } = await supabase.rpc('profile_trace_count', { p_user_id: userId })
+  if (error) {
+    return {
+      ok: false,
+      error: error.code === 'PGRST202'
+        ? "Fonction absente : la migration 0055 n'est pas appliquée sur cette base."
+        : `Inventaire indisponible : ${error.message}`,
+    }
+  }
+  return { ok: true, traces: asTraceCount(data) }
+}
+
+export async function anonymizeUser(userId: string, confirmation: string): Promise<AnonymizeResult> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: false, error: 'Non authentifié.' }
+    if (!(await canAnonymizeAccounts(supabase, user.id))) {
+      return { ok: false, error: "L'anonymisation est réservée aux administrateurs de la plateforme." }
+    }
+    if (user.id === userId) {
+      return { ok: false, error: 'Vous ne pouvez pas anonymiser votre propre compte.' }
+    }
+
+    const { data: target } = await supabase.from('profiles')
+      .select('full_name, email, anonymized_at').eq('id', userId).maybeSingle()
+    if (!target) return { ok: false, error: 'Utilisateur introuvable.' }
+    if (target.anonymized_at) return { ok: false, error: 'Ce compte est déjà anonymisé.' }
+
+    // ------------------------------------------------------------
+    // La confirmation, et le piège qu'elle porte
+    // ------------------------------------------------------------
+    // Le dépôt confirme ses suppressions par recopie du nom. Le défaut
+    // qui va avec a déjà été trouvé deux fois (phases, puis projets) :
+    // avec un nom vide, `'' !== ''` est FAUX, donc la confirmation passe
+    // sans qu'on ait rien saisi. Ici la cible est calculée par une
+    // échelle — nom, sinon adresse — et `anonymizationConfirmed` REFUSE
+    // catégoriquement une cible vide, au lieu de laisser une comparaison
+    // décider par accident. Le même code sert à l'écran (voir
+    // ./anonymisation.ts) : les deux ne peuvent pas diverger.
+    const expected = anonymizationConfirmationTarget(target)
+    if (!expected) {
+      return {
+        ok: false,
+        error: "Ce compte n'a ni nom ni adresse : la confirmation consiste à recopier l'un des deux, "
+          + "et sans eux rien ne prouve qu'on anonymise le bon compte. Renseignez d'abord une adresse "
+          + "depuis « Modifier », puis recommencez.",
+      }
+    }
+    if (!anonymizationConfirmed(expected, confirmation)) {
+      return { ok: false, error: 'La saisie ne correspond pas — anonymisation annulée.' }
+    }
+
+    // ------------------------------------------------------------
+    // 1. La base — l'unique étape irréversible
+    // ------------------------------------------------------------
+    // Appelée avec le client de l'ADMINISTRATEUR, pas avec la clé de
+    // service : la fonction est `security definer` et s'appuie sur
+    // `is_admin()`, donc sur `auth.uid()`. Sous la clé de service,
+    // `auth.uid()` est nul et la fonction refuserait — à juste titre.
+    const { data: rawResult, error: rpcErr } = await supabase.rpc('anonymize_profile', { p_user_id: userId })
+    if (rpcErr) {
+      if (rpcErr.code === 'PGRST202') {
+        return { ok: false, error: "Anonymisation impossible : la migration 0055 n'est pas appliquée sur cette base. Rien n'a été modifié." }
+      }
+      console.error('[anonymizeUser] rpc anonymize_profile refusée :', { userId, code: rpcErr.code, message: rpcErr.message, details: rpcErr.details })
+      return { ok: false, error: `Anonymisation refusée : ${describeError(rpcErr)}` }
+    }
+    const result = (rawResult ?? {}) as {
+      number?: number; full_name?: string; email?: string; had_avatar?: boolean; traces?: unknown
+    }
+    const tombstoneName = result.full_name ?? 'Utilisateur supprimé'
+    const tombstoneEmail = result.email ?? ''
+    const traces = asTraceCount(result.traces)
+
+    // À partir d'ici, PLUS RIEN ne peut faire échouer l'opération : le
+    // profil est anonymisé, répondre `ok: false` ferait croire à
+    // l'administrateur qu'il ne l'est pas. Ce qui suit se raconte.
+    const notes: string[] = []
+    const warnings: string[] = []
+
+    // ------------------------------------------------------------
+    // 2. Le fichier d'avatar
+    // ------------------------------------------------------------
+    const avatar = await removeAvatarFiles(userId)
+    if (avatar.error) {
+      console.error('[anonymizeUser] photo de profil NON supprimée :', { userId, error: avatar.error })
+      warnings.push(`la photo de profil n'a pas pu être supprimée du bucket « avatars » (${avatar.error}) : `
+        + `à retirer à la main sous avatars/${userId}/`)
+    } else if (avatar.removed > 0) {
+      notes.push(`${avatar.removed} fichier${avatar.removed > 1 ? 's' : ''} de photo de profil supprimé${avatar.removed > 1 ? 's' : ''}`)
+    } else if (result.had_avatar) {
+      // La colonne annonçait une photo, le bucket n'en avait pas : le
+      // fichier a été supprimé ailleurs, ou l'URL pointait hors bucket.
+      // Ça se dit, ça ne s'alarme pas.
+      notes.push('aucun fichier de photo trouvé dans le bucket')
+    }
+
+    // ------------------------------------------------------------
+    // 3. Le compte d'authentification — bloqué, JAMAIS supprimé
+    // ------------------------------------------------------------
+    const admin = adminClient()
+    if (!admin) {
+      warnings.push("le compte d'authentification n'a pas pu être bloqué (SUPABASE_SERVICE_ROLE_KEY absente du serveur) : "
+        + "l'adresse réelle subsiste dans auth.users et la personne peut encore se connecter — l'application la déconnectera aussitôt "
+        + "(compte désactivé), mais le blocage doit être fait depuis le tableau de bord Supabase.")
+    } else {
+      const { error: authErr } = await admin.auth.admin.updateUserById(userId, {
+        // La même pierre tombale que le profil : l'adresse réelle ne doit
+        // pas survivre dans le schéma `auth`, où aucun écran ne la montre
+        // et où personne ne penserait à la chercher.
+        email: tombstoneEmail || undefined,
+        email_confirm: true,
+        // `raw_user_meta_data.full_name` est posé à la création du compte
+        // (lib/supabase/auth-admin.ts) : c'est le nom de la personne, en
+        // clair, dans une colonne qu'aucun écran ne lit. Il part aussi.
+        user_metadata: { full_name: tombstoneName },
+        // L'ancien mot de passe ne vaut plus rien, y compris pour qui
+        // l'aurait noté. La valeur tirée ici n'est communiquée à
+        // personne : c'est une serrure sans clé, pas un mot de passe.
+        password: randomBytes(24).toString('base64url'),
+        // 100 ans. GoTrue refuse alors toute connexion et tout
+        // renouvellement de jeton. Un jeton d'accès déjà émis reste
+        // valide jusqu'à son expiration (une heure), mais le profil porte
+        // `active = false` : l'application déconnecte son porteur à la
+        // navigation suivante.
+        ban_duration: '876000h',
+      })
+      if (authErr) {
+        console.error('[anonymizeUser] compte auth NON bloqué :', { userId, status: (authErr as { status?: number }).status, message: authErr.message })
+        warnings.push(`le compte d'authentification n'a pas pu être bloqué (${withKeyHint(describeError(authErr))}) : `
+          + `à faire depuis le tableau de bord Supabase, Authentication ▸ Users ▸ Ban user. `
+          + `NE PAS le supprimer : la suppression emporterait le profil anonymisé et l'auteur de toutes ses traces.`)
+      } else {
+        notes.push("compte d'authentification banni, adresse et mot de passe remplacés")
+      }
+    }
+
+    // ------------------------------------------------------------
+    // 4. La trace — et le piège qu'elle porte
+    // ------------------------------------------------------------
+    // Rien de personnel n'entre ici. C'est l'erreur classique de
+    // l'anonymisation : consigner « Compte de Jean Dupont anonymisé »
+    // rend l'opération NULLE, puisque l'identité se relit dans la trace
+    // même qui l'efface — et le journal, lui, est fait pour durer.
+    //
+    // Ce qui est écrit : la pierre tombale, l'identifiant technique (qui
+    // ne désigne plus personne mais reste la clé regroupant les traces
+    // du compte), le compte de ce qui a été conservé, et ce qui a échoué.
+    // `project_id: null`, comme la purge du stockage : l'événement ne
+    // relève d'aucun projet.
+    const detail = describeTraces(traces.detail)
+    const trace = {
+      project_id: null, entity: 'profile', entity_id: userId,
+      label: `Compte anonymisé — ${tombstoneName}`,
+      action: 'supprime', user_id: user.id,
+      comment: [
+        `Effacement RGPD (art. 17) par anonymisation en place. Identifiant ${userId}.`,
+        ` Nom, adresse et photo remplacés par « ${tombstoneName} » ; `,
+        notes.length ? `${notes.join(' ; ')}.` : 'aucune action complémentaire.',
+        traces.total
+          ? ` ${traces.total} trace${traces.total > 1 ? 's' : ''} conservée${traces.total > 1 ? 's' : ''} : ${detail.join(', ')}.`
+          : ' Ce compte n\'avait laissé aucune trace.',
+        warnings.length ? ` RESTE À FAIRE : ${warnings.join(' ; ')}.` : '',
+      ].join(''),
+    }
+    const { error: auditErr } = await supabase.from('audit_log').insert(trace)
+    // Convention des cinq autres suppressions du dépôt (deleteTask,
+    // deleteProject, deleteDocument, deletePhase, purgeOrphans) : le
+    // geste est fait, on ne le dément pas, et le journal SERVEUR porte le
+    // payload complet — réinscriptible à la main.
+    if (auditErr) {
+      console.error('[audit] ANONYMISATION NON TRACÉE — à réinscrire à la main :',
+        JSON.stringify(trace), '—', auditErr.message)
+      warnings.push(`la trace au journal n'a pas pu être écrite (${auditErr.message}) : elle figure dans le journal serveur, à réinscrire`)
+    }
+
+    revalidatePath('/admin/utilisateurs')
+    return { ok: true, tombstone: tombstoneName, warning: warnings.length ? warnings.join(' ; ') : undefined }
+  } catch (e) {
+    console.error('[anonymizeUser] exception non gérée:', e)
+    return { ok: false, error: `Échec de l'anonymisation : ${withKeyHint(describeError(e))}` }
   }
 }
 
