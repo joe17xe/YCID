@@ -5,6 +5,7 @@ import { LayoutDashboard, FolderKanban, Building2, Upload, PieChart, Lightbulb, 
 import { createClient } from "@/lib/supabase/client"
 import { useState } from "react"
 import { useTranslations } from "next-intl"
+import { ADMIN_NAV_HREFS, ADMIN_NAV_KEYS, type AdminNavKey } from "@/lib/admin-nav"
 
 export type NavItem = { href: string; key: string; Icon: LucideIcon }
 export type NavGroup = { key: string | null; items: NavItem[] }
@@ -39,15 +40,34 @@ export const NAV_GROUPS: NavGroup[] = [
   },
 ]
 
-export const ADMIN_NAV: NavItem[] = [
-  { href: "/admin/utilisateurs", key: "users", Icon: Users },
+// Les icônes seules vivent ici — un composant ne traverse pas la
+// frontière serveur/client. Les clés et les chemins viennent de
+// `lib/admin-nav.ts`, que le layout serveur interroge pour décider QUI
+// voit QUOI, entrée par entrée (0065). `Record<AdminNavKey, …>` fait
+// échouer la compilation si une entrée est ajoutée d'un côté et oubliée
+// de l'autre — c'est ce qui a rattrapé « Programmes » (0055) lors de la
+// reprise sur master.
+const ADMIN_ICONS: Record<AdminNavKey, LucideIcon> = {
+  users: Users,
   // Programmes (0055) : le niveau au-dessus des projets — création et
-  // directeurs, admin seul.
-  { href: "/admin/programmes", key: "programmes", Icon: Layers },
-  { href: "/admin/acces", key: "access", Icon: ShieldCheck },
-  { href: "/admin/stockage", key: "storage", Icon: HardDrive },
-  { href: "/admin/configuration", key: "configuration", Icon: Settings },
-]
+  // directeurs. Réservé aux administrateurs, voir `adminNavKeysFor`.
+  programmes: Layers,
+  access: ShieldCheck,
+  storage: HardDrive,
+  configuration: Settings,
+}
+
+export const ADMIN_NAV: NavItem[] = ADMIN_NAV_KEYS.map(key => ({
+  href: ADMIN_NAV_HREFS[key], key, Icon: ADMIN_ICONS[key],
+}))
+
+// Les entrées d'administration réellement affichées. `adminNav` est la
+// liste des clés autorisées, calculée côté serveur : un porteur de la
+// capacité « gestion des comptes » n'en reçoit qu'une. Liste vide = pas
+// de section du tout.
+export function visibleAdminNav(adminNav: string[]): NavItem[] {
+  return ADMIN_NAV.filter(item => adminNav.includes(item.key))
+}
 
 // Une entrée de navigation, partagée entre la Sidebar et le tiroir
 // mobile. Ses états (repos, survol, actif en pastille claire) sont en
@@ -71,7 +91,8 @@ export function NavLink({ href, label, Icon, active, collapsed, onNavigate }: {
   )
 }
 
-export default function Sidebar({ showAdmin = false, brandName = "Solid'Pilot", logoUrl = null }: { showAdmin?: boolean; brandName?: string; logoUrl?: string | null }) {
+export default function Sidebar({ adminNav = [], brandName = "Solid'Pilot", logoUrl = null }: { adminNav?: string[]; brandName?: string; logoUrl?: string | null }) {
+  const adminItems = visibleAdminNav(adminNav)
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
@@ -122,7 +143,7 @@ export default function Sidebar({ showAdmin = false, brandName = "Solid'Pilot", 
             ))}
           </div>
         ))}
-        {showAdmin && (
+        {adminItems.length > 0 && (
           <div className="space-y-1">
             {!collapsed && (
               <div className="px-3 pt-4 pb-1 text-[11px] font-semibold tracking-wider uppercase" style={{ color: "var(--sidebar-muted)" }}>
@@ -130,7 +151,7 @@ export default function Sidebar({ showAdmin = false, brandName = "Solid'Pilot", 
               </div>
             )}
             {collapsed && <div className="mx-3 my-3 border-t" style={{ borderColor: "var(--sidebar-border)" }} />}
-            {ADMIN_NAV.map(({ href, key, Icon }) => (
+            {adminItems.map(({ href, key, Icon }) => (
               <NavLink key={href} href={href} label={t(key)} Icon={Icon} active={isActive(href)} collapsed={collapsed} />
             ))}
           </div>

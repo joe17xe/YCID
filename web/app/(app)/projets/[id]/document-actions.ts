@@ -4,6 +4,11 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { DOC_TYPES, DOC_TYPE_LABELS, DOC_MOMENTS, GALLERY_URL_TTL, type DocType, type DocMoment } from '@/lib/documents'
 import { notifyPeople, membersOfOrgs } from '@/lib/notify-circuit'
+import { isUserAdmin } from '@/lib/permissions'
+// Le montant se met en forme au même endroit que partout ailleurs : un
+// « 12 000 € » recopié à la main finit par différer de celui du tableau,
+// et c'est le chiffre lu juste avant de détruire une pièce.
+import { fmtEur } from '@/lib/budget'
 
 // ============================================================
 // PR 38a — Socle documentaire
@@ -173,10 +178,18 @@ export async function decideValidation(input: {
   // n'apparaissent qu'en attente, mais deux personnes peuvent trancher
   // à quelques secondes d'écart : la seconde écrasait la première, y
   // compris un refus par une validation, sans que rien ne le signale.
+  //
+  // « Retirez le devis et redéposez-le » a cessé d'être vrai avec la
+  // 0059 : une pièce décidée n'est plus supprimable par les rôles
+  // ordinaires, précisément pour que cette décision-ci survive. Indiquer
+  // une issue devenue impossible enverrait chercher un bouton disparu.
+  // Le remède réel n'a pas changé, il est seulement plus simple à dire :
+  // on dépose un NOUVEAU devis, et l'ancien reste à côté avec son motif.
   if (v.decision !== 'en_attente') {
     return {
       ok: false,
-      error: `Déjà ${v.decision === 'valide' ? 'validé' : 'refusé'} — rafraîchissez la page. Pour revenir sur une décision, retirez le devis et redéposez-le.`,
+      error: `Déjà ${v.decision === 'valide' ? 'validé' : 'refusé'} — rafraîchissez la page. `
+        + `Une décision ne se rejoue pas : pour repartir, déposez un nouveau devis sur la ligne.`,
     }
   }
 
@@ -328,20 +341,149 @@ export async function setDocumentPaid(input: {
   return { ok: true }
 }
 
-export async function deleteDocument(documentId: string): Promise<{ ok: boolean; error?: string }> {
+// ------------------------------------------------------------
+// Retirer une pièce — et la purge administrateur (0059)
+// ------------------------------------------------------------
+// Trois gestes distincts sous un même bouton corbeille, et c'est le
+// serveur qui dit lequel a lieu :
+//
+//   1. pièce NON DÉCIDÉE (aucune validation, ou toutes `en_attente`) —
+//      elle part, comme avant. C'est le devis de test jamais soumis, et
+//      le nettoyage de la recette ne doit pas coûter un dialogue par
+//      pièce ;
+//   2. pièce DÉCIDÉE, utilisateur ordinaire — refus FERME. La décision
+//      est ce qui justifie la dépense devant le financeur ; elle ne peut
+//      pas dépendre du bon vouloir de celui qu'elle contraint. Le message
+//      dit la marche à suivre réelle : DÉPOSER UN NOUVEAU DEVIS ;
+//   3. pièce DÉCIDÉE, administrateur — autorisé, mais en DEUX TEMPS. Le
+//      premier appel mesure et refuse en nommant ce qu'il détruirait ; le
+//      second porte `purge: true`. Même protocole que `deletePhase` et
+//      `deleteBudgetLine` (voir DeleteInTwoSteps) : le dialogue n'est pas
+//      le passage obligé d'une suppression, il est la suite d'un refus.
+//
+// La règle de fond vit en RLS (policy « Delete documents », 0059) — elle
+// seule est opposable. Ce qui suit ne la double pas : une policy ne sait
+// que rendre `false`, et « refusé » sans motif envoie chercher un droit
+// manquant là où il s'agit d'une règle de conservation. Le contrôle
+// ordinaire (auteur du dépôt, pilotage du projet) reste, lui,
+// entièrement à la charge du SQL : le recopier ici ferait une seconde
+// liste de droits à tenir juste.
+export interface DeleteDocumentOutcome {
+  ok: boolean
+  error?: string
+  // Refus LEVABLE : la pièce est décidée ET l'appelant peut la purger.
+  // Absent, le refus est FERME — il n'y a rien à confirmer, et offrir de
+  // forcer reviendrait au bouton mort que le dépôt s'interdit.
+  needsPurge?: boolean
+  // Mesuré par le premier appel, pour que le dialogue nomme ce qu'il
+  // efface sans le recompter côté client.
+  validationCount?: number
+}
+
+// « 1 validations » se lit comme un message de machine, et on cesse
+// alors de lire le reste — or c'est ici qu'il faut le lire.
+const plural = (n: number) => (n > 1 ? 's' : '')
+
+type ValidationRow = { decision: string; organizations: { name: string } | { name: string }[] | null }
+
+const orgNameOf = (v: ValidationRow) => {
+  const o = Array.isArray(v.organizations) ? v.organizations[0] : v.organizations
+  return o?.name ?? 'organisation inconnue'
+}
+
+// « refusé par LEY, en attente chez Coordination CEM » plutôt que « 2
+// validations » : la cascade les efface avec la pièce, elles ne
+// laisseront aucune trace d'elles-mêmes, et le journal est le seul
+// endroit où ce qu'elles disaient pourra se relire.
+const describeValidations = (list: ValidationRow[]) =>
+  list.map(v => `${v.decision === 'valide' ? 'validé' : v.decision === 'refuse' ? 'refusé' : 'en attente'} par ${orgNameOf(v)}`).join(', ')
+
+export async function deleteDocument(
+  documentId: string,
+  // Optionnel, et c'est délibéré : les pièces d'une tâche et les photos
+  // de phase n'entrent dans aucun circuit, leurs appels restent nus.
+  // Une purge, elle, se demande — un clic identique au cas ordinaire ne
+  // serait pas un geste conscient.
+  options?: { purge?: boolean },
+): Promise<DeleteDocumentOutcome> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: 'Non authentifié.' }
 
   const { data: doc } = await supabase.from('documents')
-    .select('id, project_id, filename, storage_path').eq('id', documentId).maybeSingle()
+    .select('id, project_id, filename, type, amount, storage_path, validations(decision, organizations:org_id(name))')
+    .eq('id', documentId).maybeSingle()
   if (!doc) return { ok: false, error: 'Document introuvable.' }
+
+  const validations = (doc.validations ?? []) as ValidationRow[]
+  const decided = validations.filter(v => v.decision !== 'en_attente')
+  const nature = DOC_TYPE_LABELS[doc.type as DocType] ?? doc.type
+  const montant = doc.amount != null ? ` — ${fmtEur(doc.amount)}` : ''
+  const label = `« ${doc.filename} » (${nature}${montant})`
+
+  if (decided.length > 0) {
+    // Le rôle plateforme, et lui seul (lib/permissions.ts). La policy SQL
+    // admet en plus `is_lead_org_admin()` : l'application est donc plus
+    // stricte que la base, et c'est le bon sens de l'écart — proposer une
+    // action que le serveur refusera est un défaut d'interface, l'inverse
+    // serait une faille. Administrer un programme n'est pas administrer
+    // l'outil (arbitrage 0037), et une purge est de l'administration
+    // d'outil.
+    const admin = await isUserAdmin(supabase, user.id)
+
+    if (!admin) {
+      return {
+        ok: false,
+        error:
+          `${label} a été ${describeValidations(decided)} : cette décision est la trace du circuit, `
+          + `et c'est elle qui justifie la dépense devant le financeur — elle reste au dossier. `
+          + `Une pièce décidée ne se retire donc plus. `
+          + `Pour repartir, déposez un NOUVEAU devis sur la ligne : le circuit recommence à zéro, `
+          + `et la décision précédente reste lisible à côté. `
+          + `Seul un administrateur peut purger une pièce décidée, pour retirer des données de test.`,
+      }
+    }
+
+    if (!options?.purge) {
+      const n = validations.length
+      return {
+        ok: false,
+        needsPurge: true,
+        validationCount: n,
+        error:
+          `Purger ${label} effacera définitivement : le fichier, la pièce, `
+          + `et ses ${n} validation${plural(n)} (${describeValidations(validations)}). `
+          + (doc.amount != null
+            ? `Le montant de ${fmtEur(doc.amount)} disparaîtra des colonnes de la ligne budgétaire. `
+            : `Aucun montant n'est rattaché à cette pièce. `)
+          + `Le journal d'audit, lui, conservera une ligne disant qu'une purge a eu lieu, par qui et sur quoi. `
+          + `Réservé au nettoyage des données de test : une décision réelle se corrige en déposant un nouveau devis, pas en effaçant l'ancien.`,
+      }
+    }
+  }
 
   // La ligne d'abord : si la RLS refuse, le fichier reste en place. Dans
   // l'ordre inverse, un refus laisserait une ligne pointant vers un
   // fichier supprimé.
-  const { error } = await supabase.from('documents').delete().eq('id', documentId)
+  //
+  // `.select('id')` n'est pas décoratif, et son absence était une panne
+  // muette : un DELETE qu'une policy RLS écarte ne remonte AUCUNE erreur
+  // — il supprime zéro ligne et répond « succès ». Le message
+  // « Suppression refusée : … » n'a donc jamais pu s'afficher pour un
+  // refus de droits ; l'écran annonçait le retrait d'une pièce que la
+  // base venait de garder, et elle réapparaissait au rafraîchissement
+  // suivant. Exactement le piège documenté sur l'UPDATE de
+  // `decideValidation`, ici resté ouvert.
+  const { data: removed, error } = await supabase.from('documents')
+    .delete().eq('id', documentId).select('id')
   if (error) return { ok: false, error: `Suppression refusée : ${error.message}` }
+  if (!removed?.length) {
+    return {
+      ok: false,
+      error: `La base a écarté le retrait de ${label}. Soit quelqu'un vient de le retirer (rafraîchissez la page), `
+        + `soit ce retrait ne vous revient pas : il appartient à l'auteur du dépôt, au chef de projet et au responsable financier.`,
+    }
+  }
 
   if (doc.storage_path) {
     const { error: storageErr } = await supabase.storage.from('documents').remove([doc.storage_path])
@@ -350,13 +492,84 @@ export async function deleteDocument(documentId: string): Promise<{ ok: boolean;
     if (storageErr) console.error('[deleteDocument] fichier non supprimé:', doc.storage_path, storageErr.message)
   }
 
-  const { error: auditErr } = await supabase.from('audit_log').insert({
+  // ------------------------------------------------------------
+  // Ce qui survit à la purge : une ligne au journal
+  // ------------------------------------------------------------
+  // Arbitrage produit, assumé contre la lettre de la demande (« enlever
+  // toutes les traces ») : la purge efface la pièce, ses validations et
+  // son fichier — mais PAS la ligne du journal qui dit qu'une purge a eu
+  // lieu, par qui et sur quoi. Un journal qu'un administrateur peut vider
+  // entièrement n'est plus un journal, c'est une vitrine : sa valeur
+  // tient au fait que personne ne peut le contredire, et c'est la pièce
+  // que le MEAE regardera. Le coût est nul pour le besoin réel — nettoyer
+  // des devis d'essai ne demande pas d'effacer le fait qu'on les a
+  // nettoyés ; ce sont les données de test qui gênent à l'écran, pas leur
+  // mention au journal.
+  //
+  // D'où le contenu : les validations emportées par la cascade y sont
+  // NOMMÉES, avec leur décision. Elles ne laissent aucune trace d'elles-
+  // mêmes (`on delete cascade`, 0001:154), et « 2 validations » ne se
+  // relit pas six mois plus tard — « refusé par LEY » se relit.
+  //
+  // `supprime` était refusé par PostgreSQL jusqu'à la 0058 : la valeur
+  // n'existait pas dans l'enum `audit_action`, et aucune suppression de
+  // pièce n'a jamais été tracée. Valeur inchangée, devenue valide.
+  const purged = decided.length > 0
+  const trace = {
     project_id: doc.project_id, entity: 'document', entity_id: null,
     label: doc.filename, action: 'supprime', user_id: user.id,
-  })
-  if (auditErr) console.error('[audit] trace NON enregistrée:', auditErr.message)
+    comment: [
+      purged ? `PURGE ADMINISTRATEUR — pièce décidée retirée` : `Pièce retirée`,
+      ` (${nature}${montant})`,
+      validations.length
+        ? ` — ${validations.length} validation${plural(validations.length)} emportée${plural(validations.length)} avec elle : ${describeValidations(validations)}`
+        : ` — aucune validation rattachée`,
+      doc.storage_path ? ` — fichier supprimé du stockage` : '',
+    ].join(''),
+  }
+  const { error: auditErr } = await supabase.from('audit_log').insert(trace)
+  // Règle commune aux suppressions, exposée dans deleteTask
+  // (projets/[id]/actions.ts) : la pièce est déjà supprimée, on ne casse
+  // pas le geste, et le journal serveur porte de quoi réinscrire la
+  // trace à la main. La trace est écrite APRÈS coup, et c'est délibéré :
+  // l'inscrire avant ferait entrer au journal des purges qui n'ont pas
+  // eu lieu, et un journal qui ment coûte plus cher qu'un journal
+  // incomplet — surtout ici, où il est le seul témoin restant.
+  if (auditErr) {
+    console.error('[audit] SUPPRESSION NON TRACÉE — à réinscrire à la main :',
+      JSON.stringify(trace), '—', auditErr.message)
+  }
   revalidatePath(`/projets/${doc.project_id}`)
   return { ok: true }
+}
+
+// Ce que l'écran a besoin de savoir AVANT d'afficher une corbeille : qui
+// peut purger, et quelles pièces sont décidées. Sans cette réponse,
+// l'interface n'aurait le choix qu'entre proposer à tous une action que
+// la base refusera à presque tous, ou la cacher à ceux à qui elle est
+// destinée.
+//
+// Deux informations dans un même appel parce qu'elles ne servent qu'à
+// une seule décision d'affichage, et qu'un second aller-retour pour un
+// booléen serait payé sur chaque ouverture de panneau.
+//
+// Aucune fuite : `decidedIds` ne sort que des identifiants de pièces que
+// la RLS laisse déjà voir à l'appelant, sans montant ni motif.
+export async function getDocumentPurgeState(projectId: string): Promise<{
+  canPurge: boolean
+  decidedIds: string[]
+}> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { canPurge: false, decidedIds: [] }
+
+  const { data } = await supabase.from('documents')
+    .select('id, validations(decision)').eq('project_id', projectId)
+  const decidedIds = (data ?? [])
+    .filter(d => ((d.validations ?? []) as { decision: string }[]).some(v => v.decision !== 'en_attente'))
+    .map(d => d.id)
+
+  return { canPurge: await isUserAdmin(supabase, user.id), decidedIds }
 }
 
 // ------------------------------------------------------------

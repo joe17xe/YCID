@@ -62,7 +62,19 @@ export async function generateExpertReport(projectId: string, instructions?: str
       // NB : plus de colonne budget ici — supprimée par la 0033. La
       // laisser dans le select faisait échouer TOUTE la requête phases,
       // et le rapport se générait avec zéro phase, sans erreur visible.
-      supabase.from('phases').select('id, name, position, start_date, end_date, status, tasks(id, title, status, progress, start_date, end_date, assignee_id)').eq('project_id', projectId).order('position'),
+      //
+      // Plus d'`assignee_id` non plus. Il était demandé et n'atterrissait
+      // dans AUCUN champ du digest : le `.map()` des tâches, vingt lignes
+      // plus bas, ne le lit pas. Une donnée personnelle — l'identifiant
+      // du profil d'une personne — chargée en mémoire d'une fonction dont
+      // la sortie part chez un fournisseur d'IA, sans que rien ne s'en
+      // serve : un risque sans la moindre contrepartie. Le jour où un
+      // champ « responsable » deviendrait utile au rapport, il faudra le
+      // vouloir explicitement — et se demander alors si nommer les
+      // personnes à un modèle tiers est nécessaire à un compte rendu
+      // budgétaire. `scripts/check-anonymat-digest.mjs` fait échouer la
+      // vérification si la colonne revient.
+      supabase.from('phases').select('id, name, position, start_date, end_date, status, tasks(id, title, status, progress, start_date, end_date)').eq('project_id', projectId).order('position'),
       // Pièces justificatives (PR 38e). Un rapport adossé à des preuves
       // datées vaut mieux qu'un rapport adossé à des pourcentages
       // déclaratifs — et l'absence de preuve sur une tâche déclarée
@@ -75,6 +87,12 @@ export async function generateExpertReport(projectId: string, instructions?: str
       supabase.from('budget_lines').select('id, poste, category, year, planned_amount, is_valorisation, status, phase_id, funder:funder_org_id(name), owner:owner_org_id(name), allocations:budget_line_tasks(task_id, amount), documents(type, amount, paid, validations(decision))').eq('project_id', projectId),
       supabase.from('indicators').select('id, name, kind, unit, baseline, target').eq('project_id', projectId),
       supabase.from('indicator_measures').select('indicator_id, period, value').order('period'),
+      // `attendees` — la liste nominative des présents — n'est PAS
+      // demandée, et ce n'est pas un oubli : le rapport commente une
+      // gouvernance (des réunions ont-elles lieu, à quel rythme, quelles
+      // décisions en sortent), pas des personnes. Le compte rendu
+      // (`minutes`) part en revanche tel quel, avec ce que ses auteurs y
+      // ont écrit — voir la note sur le texte libre au-dessus du digest.
       supabase.from('meetings').select('title, kind, date, minutes').eq('project_id', projectId).order('date', { ascending: false }).limit(10),
       // `text`, et non `label` : la colonne s'appelle ainsi depuis la
       // 0001. La requête échouait donc en silence, `decisions` revenait
@@ -113,6 +131,11 @@ export async function generateExpertReport(projectId: string, instructions?: str
 
     const plannedByTask = new Map<string, number>()
     const plannedByPhase = new Map<string, number>()
+    // Ce que la phase et la tâche reçoivent EN NATURE. Deux compteurs
+    // séparés, jamais fusionnés avec les précédents : c'est justement
+    // leur fusion qui constituait le défaut.
+    const valoByPhase = new Map<string, number>()
+    const valoByTask = new Map<string, number>()
     // Prévu / engagé / payé (PR 39) : mêmes formules que l'écran, via
     // lib/budget.ts. Un chiffre commenté par l'IA qui contredirait le
     // chiffre affiché serait le pire défaut pour une pièce destinée à
@@ -120,21 +143,98 @@ export async function generateExpertReport(projectId: string, instructions?: str
     const finByLine = new Map<string, Financials>()
     const finByPhase = new Map<string, Financials>()
     const EMPTY: Financials = { planned: 0, engaged: 0, paid: 0, remainingToCommit: 0, remainingToPay: 0 }
+    // « Prévu HORS valorisation, valorisations à part » (spec §10.4).
+    // La règle n'était tenue qu'à MOITIÉ ici, exactement comme elle ne
+    // l'était qu'à moitié à l'écran : `projectFin` filtrait sur
+    // `realLines`, les agrégats par phase et par tâche prenaient TOUTES
+    // les lignes. Le digest annonçait donc au modèle une enveloppe hors
+    // valorisation ET des phases gonflées du bénévolat — deux chiffres
+    // du même document qui ne s'additionnent pas.
+    //
+    // C'est plus grave ici qu'à l'écran : le rapport part au financeur.
+    // Un écran faux se corrige au rechargement ; une phase surévaluée de
+    // 1 500 € de « Cérémonie et randonnée d'inauguration » dans une
+    // pièce remise au MEAE contredit l'écran phase par phase, et se
+    // découvre au contrôle.
+    //
+    // Même clé de regroupement que l'écran (`phase_id ?? __hors_phase__`)
+    // et même invariant : la somme des phases, plus le hors-phase, fait
+    // le prévu réparti du projet. Une seule boucle, deux univers qui ne
+    // se rencontrent plus — les euros dans plannedBy*/finBy*, les apports
+    // en nature dans valoBy*.
+    //
+    // La valorisation sort aussi de plannedByTask, comme à l'écran : du
+    // bénévolat affecté à une tâche ne se réaffecte pas, ne se dépasse
+    // pas et ne se justifie pas devant un financeur comme des euros. On
+    // le compte à part plutôt que de le perdre : l'invisibiliser serait
+    // le défaut inverse de celui qu'on corrige.
+    const HORS_PHASE = '__hors_phase__'
     for (const l of budget ?? []) {
       const amount = l.planned_amount ?? 0
+      const key = l.phase_id ?? HORS_PHASE
+      // Calculé pour toute ligne, valorisée comprise : une valorisation
+      // porte des pièces (feuilles d'émargement, convention de mise à
+      // disposition) et sa propre colonne « engagé / payé » doit dire la
+      // vérité — 0 €, faute de devis et de facture.
+      const fin = financialsFor(amount, (l.documents ?? []) as never[])
+      finByLine.set(l.id, fin)
+
+      if (l.is_valorisation) {
+        valoByPhase.set(key, (valoByPhase.get(key) ?? 0) + amount)
+        for (const a of (l.allocations ?? []) as { task_id: string; amount: number }[]) {
+          valoByTask.set(a.task_id, (valoByTask.get(a.task_id) ?? 0) + (a.amount ?? 0))
+        }
+        continue
+      }
+
       for (const a of (l.allocations ?? []) as { task_id: string; amount: number }[]) {
         plannedByTask.set(a.task_id, (plannedByTask.get(a.task_id) ?? 0) + (a.amount ?? 0))
       }
-      if (l.phase_id) plannedByPhase.set(l.phase_id, (plannedByPhase.get(l.phase_id) ?? 0) + amount)
-      const fin = financialsFor(amount, (l.documents ?? []) as never[])
-      finByLine.set(l.id, fin)
-      if (l.phase_id) finByPhase.set(l.phase_id, sumFinancials([finByPhase.get(l.phase_id) ?? EMPTY, fin]))
+      plannedByPhase.set(key, (plannedByPhase.get(key) ?? 0) + amount)
+      finByPhase.set(key, sumFinancials([finByPhase.get(key) ?? EMPTY, fin]))
     }
     const realLines = (budget ?? []).filter(l => !l.is_valorisation)
+    // Un seul tri, réutilisé par le bloc `valorisations` plus bas : le
+    // même filtre écrit deux fois est le début d'une divergence.
+    const valoLines = (budget ?? []).filter(l => l.is_valorisation)
     const projectFin = sumFinancials(realLines.map(l => finByLine.get(l.id) ?? EMPTY))
     const voted = project.budget ?? null
 
-    // Digest compact : seules ces données peuvent être citées par l'IA
+    // Digest compact : seules ces données peuvent être citées par l'IA.
+    //
+    // ── CE QUI EN SORT, DU POINT DE VUE DES PERSONNES ──────────────
+    // Ce bloc part chez un prestataire tiers, hors UE selon le
+    // fournisseur configuré (voir `zone` et `transfert` dans
+    // `lib/ai-settings.ts`, repris sur /confidentialite). Deux catégories
+    // à ne pas confondre :
+    //
+    // 1. Les CHAMPS IDENTIFIANTS. Aucun n'est demandé. Pas de nom, pas
+    //    d'adresse, pas d'identifiant de profil : les requêtes ci-dessus
+    //    n'appellent ni `profiles`, ni `full_name`, ni `email`, ni
+    //    `attendees`, ni aucune colonne référençant une personne
+    //    (`assignee_id`, `created_by`, `uploaded_by`…). Les seuls noms
+    //    du digest sont ceux d'ORGANISATIONS — financeurs, porteurs,
+    //    contributeurs en nature — qui sont des personnes morales et
+    //    dont le rapport ne peut pas se passer : un compte rendu qui ne
+    //    nomme pas son financeur n'a aucun usage. `nb_membres` est un
+    //    compte, pas une liste. `scripts/check-anonymat-digest.mjs`
+    //    échoue si une colonne de personne réapparaît ici.
+    //
+    // 2. Le TEXTE LIBRE. Description du projet, noms de phases, titres de
+    //    tâches, postes budgétaires, titres de réunions, comptes rendus
+    //    (`minutes`), décisions, et les consignes saisies à la
+    //    génération : tout part tel qu'il a été écrit. Un compte rendu
+    //    de COPIL cite naturellement des personnes (« M. X présente le
+    //    volet hydraulique »). On ne le censure PAS, et c'est un
+    //    arbitrage assumé, pas un oubli : aucune détection automatique de
+    //    nom propre français n'est fiable — elle raterait la moitié des
+    //    noms et effacerait des toponymes, des intitulés de poste et des
+    //    noms d'associations, produisant un rapport mutilé et faux, sur
+    //    lequel le modèle bâtirait ses constats. Une pièce destinée à un
+    //    financeur ne se construit pas sur du texte trué.
+    //    La conséquence est donc dite là où elle se lit — /confidentialite
+    //    annonce que les champs de texte libre sont transmis tels quels —
+    //    plutôt que promise ici et non tenue.
     const digest = {
       date_du_jour: today,
       projet: project,
@@ -180,7 +280,7 @@ export async function generateExpertReport(projectId: string, instructions?: str
       // déclarative, et le MEAE exige des feuilles d'émargement pour le
       // bénévolat.
       valorisations: (() => {
-        const lignes = (budget ?? []).filter(l => l.is_valorisation)
+        const lignes = valoLines
         const total = lignes.reduce((s2, l) => s2 + Number(l.planned_amount ?? 0), 0)
         const coutTotal = projectFin.planned + total
         return {
@@ -200,6 +300,17 @@ export async function generateExpertReport(projectId: string, instructions?: str
       })(),
       organisations: (orgs ?? []).map(o => ({ role: o.role, org: o.organizations })),
       nb_membres: (members ?? []).length,
+      // Lignes rattachées à aucune phase. Sans ce bloc, la somme des
+      // phases était INFÉRIEURE au prévu réparti sans que rien ne le
+      // dise : le modèle, à qui l'on demande de signaler les écarts,
+      // aurait signalé une incohérence qui n'en est pas une. Fourni
+      // même à zéro — c'est la preuve que rien ne manque.
+      budget_hors_phase: {
+        prevu: plannedByPhase.get(HORS_PHASE) ?? 0,
+        engage: finByPhase.get(HORS_PHASE)?.engaged ?? 0,
+        paye: finByPhase.get(HORS_PHASE)?.paid ?? 0,
+        valorisation_en_nature: valoByPhase.get(HORS_PHASE) ?? 0,
+      },
       phases: (phases ?? []).map(p => ({
         nom: p.name, statut: p.status, debut: p.start_date, fin: p.end_date,
         // Deux montants distincts, à ne pas confondre : celui saisi sur la
@@ -207,9 +318,17 @@ export async function generateExpertReport(projectId: string, instructions?: str
         // Depuis la PR 39, le budget d'une phase EST la somme de ses
         // lignes : il n'existe plus de montant saisi séparément, donc
         // plus d'écart possible à ce niveau.
+        //
+        // HORS valorisation, comme le total du projet : c'est la moitié
+        // de règle manquante qui faisait diverger le rapport de l'écran.
         budget_prevu: plannedByPhase.get(p.id) ?? 0,
         budget_engage: finByPhase.get(p.id)?.engaged ?? 0,
         budget_paye: finByPhase.get(p.id)?.paid ?? 0,
+        // À CÔTÉ du montant, jamais dedans. Toujours présent, y compris
+        // à 0 : une phase est une unité de lecture du rapport, et un 0
+        // explicite vaut mieux qu'un champ absent que le modèle devrait
+        // interpréter.
+        valorisation_en_nature: valoByPhase.get(p.id) ?? 0,
         // Photos de terrain : c'est la comparaison avant / après qui
         // documente une réalisation, pas leur nombre total.
         photos_avant: (docsByPhase.get(p.id) ?? []).filter(d => d.type === 'photo' && d.moment === 'avant').length,
@@ -220,8 +339,15 @@ export async function generateExpertReport(projectId: string, instructions?: str
           return {
             titre: t.title, statut: t.status, avancement: t.progress, echeance: t.end_date,
             // Toujours un nombre : 0 signifie « aucun budget affecté », ce
-            // qui est une information, pas une donnée manquante.
+            // qui est une information, pas une donnée manquante. De
+            // l'ARGENT uniquement, comme partout ailleurs.
             budget_prevu: plannedByTask.get(t.id) ?? 0,
+            // À l'inverse du champ précédent, celui-ci n'apparaît QUE
+            // s'il y a quelque chose à dire : affecter une valorisation
+            // à une tâche est déconseillé par l'application, donc rare,
+            // et un « 0 » répété sur chaque tâche de chaque phase ne
+            // serait que du bruit dans le contexte du modèle.
+            ...(valoByTask.get(t.id) ? { valorisation_en_nature: valoByTask.get(t.id) } : {}),
             en_retard: !!(t.end_date && t.end_date < today && t.status !== 'terminee'),
             nb_pieces_justificatives: pieces.length,
             natures_des_pieces: Array.from(new Set(pieces.map(d => d.type))),
@@ -263,6 +389,8 @@ RÈGLES ABSOLUES :
 - Distingue les TROIS montants et ne les confonds jamais : « prévu » est ce qui est budgété, « engagé » ce que des devis validés ont réservé, « payé » ce qui est effectivement réglé. Un projet SOUS-consommé est une alerte de pilotage au même titre qu'un dépassement : commente le sens de l'écart, pas seulement son ampleur.
 - L'enveloppe correspond à un financement voté : sa répartition entre lignes peut bouger, son total non. Signale tout « ecart_au_vote » non nul.
 - Traite les CONTRIBUTIONS EN NATURE (« valorisations ») dans la section budgétaire : bénévolat, locaux et matériel prêtés font partie du cofinancement, pas du décor. Cite le coût total du projet (monétaire + nature) et la part apportée en nature. Signale comme un RISQUE toute contribution sans pièce justificative (« justifiee: false ») : elle reste déclarative et un financeur peut la refuser au contrôle.
+- TOUS les montants monétaires — enveloppe, phases, tâches, financeurs — sont HORS valorisation. Le champ « valorisation_en_nature » d'une phase ou d'une tâche se cite À CÔTÉ du montant, jamais additionné dedans : personne ne paiera ces euros. Quand une phase en porte, dis-le explicitement (« X € prévus, plus Y € apportés en nature »).
+- Les montants des phases s'additionnent : la somme des « budget_prevu » des phases, plus « budget_hors_phase.prevu », fait « prevu_reparti_hors_valorisation ». N'annonce donc aucun écart entre ces chiffres ; si des lignes sont hors phase, mentionne-les comme un rattachement manquant.
 - Dans la section budgétaire, restitue OBLIGATOIREMENT la répartition « par_financeur » : ce rapport sert de compte rendu aux financeurs, qui ont voté une enveloppe et attendent de savoir ce qu'elle est devenue. Pour chacun, indique prévu, engagé, payé, et commente son taux de consommation. Une ligne « Non affecté » signale un montant rattaché à aucun financeur : signale-la comme une donnée manquante, pas comme un financeur.
 - N'écris AUCUNE consigne, instruction ni commentaire de méthode dans le document.
 - Markdown sobre : titres de niveau 2, listes à puces, gras pour les alertes. Pas d'italique.

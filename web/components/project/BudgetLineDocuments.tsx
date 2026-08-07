@@ -1,12 +1,14 @@
 "use client"
 import { useEffect, useRef, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { Paperclip, Upload, Trash2, Download, Check, X as XIcon } from "lucide-react"
+import { Paperclip, Upload, Trash2, Check, X as XIcon } from "lucide-react"
 import Modal, { ErrorMessage } from "@/components/ui/Modal"
 import { createClient } from "@/lib/supabase/client"
 import { BUDGET_DOC_TYPES, DOC_TYPE_LABELS, MAX_DOC_SIZE, buildStoragePath, type DocType } from "@/lib/documents"
 import { isEngagedDoc, pendingOrgCount } from "@/lib/budget"
-import { saveDocument, deleteDocument, getDocumentUrl, decideValidation, setDocumentPaid } from "@/app/(app)/projets/[id]/document-actions"
+import {
+  saveDocument, deleteDocument, getDocumentUrl, decideValidation, setDocumentPaid, getDocumentPurgeState,
+} from "@/app/(app)/projets/[id]/document-actions"
 
 // ============================================================
 // PR 38b — Devis, factures et circuit de validation
@@ -78,6 +80,14 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
   // Décision par procuration : deuxième temps imposé, avec motif.
   const [proxy, setProxy] = useState<{ id: string; decision: "valide" | "refuse"; orgName: string } | null>(null)
   const [proxyReason, setProxyReason] = useState("")
+  // Purge d'une pièce décidée : le message vient du SERVEUR, qui seul a
+  // compté ce qu'elle emporte (0059). L'écran ne le reformule pas.
+  const [purging, setPurging] = useState<{ id: string; message: string } | null>(null)
+  // Qui peut purger est un rôle PLATEFORME : rien dans les données de la
+  // ligne ne le dit. On le demande, sinon il n'y aurait que deux issues,
+  // toutes deux mauvaises — proposer à tous une action que la base
+  // refusera à presque tous, ou la cacher à qui elle est destinée.
+  const [canPurge, setCanPurge] = useState(false)
   const [pending, startTransition] = useTransition()
 
   const engaged = docs.filter(isEngaged).reduce((s, d) => s + (d.amount ?? 0), 0)
@@ -103,7 +113,54 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
     n + (d.validations ?? []).filter(v => v.decision === "en_attente" && v.canDecide && !v.blocked).length, 0)
   const othersPending = docs.reduce((n, d) =>
     n + (d.validations ?? []).filter(v => v.decision === "en_attente" && !(v.canDecide && !v.blocked)).length, 0)
-  const refused = docs.some(d => (d.validations ?? []).some(v => v.decision === "refuse"))
+
+  // ------------------------------------------------------------
+  // Un refus porte sur une PIÈCE, jamais sur la ligne budgétaire
+  // ------------------------------------------------------------
+  // Le badge disait « Refusé », seul, en rouge, collé au montant
+  // prévisionnel. Le Product Owner l'a lu « le budget est refusé, je ne
+  // peux plus éditer » et a signalé ne pas arriver à modifier ses
+  // montants. Le verrou n'existe pas : saveBudgetLine ne contrôle que
+  // canManageBudget, et aucun refus de devis n'y intervient. Un mot qui
+  // fabrique un blocage imaginaire coûte aussi cher qu'un blocage réel —
+  // il fait renoncer à une action permise, sans erreur à lire.
+  //
+  // On lit donc les validations directement plutôt que de passer par un
+  // prédicat de lib/budget.ts : ce module n'expose qu'isEngagedDoc, qui
+  // range « refusé » et « encore en attente » dans la même case (non
+  // engagé), alors que l'écran doit précisément les opposer. Aucun
+  // montant ne dépend de ce qui suit — la règle « un seul refus rejette »
+  // reste chez elle.
+  const refusalOf = (d: LineDoc) => (d.validations ?? []).find(v => v.decision === "refuse")
+  const refusedDocs = docs.filter(d => !!refusalOf(d))
+
+  // ------------------------------------------------------------
+  // Ce qui a été JUGÉ ne s'efface plus
+  // ------------------------------------------------------------
+  // Même ligne de partage que la policy « Delete documents » (0059) et
+  // que `deleteDocument` : une pièce sur laquelle une organisation s'est
+  // prononcée — validée OU refusée — ne se retire plus d'un clic, parce
+  // que la décision est ce qui justifie la dépense devant le financeur.
+  // Lue ici sur les validations DÉJÀ chargées et affichées deux lignes
+  // plus bas : l'écran ne peut pas afficher « refusé » et proposer dans
+  // le même bloc une corbeille ordinaire.
+  const isDecided = (d: LineDoc) => (d.validations ?? []).some(v => v.decision !== "en_attente")
+  // Le motif et l'organisation sont DÉJÀ chargés par la page
+  // (validations.comment / .orgName) : les taire obligerait à rouvrir le
+  // panneau pour apprendre pourquoi, alors que c'est le seul
+  // renseignement qui permette de redéposer un devis recevable.
+  const refusalTitle = refusedDocs
+    .map(d => {
+      const v = refusalOf(d)
+      const by = v?.orgName ?? "l'organisation sollicitée"
+      return `« ${d.filename} » refusé par ${by}${v?.comment ? ` — ${v.comment}` : " — aucun motif indiqué"}`
+    })
+    // Voix passive assumée : le badge est visible de tous, y compris de
+    // qui n'a pas le droit budget.manage. Dire « vous pouvez modifier »
+    // à quelqu'un qui ne le peut pas remplacerait un faux verrou par une
+    // fausse permission.
+    .concat("Un refus ne verrouille ni la ligne budgétaire ni ses montants : ils restent modifiables, et un nouveau devis peut être déposé.")
+    .join("\n")
 
   async function upload(e: React.FormEvent) {
     e.preventDefault()
@@ -193,13 +250,47 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
     })
   }
 
+  // Pièce NON décidée : rien n'a été jugé, rien à conserver — le geste
+  // reste celui d'avant. C'est le cas des devis d'essai jamais soumis,
+  // et les retirer ne doit pas coûter plus qu'une confirmation.
   function remove(d: LineDoc) {
     if (!window.confirm(`Supprimer définitivement « ${d.filename} » ?`)) return
     setError("")
     startTransition(async () => {
       const res = await deleteDocument(d.id)
-      if (!res.ok) setError(res.error ?? "Suppression impossible.")
-      else router.refresh()
+      if (res.ok) { router.refresh(); return }
+      // Course possible : une organisation a pu trancher entre l'affichage
+      // et le clic. Le serveur le sait, l'écran ne le savait pas — on suit
+      // sa réponse au lieu d'afficher un refus qu'on ne saurait pas lever.
+      if (res.needsPurge) setPurging({ id: d.id, message: res.error ?? "" })
+      else setError(res.error ?? "Suppression impossible.")
+    })
+  }
+
+  // Pièce DÉCIDÉE, administrateur : deux temps. Le premier appel part nu
+  // — c'est le SERVEUR qui mesure ce que la purge emporterait et renvoie
+  // la phrase à lire. Ce composant ne compte rien et ne reformule rien :
+  // toute règle recopiée ici divergerait le jour où l'action changerait
+  // d'avis, et l'écran promettrait alors ce que la base refuse.
+  function askPurge(d: LineDoc) {
+    setError("")
+    startTransition(async () => {
+      const res = await deleteDocument(d.id)
+      if (res.ok) { router.refresh(); return }
+      if (res.needsPurge) setPurging({ id: d.id, message: res.error ?? "" })
+      else setError(res.error ?? "Suppression impossible.")
+    })
+  }
+
+  function confirmPurge(d: LineDoc) {
+    setError("")
+    startTransition(async () => {
+      const res = await deleteDocument(d.id, { purge: true })
+      // Le message part dans l'erreur et le bloc reste ouvert : le refermer
+      // emporterait le motif du refus, et l'on ne saurait pas pourquoi rien
+      // ne s'est passé.
+      if (!res.ok) setError(res.error ?? "Purge impossible.")
+      else { setPurging(null); router.refresh() }
     })
   }
 
@@ -215,6 +306,19 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
   useEffect(() => {
     if (autoOpen) anchor.current?.scrollIntoView({ block: "center" })
   }, [autoOpen])
+
+  // À L'OUVERTURE du panneau, jamais au rendu du tableau : un budget de
+  // vingt lignes ferait vingt aller-retours pour un bouton que personne
+  // n'a encore demandé. En cas d'échec on reste sur `false` — l'absence
+  // de bouton de purge est la valeur sûre, l'erreur qu'on préfère.
+  useEffect(() => {
+    if (!open) return
+    let alive = true
+    getDocumentPurgeState(projectId)
+      .then(s => { if (alive) setCanPurge(s.canPurge) })
+      .catch(() => { /* purge indisponible : on n'en propose pas */ })
+    return () => { alive = false }
+  }, [open, projectId])
 
   return (
     <div ref={anchor}>
@@ -254,11 +358,20 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
           En attente
         </span>
       )}
-      {refused && (
-        <span className="ml-1 inline-flex items-center text-xs whitespace-nowrap px-2 py-1 rounded-lg"
-          style={{ background: "#FBEAEA", color: "#A02020" }}>
-          Refusé
-        </span>
+      {/* « Devis refusé » et non « Refusé » : le badge nomme son objet,
+          sinon le lecteur lui donne le plus gros disponible — la ligne,
+          voire le budget. Cliquable comme « À valider », parce qu'ici
+          quelque chose se fait : lire le motif, puis redéposer. Le
+          bouton « Pièces » y mène déjà, mais faire retraverser un
+          panneau de vingt pièces pour retrouver LE devis refusé, c'est
+          le travail que ces pastilles existent pour épargner. */}
+      {refusedDocs.length > 0 && (
+        <button type="button" onClick={() => setOpen(true)}
+          className="ml-1 inline-flex items-center text-xs whitespace-nowrap px-2 py-1 rounded-lg"
+          style={{ background: "#FBEAEA", color: "#A02020" }}
+          title={refusalTitle}>
+          {refusedDocs.length > 1 ? `${refusedDocs.length} devis refusés` : "Devis refusé"}
+        </button>
       )}
 
       {open && (
@@ -294,13 +407,53 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
                           </span>
                         )}
                       </div>
-                      {canManage && (
+                      {/* Trois cas, trois affichages — et surtout : rien
+                          d'inerte. La corbeille ordinaire disparaît dès
+                          qu'une décision existe ; à sa place, la purge
+                          seulement pour qui peut la mener à bien. Un
+                          bouton qui ne peut que refuser serait le bouton
+                          mort que le dépôt s'interdit. */}
+                      {canManage && (isDecided(d) ? canPurge && (
+                        <button type="button" onClick={() => askPurge(d)} disabled={pending}
+                          className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg border flex-shrink-0 font-medium"
+                          style={{ borderColor: "#E3E6E2", color: "#A3342C" }}
+                          title="Retirer cette pièce décidée, ses validations et son fichier — pour nettoyer des données de test">
+                          <Trash2 size={12} aria-hidden="true" /> Purger
+                        </button>
+                      ) : (
                         <button type="button" onClick={() => remove(d)} disabled={pending}
                           className="p-1 rounded hover:bg-gray-100 flex-shrink-0" aria-label={`Supprimer ${d.filename}`}>
                           <Trash2 size={13} style={{ color: "#A3342C" }} aria-hidden="true" />
                         </button>
-                      )}
+                      ))}
                     </div>
+
+                    {/* Le second temps de la purge, EN PLACE : ce panneau
+                        est déjà un dialogue, en ouvrir un second par-dessus
+                        ferait se disputer deux pièges à focus. Même parti
+                        pris que le motif de refus et la date de paiement,
+                        saisis dans le flux. */}
+                    {purging?.id === d.id && (
+                      <div className="mt-2 rounded-xl border p-2 space-y-2" style={{ borderColor: "#A3342C", background: "#FBEAEA" }}>
+                        {/* Le message du serveur TEL QUEL : il nomme le
+                            fichier, compte les validations et dit le montant
+                            qui disparaîtra. Le réécrire ici fabriquerait une
+                            seconde vérité, qui divergerait au premier
+                            changement de règle. */}
+                        <p className="text-xs" style={{ color: "#A02020" }}>{purging.message}</p>
+                        <div className="flex gap-2 flex-wrap">
+                          <button type="button" onClick={() => confirmPurge(d)} disabled={pending}
+                            className="px-2 py-1 rounded-lg text-xs font-semibold text-white"
+                            style={{ background: "#A3342C", opacity: pending ? 0.6 : 1 }}>
+                            {pending ? "Purge…" : "Purger définitivement"}
+                          </button>
+                          <button type="button" onClick={() => setPurging(null)} disabled={pending}
+                            className="px-2 py-1 rounded-lg border text-xs font-medium" style={{ borderColor: "#E3E6E2", color: "#66716B" }}>
+                            Annuler
+                          </button>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Un devis sans montant est validable, et n'engagera
                         pourtant rien : le circuit se déroule normalement
@@ -309,7 +462,16 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
                     {d.type === "devis" && d.amount == null && (
                       <p className="mt-2 text-xs px-2 py-1 rounded" style={{ background: "#F7EDDD", color: "#8A6A1F" }}>
                         Montant non renseigné : même validé, ce devis n&apos;alimentera pas
-                        l&apos;engagé. Retirez-le et redéposez-le avec son montant.
+                        l&apos;engagé.{" "}
+                        {/* « Retirez-le » n'est plus vrai une fois qu'une
+                            organisation s'est prononcée : la pièce est
+                            conservée (0059). Indiquer un geste devenu
+                            impossible ferait chercher un bouton qui n'existe
+                            plus, et le remède est de toute façon le même
+                            qu'ailleurs — un nouveau devis. */}
+                        {isDecided(d)
+                          ? "Déposez un nouveau devis avec son montant : cette pièce, elle, est décidée et reste au dossier."
+                          : "Retirez-le et redéposez-le avec son montant."}
                       </p>
                     )}
 
@@ -341,8 +503,19 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
                               // Le rang existe pour être respecté : le
                               // coordinateur entérine ce que le porteur a
                               // engagé, il ne le précède pas.
+                              //
+                              // Après un refus en amont, cette ligne annonçait
+                              // pourtant « son tour viendra » : il ne viendra
+                              // jamais. La policy 0041 exige que chaque échelon
+                              // antérieur soit `valide`, pas seulement tranché —
+                              // l'échelon suivant ne sera donc plus jamais
+                              // sollicité. Faire guetter une décision qui ne
+                              // sera pas demandée est la panne muette type :
+                              // rien n'échoue, on attend, c'est tout.
                               <span style={{ color: "#9AA39D" }}>
-                                en attente — son tour viendra après l&apos;étape {v.step - 1}
+                                {(d.validations ?? []).some(o => o.step < v.step && o.decision === "refuse")
+                                  ? "sans suite — le devis a été refusé à une étape précédente"
+                                  : `en attente — son tour viendra après l'étape ${v.step - 1}`}
                               </span>
                             ) : v.decision === "en_attente" ? (
                               <>
@@ -431,15 +604,73 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
                       </ul>
                     )}
 
+                    {/* La règle du circuit, DITE AVANT le clic
+                        ------------------------------------------------
+                        « Une fois le devis refusé, on devrait pas le ré
+                        accepter » — c'est déjà le cas, `decideValidation`
+                        rejette toute décision rejouée. Mais cela ne
+                        s'apprenait qu'en s'y cognant : le message n'arrive
+                        qu'APRÈS, quand le mal est fait et qu'il n'y a plus
+                        rien à en faire. Une règle irréversible qui ne se lit
+                        qu'en aval n'est pas une règle, c'est un piège.
+                        Affichée à qui a effectivement la main — les deux
+                        boutons sont juste au-dessus — et pour les DEUX sens :
+                        une validation ne se reprend pas davantage qu'un
+                        refus, et on l'oublie plus facilement. */}
+                    {d.type === "devis" && d.validations.some(v => v.decision === "en_attente" && v.canDecide && !v.blocked) && (
+                      <p className="mt-1.5 text-xs" style={{ color: "#8A6A1F" }}>
+                        Validation ou refus, la décision est définitive : elle ne se rejoue pas.
+                        Reprendre ce devis demandera d&apos;en déposer un nouveau.
+                      </p>
+                    )}
+
                     {/* L'unanimité doit se LIRE. « Pas engagé » n'explique
                         rien ; « en attente de 2 organisations sur 3 » dit
-                        ce qui manque et à qui le demander. */}
-                    {d.type === "devis" && pendingOrgCount(d) > 0 && d.validations.length > 1 && (
+                        ce qui manque et à qui le demander.
+                        Sauf après un refus : les échelons restants restent
+                        `en_attente` en base, mais ne seront plus jamais
+                        sollicités. Promettre alors « le montant sera engagé
+                        lorsque toutes auront validé », c'est annoncer un
+                        engagement devenu impossible et envoyer relancer une
+                        organisation à qui on ne demande plus rien. */}
+                    {d.type === "devis" && !refusalOf(d) && pendingOrgCount(d) > 0 && d.validations.length > 1 && (
                       <p className="mt-1.5 text-xs" style={{ color: "#B4690E" }}>
                         En attente de {pendingOrgCount(d)} organisation{pendingOrgCount(d) > 1 ? "s" : ""} sur {d.validations.length} :
                         le montant ne sera engagé que lorsque toutes auront validé.
                       </p>
                     )}
+
+                    {/* Contrepartie du badge du tableau : le refus est dit
+                        une fois pour la pièce, avec sa conséquence exacte.
+                        Symétrique de la ligne « montant engagé » ci-dessous —
+                        un devis tranché ne doit pas laisser le lecteur
+                        déduire lui-même ce qui change. La suite dépend du
+                        droit : indiquer « déposez un nouveau devis » à qui
+                        n'a pas le formulaire sous les yeux ne ferait que
+                        déplacer l'impasse. */}
+                    {d.type === "devis" && refusalOf(d) && (
+                      <p className="mt-1.5 text-xs" style={{ color: "#A3342C" }}>
+                        Devis refusé : son montant ne sera pas engagé et le circuit s&apos;arrête là.
+                        La ligne budgétaire, elle, n&apos;est pas verrouillée —{" "}
+                        {canManage
+                          ? "ajustez le prévisionnel si besoin, puis déposez un nouveau devis ci-dessous."
+                          : "le dépôt d’un nouveau devis revient au gestionnaire du budget."}
+                      </p>
+                    )}
+
+                    {/* Où est passée la corbeille. La question se pose au
+                        moment où l'on cherche le bouton — donc ici, sous la
+                        décision qui l'a fait disparaître, et pas dans un
+                        message d'erreur qu'il faudrait provoquer pour le
+                        lire. Rien pour l'administrateur : le bouton
+                        « Purger » est sous ses yeux, et il dit ce qu'il
+                        fait. */}
+                    {canManage && isDecided(d) && !canPurge && (
+                      <p className="mt-1.5 text-xs" style={{ color: "#66716B" }}>
+                        Décision prise : cette pièce ne se retire plus — la trace du circuit reste au dossier.
+                      </p>
+                    )}
+
                     {d.type === "devis" && isEngagedDoc(d) && (
                       <p className="mt-1.5 text-xs" style={{ color: "var(--brand-accent,#0E6B5C)" }}>
                         Validé par {d.validations.length === 1 ? "l’organisation sollicitée" : `les ${d.validations.length} organisations sollicitées`} — montant engagé.

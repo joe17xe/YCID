@@ -8,13 +8,48 @@ import { adminClient } from '@/lib/supabase/admin'
 // artificielle prime ; à défaut, on retombe sur LLM_* de .env.local.
 // SERVEUR UNIQUEMENT : la clé ne doit jamais atteindre le navigateur.
 
-export const AI_PROVIDERS: Record<string, { label: string; baseUrl: string; model: string; keyUrl: string; free: string }> = {
+// Fiche d'un fournisseur. Le type est exporté et importé en `import
+// type` par AiForm : la forme n'est décrite qu'ICI, à côté des valeurs
+// qu'elle décrit. Une interface recopiée dans le composant tenait tant
+// que personne n'ajoutait de champ ; `zone` et `transfert` sont
+// justement des champs ajoutés après coup.
+export interface AiProviderInfo {
+  label: string
+  baseUrl: string
+  model: string
+  keyUrl: string
+  free: string
+  // OÙ partent les données, et à quel titre elles peuvent en partir.
+  //
+  // Ces deux champs vivent dans la DONNÉE, pas dans le JSX d'un écran,
+  // parce que DEUX écrans en dépendent et qu'ils ne s'adressent pas au
+  // même lecteur : Admin ▸ Configuration ▸ IA, où l'on CHOISIT le
+  // fournisseur — et l'on doit savoir ce que ce choix engage avant de
+  // le faire —, et /confidentialite, où la personne concernée doit
+  // trouver le pays de destination et la base du transfert (RGPD
+  // art. 13.1.f). Écrits deux fois, ils auraient divergé au premier
+  // fournisseur ajouté, et c'est la page publique qui aurait menti.
+  //
+  // Rédaction volontairement FACTUELLE : le pays ou la zone, la base de
+  // transfert quand elle existe, rien de plus. Ni alarmisme — le choix
+  // reste celui d'YCID —, ni conseil juridique : dire qu'un transfert
+  // « est conforme » n'appartient pas à un fichier de configuration.
+
+  /** Pays ou zone de traitement, en quelques mots. */
+  zone: string
+  /** Base du transfert hors Union européenne, en une phrase. */
+  transfert: string
+}
+
+export const AI_PROVIDERS: Record<string, AiProviderInfo> = {
   gemini: {
     label: 'Google Gemini',
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
     model: 'gemini-3.5-flash',
     keyUrl: 'https://aistudio.google.com/apikey',
     free: 'Offre gratuite généreuse · très bon en français',
+    zone: 'États-Unis (Google LLC)',
+    transfert: 'Décision d\'adéquation UE–États-Unis du 10 juillet 2023 (EU-US Data Privacy Framework), qui couvre les organisations certifiées à ce cadre.',
   },
   groq: {
     label: 'Groq',
@@ -22,6 +57,8 @@ export const AI_PROVIDERS: Record<string, { label: string; baseUrl: string; mode
     model: 'llama-3.3-70b-versatile',
     keyUrl: 'https://console.groq.com/keys',
     free: 'Offre gratuite · très rapide',
+    zone: 'États-Unis (Groq Inc.)',
+    transfert: 'Décision d\'adéquation UE–États-Unis du 10 juillet 2023 (EU-US Data Privacy Framework), qui couvre les organisations certifiées à ce cadre.',
   },
   openrouter: {
     label: 'OpenRouter',
@@ -29,6 +66,12 @@ export const AI_PROVIDERS: Record<string, { label: string; baseUrl: string; mode
     model: 'deepseek/deepseek-chat-v3-0324:free',
     keyUrl: 'https://openrouter.ai/keys',
     free: 'Modèles gratuits (suffixe « :free »)',
+    // Le cas le plus difficile à documenter, et il faut le dire tel
+    // quel : OpenRouter n'exécute pas le modèle, il réachemine la
+    // requête vers celui qui l'héberge. La destination réelle dépend
+    // donc du MODÈLE choisi dans le champ voisin, pas du fournisseur.
+    zone: 'Variable — réacheminement vers des fournisseurs tiers',
+    transfert: 'OpenRouter est établi aux États-Unis et confie la requête au fournisseur du modèle retenu, qui peut se trouver dans un autre pays. La destination finale dépend du modèle choisi et n\'est pas fixée par ce réglage.',
   },
   kimi: {
     label: 'Kimi (Moonshot)',
@@ -36,6 +79,8 @@ export const AI_PROVIDERS: Record<string, { label: string; baseUrl: string; mode
     model: 'kimi-k2-0711-preview',
     keyUrl: 'https://platform.moonshot.ai',
     free: 'Crédits à l\'usage',
+    zone: 'Chine (Moonshot AI)',
+    transfert: 'La Commission européenne n\'a rendu aucune décision d\'adéquation pour la Chine : le transfert repose sur les garanties prévues au contrat conclu avec le fournisseur.',
   },
   openai: {
     label: 'OpenAI',
@@ -43,6 +88,8 @@ export const AI_PROVIDERS: Record<string, { label: string; baseUrl: string; mode
     model: 'gpt-4o-mini',
     keyUrl: 'https://platform.openai.com/api-keys',
     free: 'Payant à l\'usage',
+    zone: 'États-Unis (OpenAI, L.L.C.)',
+    transfert: 'Décision d\'adéquation UE–États-Unis du 10 juillet 2023 (EU-US Data Privacy Framework), qui couvre les organisations certifiées à ce cadre.',
   },
   autre: {
     label: 'Autre (compatible OpenAI)',
@@ -50,6 +97,12 @@ export const AI_PROVIDERS: Record<string, { label: string; baseUrl: string; mode
     model: '',
     keyUrl: '',
     free: 'Tout service exposant /chat/completions',
+    // Seule réponse vraie : l'URL est saisie à la main, l'application
+    // ne sait rien de ce qu'il y a au bout. Inventer une zone ici
+    // serait pire que l'absence d'information — la page publique la
+    // reprendrait telle quelle.
+    zone: 'Inconnue de l\'application',
+    transfert: 'La destination dépend de l\'URL saisie dans la configuration : l\'application ne peut pas la qualifier. Il revient à YCID de la documenter.',
   },
 }
 

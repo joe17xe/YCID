@@ -11,7 +11,9 @@
     "check:selects": "node scripts/check-selects.mjs",
     "check:policies": "node scripts/check-policies.mjs",
     "check:mobile": "node scripts/check-mobile.mjs",
-    "check": "tsc --noEmit && npm run check:selects && npm run check:rbac && npm run check:policies && npm run check:mobile"
+    "check:valorisation": "node scripts/check-valorisation.mjs",
+    "check:anonymat": "node scripts/check-anonymat-digest.mjs",
+    "check": "tsc --noEmit && npm run check:selects && npm run check:rbac && npm run check:policies && npm run check:mobile && npm run check:valorisation && npm run check:anonymat"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",

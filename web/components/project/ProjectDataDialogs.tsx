@@ -1,8 +1,12 @@
 "use client"
 import { useId, useState, useTransition } from "react"
-import { Plus, Pencil, X } from "lucide-react"
+import { Plus, Pencil, X, Undo2 } from "lucide-react"
 import BaseModal, { ErrorMessage } from "@/components/ui/Modal"
-import { LINE_CATEGORIES, LINE_STATUS, IND_KINDS, MEETING_KINDS, DECISION_STATUS } from "@/lib/constants"
+import { ACCESS_ROLES, LINE_CATEGORIES, LINE_STATUS, IND_KINDS, MEETING_KINDS, DECISION_STATUS } from "@/lib/constants"
+// La liste des rôles ne se recopie pas, elle se demande : c'est cette
+// énumération-là qui a existé en cinq exemplaires divergents, et que
+// `check:rbac` refuse de voir réapparaître hors de lib/rbac.ts.
+import { rolesWith } from "@/lib/rbac"
 import {
   saveBudgetLine, createTaskFromBudgetLine, createIndicator, addMeasure, createMeeting, updateMeeting, saveDecision,
   type BudgetLineInput, type IndicatorInput, type MeasureInput, type MeetingInput, type DecisionInput,
@@ -14,7 +18,14 @@ const border = { borderColor: "#E3E6E2" }
 export interface Option { id: string; name: string }
 // Une tâche porte sa phase : le sélecteur de tâche se restreint à la
 // phase choisie, et choisir une tâche suffit à situer la ligne.
-export interface TaskOption extends Option { phase_id: string }
+//
+// `budget` = ce que la tâche reçoit AUJOURD'HUI, toutes lignes
+// confondues et hors valorisation. Le dialogue en a besoin pour dire ce
+// que devient ce budget si l'on réduit l'affectation qu'on est en train
+// d'éditer : sans lui, on annoncerait « 0 € » à une tâche que trois
+// autres lignes financent — le co-financement est la règle, pas
+// l'exception.
+export interface TaskOption extends Option { phase_id: string; budget: number }
 
 // Dialogue accessible (RGAA) : le composant partagé gère role="dialog",
 // le piège de focus, Échap et la restitution du focus. Ici on ne monte le
@@ -60,18 +71,55 @@ function useDialog(action: () => Promise<{ ok: boolean; error?: string }>) {
 // invalide. Confondre les deux affichait « … » sur un bouton bloqué par
 // une répartition excédentaire : l'utilisateur croyait l'enregistrement
 // en cours alors qu'il était refusé.
-function Actions({ pending, blocked = false, onClose, label }: {
-  pending: boolean; blocked?: boolean; onClose: () => void; label: string
+//
+// `blockedReason` : un bouton éteint qui ne dit pas pourquoi est un
+// bouton mort. Le motif l'accompagne donc — au survol comme au lecteur
+// d'écran, via aria-disabled plutôt que `disabled` seul, qui sort le
+// bouton de l'ordre de tabulation et emporte son intitulé avec lui.
+function Actions({ pending, blocked = false, blockedReason, onClose, label }: {
+  pending: boolean; blocked?: boolean; blockedReason?: string; onClose: () => void; label: string
 }) {
   return (
     <div className="flex justify-end gap-2 pt-1">
       <button type="button" onClick={onClose} className="px-4 py-2 rounded-xl border text-sm font-medium" style={{ ...border, color: "#66716B" }}>Annuler</button>
-      <button type="submit" disabled={pending || blocked} className="px-4 py-2 rounded-xl text-sm font-semibold text-white" style={{ background: "var(--brand-accent,#0E6B5C)", opacity: pending || blocked ? 0.5 : 1 }}>
+      <button type="submit" disabled={pending || blocked}
+        aria-disabled={blocked || undefined}
+        title={blocked ? blockedReason : undefined}
+        className="px-4 py-2 rounded-xl text-sm font-semibold text-white" style={{ background: "var(--brand-accent,#0E6B5C)", opacity: pending || blocked ? 0.5 : 1 }}>
         {pending ? "…" : label}
       </button>
     </div>
   )
 }
+
+// ------------------------------------------------------------
+// Lecture et écriture des montants du dialogue
+// ------------------------------------------------------------
+// Même conversion que `saveBudgetLine` côté serveur — la virgule du
+// clavier français, le champ vide qui vaut zéro. Ce n'est pas une règle
+// de gestion dupliquée, c'est la lecture d'un champ de saisie ; la
+// règle, elle (« la répartition ne dépasse pas la ligne »), reste
+// tranchée par l'action et par le trigger.
+const num = (v: string | number | null | undefined): number => {
+  const n = Number(String(v ?? "").replace(",", ".") || "0")
+  return Number.isFinite(n) ? n : 0
+}
+// Pas `fmtEur` de lib/constants : il ARRONDIT à l'euro. Sur un écart de
+// répartition, un « reste 0 € » qui vaut en réalité −0,40 € laisserait
+// l'enregistrement refusé sans que rien à l'écran ne l'explique — la
+// tolérance du contrôle est au demi-centime, l'affichage doit la suivre.
+const eur = (n: number): string => `${n.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} €`
+// Valeur réinjectée dans un <input type="number"> : séparateur décimal
+// anglais obligatoire, sinon le champ se vide en silence.
+const amountValue = (n: number): string => String(Math.round(n * 100) / 100)
+
+// Qui a la main sur une répartition. Lu dans la matrice, jamais recopié.
+// Les administrateurs plateforme passent au-dessus des rôles projet
+// (colonne `admin` de la matrice, et `canEditCompleted` côté page) :
+// ils ne sont pas un rôle projet, d'où la mention à part.
+const BUDGET_MANAGERS = rolesWith("budget.manage")
+  .map(r => ACCESS_ROLES[r]?.label ?? r)
+  .join(", ")
 
 /* ============ Ligne budgétaire ============ */
 export function BudgetLineDialog({ projectId, orgs, phases, tasks = [], line, preset, triggerLabel }: {
@@ -98,28 +146,158 @@ export function BudgetLineDialog({ projectId, orgs, phases, tasks = [], line, pr
   // choix dans un ordre précis.
   const visibleTasks = form.phase_id ? tasks.filter(t => t.phase_id === form.phase_id) : tasks
 
+  // Ce qu'on vient de retirer, et qui se rétablit d'un clic. Un X posé
+  // par erreur sur une affectation de 7 100 € demandait sinon de
+  // retrouver la tâche ET le montant de mémoire — or c'est justement le
+  // montant qu'on ne connaît plus une fois la ligne effacée.
+  const [undoRemoval, setUndoRemoval] = useState<{ index: number; task_id: string; amount: string; name: string } | null>(null)
+  // Affectations écartées par un changement de phase. Elles ne se
+  // rétablissent pas — la tâche n'est plus dans la phase de la ligne —
+  // mais elles se NOMMENT : elles partaient jusqu'ici sans un mot.
+  const [phaseDropped, setPhaseDropped] = useState<{ name: string; amount: number }[]>([])
+
+  const taskName = (id: string) => tasks.find(t => t.id === id)?.name ?? "Affectation sans tâche"
+
   // Répartition : le total affecté ne peut pas dépasser le montant de la
   // ligne, qui reste la vérité de la convention. Le reste est affiché
   // plutôt que déduit de tête.
-  const lineAmount = Number(String(form.planned_amount ?? "").replace(",", ".") || "0")
-  const allocated = form.allocations.reduce((s, a) => s + Number(String(a.amount ?? "").replace(",", ".") || "0"), 0)
-  const rest = (Number.isFinite(lineAmount) ? lineAmount : 0) - allocated
+  const lineAmount = num(form.planned_amount)
+  const allocated = form.allocations.reduce((s, a) => s + num(a.amount), 0)
+  const rest = lineAmount - allocated
   const overAllocated = rest < -0.005
+  const excess = -rest
+
+  // ---- Ce que l'enregistrement va changer --------------------------
+  // `saveBudgetLine` PURGE les affectations de la ligne puis réinsère
+  // celles du formulaire : une affectation retirée ou réduite ici
+  // disparaît définitivement. Et comme le budget d'une tâche est
+  // TOUJOURS la somme des affectations qu'elle reçoit, la baisse ne
+  // s'arrête pas au budget — ce budget sert de POIDS à l'avancement de
+  // la phase (pondération à plancher, écran projet), donc le
+  // pourcentage affiché bouge aussi.
+  //
+  // Scénario qui a motivé ce bloc (recette du Product Owner) : une
+  // ligne passée de 7 100 € à 5 100 € refusait de s'enregistrer — « la
+  // répartition dépasse le montant de la ligne », six mots. Il a retiré
+  // l'affectation de 7 100 €, et rien ne lui a dit que la tâche
+  // financée retombait à 0 €, ni que l'avancement de sa phase allait
+  // changer. « Il faut bien étudier les impacts. »
+  //
+  // La comparaison porte sur `line.allocations`, l'état EN BASE — pas
+  // sur un instantané du formulaire. Elle rattrape donc aussi ce que
+  // `selectPhase` a écarté, et ce qui a été retiré puis remplacé.
+  const savedByTask = new Map((line?.allocations ?? []).map(a => [a.task_id, num(a.amount)]))
+  const formByTask = new Map<string, number>()
+  for (const a of form.allocations) {
+    // Une même tâche deux fois est refusée par l'action : on somme tout
+    // de même, sinon l'impact annoncé ne serait pas celui du formulaire.
+    if (a.task_id) formByTask.set(a.task_id, (formByTask.get(a.task_id) ?? 0) + num(a.amount))
+  }
+  // Ce que les AUTRES lignes apportent à la tâche. Une ligne valorisée
+  // n'entre pas dans le budget d'une tâche (elle s'affiche « en
+  // nature », à part) : ses affectations ne sont donc pas à retrancher.
+  const fromOtherLines = (taskId: string) => {
+    const total = tasks.find(t => t.id === taskId)?.budget ?? 0
+    return Math.max(0, total - (form.is_valorisation ? 0 : savedByTask.get(taskId) ?? 0))
+  }
+  // À la création, rien n'est écrasé : la répartition qu'on lit est
+  // celle qu'on écrit, et un bilan d'impact ne dirait que ce qui est
+  // déjà à l'écran.
+  const impacts = line
+    ? [...new Set([...savedByTask.keys(), ...formByTask.keys()])]
+      .map(taskId => ({
+        taskId,
+        name: taskName(taskId),
+        before: savedByTask.get(taskId) ?? 0,
+        after: formByTask.get(taskId) ?? 0,
+        others: fromOtherLines(taskId),
+      }))
+      .filter(x => Math.abs(x.after - x.before) > 0.005)
+      // La perte la plus lourde en tête : c'est elle qu'on ne voit pas
+      // venir. Les gains ferment la liste.
+      .sort((a, b) => (a.after - a.before) - (b.after - b.before))
+    : []
+  const lossCount = impacts.filter(x => x.after < x.before).length
 
   // Changer de phase invalide les affectations sorties de la phase —
-  // sinon le trigger de cohérence rejetterait l'enregistrement.
+  // sinon le trigger de cohérence rejetterait l'enregistrement. Ce
+  // filtrage effaçait des montants sans un mot : il les nomme désormais.
   function selectPhase(phase_id: string) {
-    setForm(f => ({
-      ...f,
-      phase_id,
-      allocations: f.allocations.filter(a => tasks.some(t => t.id === a.task_id && t.phase_id === phase_id)),
-    }))
+    const inPhase = (a: { task_id: string }) => tasks.some(t => t.id === a.task_id && t.phase_id === phase_id)
+    // Le partage se calcule ici, pas dans la mise à jour d'état : un
+    // `setPhaseDropped` niché dans le calculateur de `setForm` serait
+    // rejoué au double rendu de développement, et le message
+    // s'accumulerait.
+    setPhaseDropped(form.allocations
+      .filter(a => !inPhase(a) && (a.task_id || num(a.amount) > 0))
+      .map(a => ({ name: taskName(a.task_id), amount: num(a.amount) })))
+    setForm(f => ({ ...f, phase_id, allocations: f.allocations.filter(inPhase) }))
   }
   function addAllocation() {
     setForm(f => ({ ...f, allocations: [...f.allocations, { task_id: "", amount: "" }] }))
   }
   function removeAllocation(i: number) {
+    const a = form.allocations[i]
+    // Une ligne vierge ajoutée par erreur se retire sans cérémonie ; une
+    // affectation qui porte une tâche ou un montant s'annonce.
+    setUndoRemoval(a.task_id || num(a.amount) > 0
+      ? { index: i, task_id: a.task_id, amount: a.amount, name: taskName(a.task_id) }
+      : null)
     setForm(f => ({ ...f, allocations: f.allocations.filter((_, j) => j !== i) }))
+  }
+  // Intitulé du bouton de retrait, partagé entre `title` et
+  // `aria-label` : la souris et le lecteur d'écran doivent lire la même
+  // conséquence. `index` n'est fourni que pour l'aria-label, qui doit
+  // rester distinct d'un bouton à l'autre même sans tâche choisie.
+  function removalLabel(a: { task_id: string; amount: string }, index?: number): string {
+    if (!a.task_id) return index == null ? "Retirer cette affectation" : `Retirer l'affectation ${index + 1}, sans tâche choisie`
+    const montant = num(a.amount)
+    return montant > 0
+      ? `Retirer « ${taskName(a.task_id)} » de la répartition — ${eur(montant)} ne lui seront plus affectés à l'enregistrement`
+      : `Retirer « ${taskName(a.task_id)} » de la répartition`
+  }
+  // Rétablir une tâche déjà revenue au formulaire créerait un doublon,
+  // que l'action refuse (« une même tâche ne peut apparaître deux
+  // fois »). Dans ce cas la donnée n'est plus perdue : l'encart n'a
+  // plus lieu d'être.
+  const canRestore = !!undoRemoval
+    && !form.allocations.some(a => !!a.task_id && a.task_id === undoRemoval.task_id)
+
+  function restoreRemoval() {
+    if (!undoRemoval) return
+    const { index, task_id, amount } = undoRemoval
+    setForm(f => {
+      const next = [...f.allocations]
+      next.splice(Math.min(index, next.length), 0, { task_id, amount })
+      return { ...f, allocations: next }
+    })
+    setUndoRemoval(null)
+  }
+  // ---- Ramener la répartition sous le montant de la ligne -----------
+  // Bloquer en rouge sans issue oblige à recalculer à la main sur un
+  // coin de table, puis à retaper chaque montant. Les deux gestes qui
+  // corrigent VRAIMENT sont proposés : au prorata (on garde les
+  // proportions du plan de financement) ou sur une seule affectation
+  // (on sait laquelle a bougé).
+  //
+  // L'arrondi se fait au centime PAR DÉFAUT sur chaque part, le
+  // reliquat allant à la plus grosse : arrondir chaque part au plus
+  // près pouvait dépasser d'un centime, et l'enregistrement serait resté
+  // bloqué après avoir cliqué sur le bouton censé le débloquer.
+  function scaleToLine() {
+    const rows = form.allocations.map(a => num(a.amount))
+    const total = rows.reduce((s, v) => s + v, 0)
+    if (total <= 0) return
+    const scaled = rows.map(v => Math.floor((v * lineAmount / total) * 100) / 100)
+    const residue = Math.round((lineAmount - scaled.reduce((s, v) => s + v, 0)) * 100) / 100
+    if (residue > 0 && scaled.length) {
+      const biggest = scaled.reduce((best, v, i) => (v > scaled[best] ? i : best), 0)
+      scaled[biggest] = Math.round((scaled[biggest] + residue) * 100) / 100
+    }
+    setForm(f => ({ ...f, allocations: f.allocations.map((a, i) => ({ ...a, amount: amountValue(scaled[i]) })) }))
+  }
+  function absorbHere(i: number) {
+    setAllocation(i, { amount: amountValue(Math.max(0, num(form.allocations[i].amount) - excess)) })
   }
   // Choisir une tâche alors qu'aucune phase n'est fixée renseigne la
   // phase : la ligne se situe d'elle-même.
@@ -205,28 +383,82 @@ export function BudgetLineDialog({ projectId, orgs, phases, tasks = [], line, pr
                 </p>
               )}
               <div className="space-y-2">
-                {form.allocations.map((a, i) => (
-                  <div key={i} className="flex items-end gap-2">
-                    <div className="flex-1">
-                      <label className="block text-xs mb-1" style={{ color: "#66716B" }} htmlFor={`alloc-task-${i}`}>Tâche</label>
-                      <select id={`alloc-task-${i}`} value={a.task_id} required
-                        onChange={e => setAllocation(i, { task_id: e.target.value })} className={inputCls} style={border}>
-                        <option value="">— choisir</option>
-                        {visibleTasks.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                      </select>
+                {form.allocations.map((a, i) => {
+                  // Ce que cette affectation peut absorber à elle seule. Le
+                  // bouton n'apparaît que si le retrait tient dans son
+                  // montant : proposer « retirer 2 000 € » à une affectation
+                  // de 300 € donnerait un montant négatif, refusé plus loin.
+                  const canAbsorb = overAllocated && num(a.amount) >= excess - 0.005
+                  return (
+                    <div key={i} className="space-y-1">
+                      <div className="flex items-end gap-2">
+                        <div className="flex-1">
+                          <label className="block text-xs mb-1" style={{ color: "#66716B" }} htmlFor={`alloc-task-${i}`}>Tâche</label>
+                          <select id={`alloc-task-${i}`} value={a.task_id} required
+                            onChange={e => setAllocation(i, { task_id: e.target.value })} className={inputCls} style={border}>
+                            <option value="">— choisir</option>
+                            {visibleTasks.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                          </select>
+                        </div>
+                        <div className="w-32">
+                          <label className="block text-xs mb-1" style={{ color: "#66716B" }} htmlFor={`alloc-amount-${i}`}>Montant (€)</label>
+                          <input id={`alloc-amount-${i}`} type="number" min={0} step="0.01" value={a.amount}
+                            onChange={e => setAllocation(i, { amount: e.target.value })} className={inputCls} style={border} />
+                        </div>
+                        {/* L'intitulé nomme ce qu'on retire et combien : « la
+                            tâche 2 » ne disait ni laquelle ni ce qu'elle
+                            emportait, alors que le retrait devient définitif
+                            à l'enregistrement. Le montant n'entre dans la
+                            phrase que s'il y en a un — « 0 € ne lui seront
+                            plus affectés » se lit comme une alarme pour rien. */}
+                        <button type="button" onClick={() => removeAllocation(i)}
+                          className="p-2 rounded-lg hover:bg-gray-100"
+                          title={removalLabel(a)} aria-label={removalLabel(a, i)}>
+                          <X size={15} style={{ color: "#66716B" }} aria-hidden="true" />
+                        </button>
+                      </div>
+                      {canAbsorb && (
+                        <button type="button" onClick={() => absorbHere(i)}
+                          className="text-xs px-2 py-1 rounded-lg border bg-white font-medium"
+                          style={{ ...border, color: "#A3342C" }}>
+                          Retirer {eur(excess)} ici → {eur(Math.max(0, num(a.amount) - excess))}
+                        </button>
+                      )}
                     </div>
-                    <div className="w-32">
-                      <label className="block text-xs mb-1" style={{ color: "#66716B" }} htmlFor={`alloc-amount-${i}`}>Montant (€)</label>
-                      <input id={`alloc-amount-${i}`} type="number" min={0} step="0.01" value={a.amount}
-                        onChange={e => setAllocation(i, { amount: e.target.value })} className={inputCls} style={border} />
-                    </div>
-                    <button type="button" onClick={() => removeAllocation(i)}
-                      className="p-2 rounded-lg hover:bg-gray-100" aria-label={`Retirer la tâche ${i + 1} de la répartition`}>
-                      <X size={15} style={{ color: "#66716B" }} aria-hidden="true" />
-                    </button>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
+              {/* Un retrait se rattrape tant que le dialogue est ouvert.
+                  Après l'enregistrement, plus rien : l'action purge la
+                  répartition de la ligne avant de réécrire celle du
+                  formulaire. */}
+              {undoRemoval && canRestore && (
+                <div role="status" aria-live="polite"
+                  className="mt-2 rounded-xl p-2.5 text-xs flex flex-wrap items-center justify-between gap-2"
+                  style={{ background: "#F5F6F4", color: "#66716B" }}>
+                  <span>
+                    <strong style={{ color: "#17211D" }}>{undoRemoval.name}</strong> retirée de la répartition
+                    {num(undoRemoval.amount) > 0 && <> — {eur(num(undoRemoval.amount))} ne lui seront plus affectés</>}.
+                    Le retrait devient définitif à l&apos;enregistrement.
+                  </span>
+                  <button type="button" onClick={restoreRemoval}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border bg-white font-medium flex-shrink-0"
+                    style={{ ...border, color: "var(--brand-accent,#0E6B5C)" }}>
+                    <Undo2 size={12} aria-hidden="true" /> Rétablir
+                  </button>
+                </div>
+              )}
+              {phaseDropped.length > 0 && (
+                <div role="status" aria-live="polite" className="mt-2 rounded-xl p-2.5 text-xs"
+                  style={{ background: "#F7EDDD", color: "#8A6A1F" }}>
+                  Changement de phase :{" "}
+                  {phaseDropped.map((x, i) => (
+                    <span key={i}>{i > 0 && ", "}<strong>{x.name}</strong> ({eur(x.amount)})</span>
+                  ))}{" "}
+                  {phaseDropped.length > 1 ? "ont été retirées" : "a été retirée"} de la répartition :
+                  une affectation ne peut viser qu&apos;une tâche de la phase de la ligne.
+                </div>
+              )}
               <div className="flex items-center justify-between gap-3 mt-2">
                 <button type="button" onClick={addAllocation}
                   className="flex items-center gap-1 text-sm font-medium" style={{ color: "var(--brand-accent,#0E6B5C)" }}>
@@ -234,25 +466,106 @@ export function BudgetLineDialog({ projectId, orgs, phases, tasks = [], line, pr
                 </button>
                 {form.allocations.length > 0 && (
                   <span className="text-xs" style={{ color: overAllocated ? "#A3342C" : "#66716B" }}>
-                    Réparti {allocated.toLocaleString("fr-FR")} € · reste {rest.toLocaleString("fr-FR")} €
+                    Réparti {eur(allocated)} · reste {eur(rest)}
                   </span>
                 )}
               </div>
+              {/* Le dépassement disait « la répartition dépasse le montant
+                  de la ligne » et éteignait Enregistrer. Six mots pour une
+                  impasse : il fallait recalculer de tête, puis retaper.
+                  Le bouton reste éteint — le serveur applique la même
+                  règle, et proposer une action qu'il refusera est un
+                  défaut d'interface — mais l'écart est chiffré et les
+                  gestes qui le referment sont à un clic. */}
+              {overAllocated && (
+                <div className="mt-2 rounded-xl p-3 text-xs" style={{ background: "#F6E7E5", color: "#A3342C" }}>
+                  <p>
+                    <strong>La répartition dépasse le montant de la ligne de {eur(excess)}.</strong>{" "}
+                    {eur(lineAmount)} sont prévus sur la ligne, {eur(allocated)} sont répartis.
+                    L&apos;enregistrement reste refusé tant que les deux ne se rejoignent pas.
+                  </p>
+                  {form.allocations.length > 1 && (
+                    <button type="button" onClick={scaleToLine}
+                      className="mt-2 px-2 py-1 rounded-lg border bg-white font-medium"
+                      style={{ ...border, color: "#A3342C" }}
+                      title="Réduit chaque affectation dans la même proportion — le plan de financement garde ses équilibres.">
+                      Ramener la répartition à {eur(lineAmount)}, au prorata
+                    </button>
+                  )}
+                  <p className="mt-2">
+                    Ou remontez le montant prévisionnel : c&apos;est lui qui doit refléter la convention,
+                    la répartition vient par-dessus.
+                  </p>
+                </div>
+              )}
+              {/* L'impact, en euros et par tâche. Le budget d'une tâche
+                  EST la somme de ses affectations : le lire après coup
+                  dans l'onglet Tâches, c'est le découvrir trop tard. */}
+              {/* Volontairement SANS aria-live, à l'inverse des deux
+                  encarts ci-dessus : ce bloc se réécrit à chaque frappe
+                  dans un champ « Montant ». Annoncé en direct, il
+                  couvrirait la saisie d'un flot de rectificatifs. Les
+                  encarts de retrait, eux, apparaissent une fois par
+                  geste — c'est exactement ce pour quoi une région vivante
+                  existe. */}
+              {impacts.length > 0 && (
+                <div className="mt-2 rounded-xl p-3 text-xs"
+                  style={lossCount
+                    ? { background: "#F7EDDD", color: "#8A6A1F" }
+                    : { background: "var(--brand-accent-soft,#E4F0EC)", color: "var(--brand-accent,#0E6B5C)" }}>
+                  <p className="font-semibold">Ce que l&apos;enregistrement va changer</p>
+                  <ul className="mt-1 space-y-1">
+                    {impacts.map(x => {
+                      const delta = x.after - x.before
+                      const budget = x.others + x.after
+                      return (
+                        <li key={x.taskId}>
+                          <strong>{x.name}</strong> : {eur(x.before)} → {eur(x.after)}{" "}
+                          ({delta > 0 ? "+" : "−"}{eur(Math.abs(delta))} sur cette ligne)
+                          {form.is_valorisation
+                            ? <> — apport en nature : il ne compte pas dans le budget de la tâche,
+                                mais il disparaîtra de ce qu&apos;elle reçoit en nature.</>
+                            : x.others > 0
+                              ? <> — {eur(x.others)} lui viennent d&apos;autres lignes : son budget passera
+                                  de {eur(x.others + x.before)} à {eur(budget)}.</>
+                              : budget > 0.005
+                                ? <> — aucune autre ligne ne la finance : son budget sera exactement ce montant.</>
+                                : <> — aucune autre ligne ne la finance : son budget tombe à 0 €, et elle ne
+                                    pèsera plus que le poids plancher dans l&apos;avancement pondéré de sa phase.</>}
+                        </li>
+                      )
+                    })}
+                  </ul>
+                  {lossCount > 0 && (
+                    <p className="mt-2">
+                      Enregistrer remplace la répartition entière de cette ligne : ce qui n&apos;est plus
+                      listé ci-dessus est effacé, et ne se retrouve nulle part ailleurs.
+                    </p>
+                  )}
+                </div>
+              )}
               <p className="text-xs mt-2" style={{ color: "#66716B" }}>
                 Une ligne peut se répartir sur plusieurs tâches (40 000 € = 10 000 € + 30 000 €),
                 et plusieurs lignes peuvent financer la même tâche (co-financement).
+                Le budget d&apos;une tâche est la somme des affectations qu&apos;elle reçoit — c&apos;est
+                aussi ce qui la pondère dans l&apos;avancement de sa phase.
               </p>
-              {overAllocated && (
-                <p className="text-xs mt-1" style={{ color: "#A3342C" }}>
-                  La répartition dépasse le montant de la ligne.
-                </p>
-              )}
+              {/* « Qui peut modifier une répartition ? » — la question du
+                  Product Owner. La réponse se lit là où le geste se fait,
+                  pas seulement dans l'écran Accès & rôles. */}
+              <p className="text-xs mt-1" style={{ color: "#66716B" }}>
+                Peuvent modifier cette répartition : {BUDGET_MANAGERS}, ainsi que les
+                administrateurs de la plateforme. Chaque enregistrement remplace le précédent
+                et s&apos;inscrit au journal d&apos;audit du projet.
+              </p>
             </fieldset>
             <Field label="Commentaire">{id => (
               <input id={id} value={form.comment} onChange={e => setForm({ ...form, comment: e.target.value })} className={inputCls} style={border} />
             )}</Field>
             <ErrorMessage>{d.error}</ErrorMessage>
-            <Actions pending={d.pending} blocked={overAllocated} onClose={() => d.setOpen(false)} label={line ? "Enregistrer" : "Créer la ligne"} />
+            <Actions pending={d.pending} blocked={overAllocated}
+              blockedReason={`La répartition dépasse le montant de la ligne de ${eur(excess)} : le serveur refuserait l'enregistrement. Ramenez-la à ${eur(lineAmount)}, ou remontez le montant prévisionnel.`}
+              onClose={() => d.setOpen(false)} label={line ? "Enregistrer" : "Créer la ligne"} />
           </form>
         </Modal>
       )}

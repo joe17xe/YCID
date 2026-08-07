@@ -9,6 +9,7 @@ import { adminCreateUser } from '@/lib/supabase/auth-admin'
 import { canEditCompletedTasks, canManagePhases, canManageMembers, canManageAuditors, canManageTasks, canManageBudget, canManageMeetings, isUserAdmin } from '@/lib/permissions'
 import { notifyUser } from '@/lib/notify'
 import { fmtDate } from '@/lib/constants'
+import { isEngagedDoc, isPaidDoc, fmtEur, type DocLike } from '@/lib/budget'
 import { ASSIGNABLE_ROLES, isAuditorSeat } from '@/lib/rbac'
 import { notifyPeople, projectLeads } from '@/lib/notify-circuit'
 import type { TaskStatus } from '@/lib/types'
@@ -287,7 +288,301 @@ export async function deleteTask(input: { taskId: string; projectId: string }): 
     project_id: input.projectId, entity: 'task', entity_id: null,
     label: task.title, action: 'supprime', user_id: user.id,
   })
-  if (auditErr) console.error('[audit] trace NON enregistrée:', auditErr.message)
+  // ----------------------------------------------------------
+  // Une trace de suppression qui n'atterrit pas — règle commune
+  // ----------------------------------------------------------
+  // Le raisonnement vaut pour les cinq suppressions de l'application
+  // (tâche ici, phase, ligne budgétaire, pièce jointe, purge du
+  // stockage) ; les autres s'y réfèrent.
+  //
+  // On ne casse PAS le geste. Quand on arrive ici, la ligne est déjà
+  // supprimée : il n'y a plus rien à annuler — ces appels ne partagent
+  // aucune transaction — et répondre `ok: false` mentirait. L'utilisateur
+  // retenterait, et lirait « Tâche introuvable » sur une tâche qu'il
+  // vient de faire disparaître. Un refus après coup n'est pas un refus,
+  // c'est une confusion de plus.
+  //
+  // Mais on ne se contente plus de dire QUE la trace a échoué. Jusqu'à
+  // la 0058, cette ligne de log affichait le message de PostgreSQL et
+  // rien d'autre : même en la lisant, on ne savait pas quelle
+  // suppression n'avait pas été inscrite. Elle porte désormais TOUT ce
+  // que la trace aurait porté. Après une suppression, c'est le dernier
+  // témoin de ce qui a disparu, et il doit suffire à réinscrire
+  // l'entrée à la main.
+  //
+  // Pourquoi cette exigence ici et pas sur les traces de création ou de
+  // modification, qui gardent leur `console.error` bref : leur objet
+  // existe toujours en base, la trace manquante s'y reconstitue. Ici,
+  // non.
+  //
+  // Ce qui manque encore, faute de pouvoir toucher aux écrans : rien
+  // n'en remonte à l'utilisateur. Le journal serveur est lu par
+  // l'exploitant, pas par le chef de projet.
+  if (auditErr) {
+    console.error('[audit] SUPPRESSION NON TRACÉE — à réinscrire à la main :',
+      JSON.stringify({ project_id: input.projectId, entity: 'task', label: task.title, user_id: user.id }),
+      '—', auditErr.message)
+  }
+
+  revalidatePath(`/projets/${input.projectId}`)
+  return { ok: true }
+}
+
+// ------------------------------------------------------------
+// Suppressions mesurées — protocole commun aux deux qui suivent
+// ------------------------------------------------------------
+// `deleteProject` (plus bas) exige la recopie du nom d'emblée : un
+// projet emporte toujours tout, le danger y est constant. Une phase ou
+// une ligne, non — vide, elle ne détruit rien ; pleine, elle détruit
+// beaucoup. Imposer la recopie dans les deux cas reproduirait le défaut
+// même qu'on corrige : le Product Owner n'arrivait pas à retirer ses
+// lignes « TEST T11 — à supprimer » à 1 €, et un remède qui lui demande
+// de les recopier une à une ne lui rend pas service.
+//
+// D'où deux temps. Premier appel, sans confirmation : on MESURE ce que
+// la suppression emporterait. Rien à perdre → elle a lieu. Sinon refus,
+// avec `needsConfirmation` et les comptes déjà faits, pour que le
+// dialogue s'écrive à partir de la réponse — l'interface n'a ni requête
+// à refaire ni règle à réinventer. Second appel, muni de la
+// confirmation : exécution.
+//
+// `needsConfirmation` sépare le refus LEVABLE du refus ferme (droit
+// manquant, ligne engagée). Sans lui, l'interface proposerait de
+// confirmer ce que rien ne débloquera jamais.
+export interface DeleteOutcome {
+  ok: boolean
+  error?: string
+  needsConfirmation?: boolean
+  // Comptés par le premier appel, pour libeller le dialogue sans
+  // recompter côté client.
+  taskCount?: number
+  documentCount?: number
+  // Les tâches qu'une ligne budgétaire finance, et pour combien.
+  // Mesurées AVANT la suppression : `budget_line_tasks.budget_line_id`
+  // est en `on delete cascade` (0028), et après coup plus rien ne dit
+  // quelles tâches viennent de perdre leur budget. Une liste et pas un
+  // compte, parce qu'il faut pouvoir les NOMMER — « 3 tâches » ne se
+  // relit pas, « Forage (30 000 €) » se relit.
+  fundedTasks?: { title: string; amount: number }[]
+}
+
+// « 1 tâches » se lit comme un message de machine, et on cesse alors de
+// lire le reste — or c'est justement ici qu'il faut le lire.
+const plural = (n: number) => (n > 1 ? 's' : '')
+
+// Les deux suppressions qui suivent ont d'abord tracé `archive`, faute
+// de mieux : `supprime` n'existait pas dans l'enum `audit_action`
+// (0001:31), et les trois appels qui l'employaient déjà voyaient leur
+// insert rejeté par PostgreSQL. La 0058 ajoute la valeur ; le
+// contournement est levé, ici comme ailleurs — devant un financeur,
+// « archivé » et « supprimé » ne désignent pas le même geste, et une
+// phase supprimée ne se retrouve dans aucune archive.
+//
+// Ce que le contournement avait de juste et qu'on garde : le libellé
+// DIT ce qui s'est passé (« Phase … supprimée ») et le commentaire dit
+// ce que la suppression a emporté. `action` seule ne suffit pas à se
+// relire six mois plus tard.
+//
+// `removeProjectMember` (plus bas) reste sur `archive` à dessein : un
+// membre retiré d'un projet n'est pas supprimé — son compte, ses
+// écritures et ses traces demeurent.
+
+// ------------------------------------------------------------
+// Supprimer une phase
+// ------------------------------------------------------------
+// Le danger n'est pas la phase, c'est `tasks.phase_id ... on delete
+// cascade` (0001) : la base supprime SES TÂCHES sans rien dire, et
+// `budget_line_tasks.task_id on delete cascade` (0028) emporte leurs
+// affectations budgétaires avec elles. Un clic peut donc effacer dix
+// tâches.
+//
+// Refuser tant que la phase porte des tâches a été écarté après
+// vérification : une tâche ne peut PAS changer de phase — `saveTask`
+// rejette un taskId dont le `phase_id` diffère, et rien d'autre dans
+// l'application n'écrit cette colonne. Le refus ne laisserait donc
+// qu'une issue, supprimer les tâches une par une : la même destruction
+// en N gestes, et N traces isolées au lieu d'une qui dise ce que la
+// phase emportait. On confirme donc, mais en nommant ce qu'on détruit.
+//
+// La recopie du nom se justifie ici, et pas pour une ligne budgétaire :
+// les phases se ressemblent dans une liste (« Phase 2 », « Diagnostic »)
+// et l'erreur qu'on redoute n'est pas de mal comprendre la cascade, c'est
+// de cliquer sur la mauvaise ligne. Recopier oblige à lire laquelle. Une
+// phase VIDE part en un clic — il n'y a rien à perdre. « Vide » veut dire
+// ni tâche, ni ligne budgétaire, ni pièce : une phase qui ne détruit rien
+// mais DÉFAIT quelque chose se confirme comme les autres (voir `enJeu`).
+//
+// Ce que la suppression ne touche pas se dit aussi, parce que c'est la
+// première inquiétude et que c'est vrai : les lignes budgétaires
+// survivent (`budget_lines.phase_id ... on delete set null`) et repassent
+// « hors phase », leur argent reste au projet ; les pièces rattachées
+// perdent leur phase, pas leur fichier.
+export async function deletePhase(input: {
+  phaseId: string; projectId: string; confirmation?: string
+}): Promise<DeleteOutcome> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Non authentifié.' }
+
+  // Appartenance vérifiée ici comme dans deleteTask, avant le droit : un
+  // phaseId d'un autre projet doit sortir sur « introuvable », pas sur un
+  // refus de droits qui confirmerait son existence.
+  const { data: phase } = await supabase.from('phases')
+    .select('id, name, project_id, tasks(id, title)')
+    .eq('id', input.phaseId).maybeSingle()
+  if (!phase || phase.project_id !== input.projectId) return { ok: false, error: 'Phase introuvable.' }
+  if (!(await canManagePhases(supabase, user.id, input.projectId))) {
+    return { ok: false, error: 'Suppression des phases réservée au chef de projet et aux admins.' }
+  }
+
+  const tasks = (phase.tasks ?? []) as { id: string; title: string }[]
+  const name = (phase.name ?? '').trim()
+
+  // Ce que la cascade rend au « non affecté » des lignes. L'argent n'est
+  // pas perdu, mais il change de place : c'est la première question qui
+  // sera posée au compte rendu, autant y répondre dans la trace.
+  let releasedAmount = 0
+  if (tasks.length) {
+    const { data: allocations } = await supabase.from('budget_line_tasks')
+      .select('amount').in('task_id', tasks.map(t => t.id))
+    releasedAmount = (allocations ?? []).reduce((s, a) => s + Number(a.amount ?? 0), 0)
+  }
+  const [{ count: lineCount }, { count: docCount }] = await Promise.all([
+    supabase.from('budget_lines').select('id', { count: 'exact', head: true }).eq('phase_id', input.phaseId),
+    supabase.from('documents').select('id', { count: 'exact', head: true }).eq('phase_id', input.phaseId),
+  ])
+  const lines = lineCount ?? 0
+  const pieces = docCount ?? 0
+
+  // ----------------------------------------------------------
+  // Ce qui déclenche la confirmation
+  // ----------------------------------------------------------
+  // La condition ne regardait QUE les tâches. Une phase portant 0 tâche
+  // et 6 lignes budgétaires partait donc en un clic : les 6 lignes
+  // survivaient (`budget_lines.phase_id ... on delete set null`, 0001) et
+  // repassaient « hors phase » sans que rien ne l'ait annoncé. Aucun euro
+  // perdu, mais le regroupement sur lequel se lit le budget disparaissait
+  // en silence — et le paragraphe qui explique cette survie n'était
+  // construit que dans la branche « avec tâches », donc jamais montré
+  // dans le seul cas où il aurait servi. Même raisonnement pour les
+  // pièces rattachées à la phase.
+  //
+  // Le principe du Product Owner tient, il est seulement mesuré
+  // correctement : ce qui n'a RIEN à perdre reste à un clic. `enJeu` dit
+  // exactement cela — zéro tâche, zéro ligne, zéro pièce : la phase ne
+  // fait que disparaître elle-même, il n'y a rien à faire lire.
+  const enJeu = tasks.length + lines + pieces
+
+  // ----------------------------------------------------------
+  // Une phase sans nom ne peut pas être confirmée
+  // ----------------------------------------------------------
+  // La garde comparait la saisie au nom : quand `name` valait '', le
+  // premier appel — qui ne porte aucune confirmation — évaluait
+  // `'' !== ''`, donc FAUX. La garde ne se déclenchait pas et la phase
+  // partait au premier clic, tâches comprises, sans confirmation ni
+  // avertissement. Le pire des cas : le nom manquant n'est pas un
+  // détail cosmétique, c'est justement ce qui aurait permis de
+  // reconnaître la phase qu'on détruit.
+  //
+  // `phases.name` est `not null` (0001) — ce qui n'interdit NI la chaîne
+  // vide NI une suite d'espaces. Les deux écritures applicatives
+  // (`savePhase`, l'import CSV) refusent un nom vide ; restent le
+  // seed, le SQL Editor et l'existant. Une garde de suppression ne peut
+  // pas reposer sur une hygiène de données qu'elle ne contrôle pas.
+  //
+  // Recopier '' ne prouve rien : c'est ce que tout le monde saisit sans
+  // le savoir. Un mot de passe de substitution (« SUPPRIMER ») ne
+  // fonctionne pas davantage ici — l'écran verrouille son bouton tant
+  // que la saisie ne vaut pas `phaseName.trim()`, soit la chaîne vide :
+  // taper quoi que ce soit le désactiverait, et la phase deviendrait
+  // indestructible. On refuse donc FERMEMENT (pas de
+  // `needsConfirmation` : rien à lever tant que le nom manque) en
+  // indiquant la sortie, qui existe vraiment et relève du même droit —
+  // nommer la phase avec « Modifier », `savePhase` exigeant un nom non
+  // vide. La confirmation redevient alors possible ET sensée.
+  //
+  // Une phase sans nom et sans rien à perdre part toujours en un clic :
+  // c'est l'enregistrement fantôme, celui qu'on veut pouvoir nettoyer
+  // sans cérémonie.
+  if (enJeu && !name) {
+    const porte = [
+      tasks.length ? `${tasks.length} tâche${plural(tasks.length)}` : '',
+      lines ? `${lines} ligne${plural(lines)} budgétaire${plural(lines)}` : '',
+      pieces ? `${pieces} pièce${plural(pieces)}` : '',
+    ].filter(Boolean).join(', ')
+    return {
+      ok: false, taskCount: tasks.length, documentCount: pieces,
+      error: `Cette phase n'a pas de nom, et elle porte ${porte}. La confirmation consiste à recopier le nom `
+        + `exact de la phase : sans nom, il n'y a rien à recopier, donc rien qui prouve qu'on supprime la bonne. `
+        + `Donnez-lui d'abord un nom avec « Modifier », puis recommencez.`,
+    }
+  }
+
+  if (enJeu && (input.confirmation ?? '').trim() !== name) {
+    const message = [
+      tasks.length
+        ? `Supprimer « ${name} » supprimera aussi ses ${tasks.length} tâche${plural(tasks.length)}, définitivement`
+          + (releasedAmount > 0
+            ? `, et rendra ${fmtEur(releasedAmount)} d'affectations au « non affecté » de leurs lignes budgétaires.`
+            : '.')
+        // Rien à détruire au-delà de la phase, mais un regroupement à
+        // défaire : c'est précisément ce que le silence d'avant ne
+        // disait pas.
+        : `« ${name} » ne porte aucune tâche : rien ne sera détruit hormis la phase elle-même, `
+          + `mais le regroupement qu'elle portait sera défait.`,
+      lines
+        ? `${lines} ligne${plural(lines)} budgétaire${plural(lines)} ${lines > 1 ? 'sont conservées' : 'est conservée'} : `
+          + `${lines > 1 ? 'elles repassent' : 'elle repasse'} « hors phase », ${lines > 1 ? 'leur' : 'son'} montant reste au projet.`
+        : '',
+      pieces
+        ? `${pieces} pièce${plural(pieces)} ${pieces > 1 ? 'sont conservées' : 'est conservée'} : `
+          + `${pieces > 1 ? 'elles perdent' : 'elle perd'} le rattachement à la phase, pas le fichier.`
+        : '',
+      tasks.length
+        ? `Aucune tâche ne peut être déplacée vers une autre phase : s'il y en a à garder, renoncez à supprimer la phase.`
+        : '',
+      `Pour confirmer, recopiez le nom exact de la phase : « ${name} ».`,
+    ].filter(Boolean).join(' ')
+    return { ok: false, needsConfirmation: true, error: message, taskCount: tasks.length, documentCount: pieces }
+  }
+
+  const { error } = await supabase.from('phases').delete().eq('id', input.phaseId)
+  if (error) return { ok: false, error: `Suppression refusée : ${error.message}` }
+
+  // Les titres des tâches emportées, et pas seulement leur nombre : « 3
+  // tâches supprimées » ne se relit pas, « Forage, Clôture, Réception »
+  // se relit. Bornés à cinq — au-delà, le compte suffit à ce qu'on
+  // vérifie.
+  const emportees = tasks.slice(0, 5).map(t => `« ${t.title} »`).join(', ')
+  // Nommée plutôt qu'écrite en ligne, pour que le journal serveur puisse
+  // la reprendre telle quelle si l'insert échoue (voir deleteTask).
+  const trace = {
+    project_id: input.projectId, entity: 'phase', entity_id: null,
+    // Seule une phase sans nom ET sans rien à perdre arrive ici avec un
+    // nom vide : « Phase «  » supprimée » ne se relit pas, on le dit.
+    label: name ? `Phase « ${name} » supprimée` : 'Phase sans nom supprimée (vide)',
+    action: 'supprime', user_id: user.id,
+    comment: [
+      tasks.length
+        ? `${tasks.length} tâche${plural(tasks.length)} supprimée${plural(tasks.length)} avec elle : ${emportees}`
+          + (tasks.length > 5 ? ` et ${tasks.length - 5} autre${plural(tasks.length - 5)}` : '')
+        // « Phase vide » ne se dit que d'une phase VRAIMENT vide : une
+        // phase sans tâche mais portant six lignes budgétaires n'est pas
+        // vide, et l'écrire ferait mentir la seule trace qui restera.
+        : (enJeu ? 'Aucune tâche emportée' : 'Phase vide — rien à emporter'),
+      releasedAmount > 0 ? ` — ${fmtEur(releasedAmount)} d'affectations rendues au non affecté` : '',
+      lines ? ` — ${lines} ligne${plural(lines)} budgétaire${plural(lines)} conservée${plural(lines)}, désormais hors phase` : '',
+      pieces ? ` — ${pieces} pièce${plural(pieces)} conservée${plural(pieces)}, sans phase` : '',
+    ].join(''),
+  }
+  const { error: auditErr } = await supabase.from('audit_log').insert(trace)
+  // Règle commune aux suppressions, exposée dans deleteTask : la phase
+  // est déjà détruite, on ne casse pas le geste — mais la ligne de log
+  // doit permettre de réinscrire la trace à la main.
+  if (auditErr) {
+    console.error('[audit] SUPPRESSION NON TRACÉE — à réinscrire à la main :',
+      JSON.stringify(trace), '—', auditErr.message)
+  }
 
   revalidatePath(`/projets/${input.projectId}`)
   return { ok: true }
@@ -365,31 +660,345 @@ export async function saveBudgetLine(input: BudgetLineInput): Promise<{ ok: bool
     comment: input.comment?.trim() || null,
   }
 
-  let lineId: string
+  // Appartenance vérifiée avant tout appel : un lineId d'un autre projet
+  // sort sur « introuvable ». La 0061 refait ce contrôle — elle est
+  // atteignable sans passer par cet écran — mais c'est ici qu'il rend le
+  // message lisible.
   if (input.lineId) {
     const { data: line } = await supabase.from('budget_lines').select('project_id').eq('id', input.lineId).maybeSingle()
     if (!line || line.project_id !== input.projectId) return { ok: false, error: 'Ligne introuvable.' }
-    // Purger la répartition AVANT d'écrire la ligne : baisser le montant
-    // ou changer de phase serait sinon rejeté par le trigger, qui voit
-    // encore l'ancienne répartition.
-    const { error: clearErr } = await supabase.from('budget_line_tasks').delete().eq('budget_line_id', input.lineId)
-    if (clearErr) return { ok: false, error: `Échec de la mise à jour de la répartition : ${clearErr.message}` }
-    const { error } = await supabase.from('budget_lines').update(values).eq('id', input.lineId)
-    if (error) return { ok: false, error: `Échec de la modification : ${error.message}` }
-    lineId = input.lineId
-    await supabase.from('audit_log').insert({ project_id: input.projectId, entity: 'budget_line', entity_id: input.lineId, label: poste, action: 'modifie', user_id: user.id })
-  } else {
-    const { data: created, error } = await supabase.from('budget_lines').insert({ ...values, project_id: input.projectId }).select('id').single()
-    if (error || !created) return { ok: false, error: `Échec de la création : ${error?.message ?? 'ligne non créée'}` }
-    lineId = created.id
-    await supabase.from('audit_log').insert({ project_id: input.projectId, entity: 'budget_line', entity_id: created.id, label: poste, action: 'cree', user_id: user.id })
   }
 
-  if (allocations.length) {
-    const { error: allocErr } = await supabase.from('budget_line_tasks')
-      .insert(allocations.map(a => ({ budget_line_id: lineId, task_id: a.task_id, amount: a.amount })))
-    if (allocErr) return { ok: false, error: `Ligne enregistrée, mais la répartition a échoué : ${allocErr.message}` }
+  // ----------------------------------------------------------
+  // Un seul appel, une seule transaction (migration 0061)
+  // ----------------------------------------------------------
+  // Cette branche tenait en trois requêtes : purger `budget_line_tasks`,
+  // écrire la ligne, réinsérer la répartition. Trois requêtes HTTP,
+  // donc trois transactions — et la purge validée AVANT de savoir si
+  // l'écriture allait réussir. Quand le trigger de cohérence (0028)
+  // refusait la mise à jour, l'utilisateur lisait « Échec de la
+  // modification », phrase qui dit que rien n'a bougé, alors que TOUTES
+  // les affectations de tâches de la ligne venaient d'être détruites.
+  // Le symétrique existait à l'insert : « Ligne enregistrée, mais la
+  // répartition a échoué » laissait la ligne enregistrée sans aucune
+  // affectation.
+  //
+  // La perte ne se voyait pas là où l'on regardait : l'onglet Budget
+  // montrait une ligne au bon montant, et c'est l'onglet Tâches qui
+  // avait changé. Le budget d'une tâche EST la somme de ses affectations
+  // (0028) — il n'existe nulle part ailleurs — et il sert de poids à
+  // l'avancement de sa phase (page.tsx, moyenne pondérée à plancher).
+  // Une répartition à moitié détruite déplace donc un pourcentage
+  // d'avancement lu par un financeur.
+  //
+  // L'ordre purge-puis-écriture n'était pas le problème et n'a pas
+  // changé : le trigger refuserait une baisse de montant ou un
+  // changement de phase en voyant encore l'ancienne répartition. Ce qui
+  // manquait, c'est la transaction — elle est dans la 0061, avec le
+  // raisonnement complet, y compris pourquoi la fonction est
+  // `security invoker` et non `security definer`.
+  const { data: saved, error: saveErr } = await supabase.rpc('save_budget_line', {
+    p_project_id: input.projectId,
+    p_line_id: input.lineId ?? null,
+    p_poste: poste,
+    p_description: values.description,
+    p_category: values.category,
+    p_funder_org_id: values.funder_org_id,
+    p_owner_org_id: values.owner_org_id,
+    p_phase_id: values.phase_id,
+    p_year: values.year,
+    p_planned_amount: values.planned_amount,
+    p_is_valorisation: values.is_valorisation,
+    p_status: values.status,
+    p_comment: values.comment,
+    p_allocations: allocations,
+  })
+  if (saveErr) {
+    // Application déployée avant sa migration : PostgREST ne trouve pas
+    // la fonction. On nomme le fichier à appliquer plutôt que de laisser
+    // « Could not find the function » à l'écran — même remède que la
+    // 0021 dans `setPublicPage`. Rien n'a été écrit, et c'est le bon
+    // sens de l'erreur : un blocage, pas une perte.
+    if (saveErr.code === 'PGRST202') {
+      console.error('[budget] save_budget_line introuvable — 0061 non appliquée, ou cache de schéma PostgREST périmé :', saveErr.message)
+      return {
+        ok: false,
+        error: "Enregistrement impossible : la migration 0061_budget_line_save_transaction.sql n'est pas appliquée sur cette base "
+          + "(ou l'API n'a pas rechargé son schéma). Rien n'a été modifié. Signalez-le à l'administrateur, puis recommencez.",
+      }
+    }
+    // Le message dit désormais quelque chose de VRAI, et c'est tout
+    // l'objet de la 0061 : l'échec n'a rien laissé derrière lui.
+    return {
+      ok: false,
+      error: `${input.lineId ? 'Échec de la modification' : 'Échec de la création'} : ${saveErr.message}`
+        + ' — rien n\'a été enregistré, la ligne et sa répartition sont restées telles quelles.',
+    }
   }
+  const result = (saved ?? {}) as { line_id?: string; before_count?: number; before_amount?: number }
+  const lineId = result.line_id ?? input.lineId ?? null
+
+  // La répartition d'avant, relevée PAR la transaction avant d'être
+  // effacée : après coup, plus rien ne peut la dire. C'est la troisième
+  // suppression de ce fichier, et la plus discrète — elle ne s'annonce
+  // pas comme telle. Enregistrer la ligne avec une répartition vidée
+  // SUPPRIME ses affectations de tâches, et le journal n'en disait rien :
+  // « ligne modifiée », sans un mot sur 40 000 € qui viennent de quitter
+  // leurs tâches. Le geste, lui, reste une modification — la ligne et
+  // son montant survivent, d'où l'action `modifie` et le `console.error`
+  // bref des traces de modification (le raisonnement est dans
+  // deleteTask). Ce qui manquait, c'est de DIRE le mouvement.
+  if (input.lineId) {
+    const beforeCount = Number(result.before_count ?? 0)
+    const beforeAmount = Number(result.before_amount ?? 0)
+    const changed = beforeCount !== allocations.length || beforeAmount !== allocated
+    const { error: auditErr } = await supabase.from('audit_log').insert({
+      project_id: input.projectId, entity: 'budget_line', entity_id: input.lineId,
+      label: poste, action: 'modifie', user_id: user.id,
+      comment: changed
+        ? `Ligne modifiée — RÉPARTITION : ${beforeCount} affectation${plural(beforeCount)} (${fmtEur(beforeAmount)}) `
+          + `→ ${allocations.length} (${fmtEur(allocated)})`
+          + (allocations.length === 0 && beforeCount > 0 ? ', répartition supprimée' : '')
+        : null,
+    })
+    if (auditErr) console.error('[audit] trace NON enregistrée:', auditErr.message)
+  } else {
+    await supabase.from('audit_log').insert({ project_id: input.projectId, entity: 'budget_line', entity_id: lineId, label: poste, action: 'cree', user_id: user.id })
+  }
+
+  revalidatePath(`/projets/${input.projectId}`)
+  return { ok: true }
+}
+
+// ------------------------------------------------------------
+// Supprimer une ligne budgétaire
+// ------------------------------------------------------------
+// Une ligne qui porte de l'argent RÉEL — un devis validé, donc de
+// l'engagé, ou une pièce payée — est refusée, et ce n'est pas une
+// prudence de principe. `documents.budget_line_id ... on delete set
+// null` (0001:193) : les pièces SURVIVENT à la ligne, détachées. Un devis
+// validé de 300 € ne disparaîtrait donc pas — il flotterait. Plus aucune
+// ligne pour le totaliser, plus aucun « engagé » où il compte, et un
+// engagement d'argent public sorti du compte rendu sans que personne
+// l'ait décidé. Aucune confirmation ne répare cela : recopier un nom ne
+// rétablit pas une comptabilité, et le prix de l'erreur ne se paie pas
+// au moment du clic mais six mois plus tard, devant le financeur. D'où
+// le refus ferme — assorti des deux issues qui existent VRAIMENT dans
+// l'application : passer la ligne en « clôturée » (elle reste au budget
+// et cesse d'être active), ou supprimer d'abord ses pièces, une à une,
+// si la ligne était bien une erreur de saisie.
+//
+// Sans engagé ni payé, la ligne se supprime. Si elle porte encore des
+// pièces sans argent (devis en attente, justificatif), on demande une
+// confirmation simple qui les COMPTE et les nomme : elles deviendront
+// orphelines et RIEN dans l'application ne permet de les rattacher
+// ailleurs — `saveDocument` insère, il ne redirige pas. On ne fait pas
+// recopier le poste pour autant : la pièce survit, l'erreur se rattrape,
+// et le geste doit rester praticable. Une ligne nue — « TEST T11 — à
+// supprimer », 1 € — part en un clic, sans rien à recopier. C'est le cas
+// qui a motivé cette action.
+//
+// ------------------------------------------------------------
+// Les TÂCHES financées, dites elles aussi
+// ------------------------------------------------------------
+// Ce paragraphe a longtemps affirmé le contraire de ce qui se passe :
+// « elle emporte ses affectations de tâches, le montant retourne au non
+// affecté des tâches, il n'est pas perdu ». C'est vrai quand on supprime
+// une TÂCHE (son montant redevient disponible sur la ligne, qui existe
+// toujours) ; c'est faux dans ce sens-ci. Ici c'est la LIGNE qui
+// disparaît, avec son argent : `budget_line_tasks.budget_line_id ... on
+// delete cascade` (0028) retire son financement à chaque tâche qu'elle
+// portait, et il n'y a plus aucune ligne pour le reprendre.
+//
+// Ce n'est pas une nuance comptable. Le budget d'une tâche EST la somme
+// de ses affectations — il n'existe nulle part ailleurs — et il sert de
+// POIDS à l'avancement de sa phase (page.tsx : moyenne des avancements
+// pondérée par le budget des tâches, plancher à 2 %). Supprimer une
+// ligne déplace donc le pourcentage d'avancement qu'un financeur lit,
+// exactement comme une baisse de montant — à cette différence près que
+// la baisse de montant, elle, est refusée par le trigger de cohérence
+// (0028) tant que la répartition dépasse.
+//
+// `DeleteTaskButton` fait déjà l'inverse correctement : il dit ce que la
+// suppression d'une tâche détache. La symétrie manquait ici — le
+// dialogue parlait des pièces et se taisait sur les tâches, c'est-à-dire
+// sur le seul effet que personne ne peut plus annuler. Les affectations
+// sont donc mesurées AVANT la suppression, nommées dans le message,
+// renvoyées à l'écran comme `documentCount` l'est déjà, et inscrites au
+// journal. Le protocole en deux temps ne bouge pas : une ligne sans
+// pièce ET sans affectation n'a rien à perdre, elle part en un clic.
+//
+// Le calcul de l'engagé et du payé n'est pas refait ici : `isEngagedDoc`
+// et `isPaidDoc` viennent de lib/budget.ts, qui sert aussi le tableau
+// budgétaire et le rapport IA. Une seconde règle locale rouvrirait
+// exactement la divergence que ce module a été écrit pour fermer — une
+// ligne jugée vide par la suppression et engagée par l'écran.
+
+// `DocLike` porte ce dont les deux prédicats ont besoin ; on n'y ajoute
+// que de quoi NOMMER les pièces dans le message et dans la trace. Un
+// compte seul (« 3 pièces détachées ») ne permet pas de les retrouver.
+type AttachedDoc = DocLike & { id: string; filename: string }
+
+// Ce que la cascade emporte, dans la forme où on le montre. Le titre
+// vient de `tasks`, le montant de l'affectation : ni l'un ni l'autre ne
+// survit au `delete`.
+type FundedTask = { title: string; amount: number }
+
+export async function deleteBudgetLine(input: {
+  lineId: string; projectId: string; confirm?: boolean
+}): Promise<DeleteOutcome> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Non authentifié.' }
+
+  // `is_valorisation` est lu ici parce qu'il change ce qu'on doit dire
+  // des tâches financées : une valorisation ne compte ni dans leur
+  // budget ni dans la pondération de l'avancement (page.tsx, elle
+  // alimente `valoByTask` et non `plannedByTask`). Annoncer un
+  // avancement déplacé sur une ligne de bénévolat serait faux — et une
+  // phrase fausse dans un avertissement apprend à ne plus les lire.
+  const { data: line } = await supabase.from('budget_lines')
+    .select('id, project_id, poste, planned_amount, is_valorisation')
+    .eq('id', input.lineId).maybeSingle()
+  if (!line || line.project_id !== input.projectId) return { ok: false, error: 'Ligne introuvable.' }
+  if (!(await canManageBudget(supabase, user.id, input.projectId))) {
+    return { ok: false, error: 'Suppression du budget réservée au chef de projet, au resp. financier et aux admins.' }
+  }
+
+  const { data: docRows } = await supabase.from('documents')
+    .select('id, filename, type, amount, paid, validations(decision)')
+    .eq('budget_line_id', input.lineId)
+  const docs: AttachedDoc[] = docRows ?? []
+  const engaged = docs.filter(isEngagedDoc).reduce((s, d) => s + (d.amount ?? 0), 0)
+  const paid = docs.filter(isPaidDoc).reduce((s, d) => s + (d.amount ?? 0), 0)
+
+  // ----------------------------------------------------------
+  // Les affectations, mesurées AVANT toute décision
+  // ----------------------------------------------------------
+  // Relevées ici et pas plus bas : le premier appel doit pouvoir
+  // AVERTIR, ce qui suppose de savoir avant de refuser. Après le
+  // `delete`, plus rien ne dirait quelles tâches viennent de perdre
+  // leur budget — la cascade ne laisse pas de trace.
+  //
+  // Le titre est joint plutôt que compté : « 3 affectations » ne permet
+  // ni de vérifier qu'on supprime la bonne ligne, ni de retrouver les
+  // tâches à re-financer ensuite.
+  const { data: allocRows } = await supabase.from('budget_line_tasks')
+    .select('amount, tasks:task_id(title)')
+    .eq('budget_line_id', input.lineId)
+  const fundedTasks: FundedTask[] = ((allocRows ?? []) as {
+    amount: number | null
+    tasks: { title: string } | { title: string }[] | null
+  }[]).map(a => {
+    // PostgREST rend l'imbriquée tantôt en objet, tantôt en tableau
+    // selon la relation qu'il devine : les deux formes sont admises,
+    // comme partout ailleurs dans ce fichier.
+    const t = Array.isArray(a.tasks) ? a.tasks[0] : a.tasks
+    return { title: (t?.title ?? '').trim() || 'Tâche sans titre', amount: Number(a.amount ?? 0) }
+  // Du plus financé au moins financé : la liste est tronquée à cinq
+  // dans le message, et ce sont les gros montants qu'il faut voir.
+  }).sort((a, b) => b.amount - a.amount)
+  const fundedAmount = fundedTasks.reduce((s, t) => s + t.amount, 0)
+  const fundedCount = fundedTasks.length
+  const nommees = (n: number) =>
+    fundedTasks.slice(0, n).map(t => `« ${t.title} » (${fmtEur(t.amount)})`).join(', ')
+      + (fundedCount > n ? ` et ${fundedCount - n} autre${plural(fundedCount - n)}` : '')
+
+  const poste = (line.poste ?? '').trim()
+  if (engaged > 0 || paid > 0) {
+    const porte = [
+      engaged > 0 ? `${fmtEur(engaged)} engagés` : '',
+      paid > 0 ? `${fmtEur(paid)} payés` : '',
+    ].filter(Boolean).join(' et ')
+    return {
+      ok: false,
+      documentCount: docs.length,
+      error: `« ${poste} » porte de l'argent réel : ${porte}. La supprimer ne supprimerait pas ces pièces — `
+        + `elles resteraient au projet sans aucune ligne pour les totaliser, et l'engagement disparaîtrait du `
+        + `compte rendu. Passez son statut à « clôturée » : la ligne reste au budget et cesse d'être active. `
+        + `Si elle était vraiment une erreur de saisie, supprimez d'abord ses ${docs.length} pièce${plural(docs.length)} `
+        + `depuis le panneau Pièces de la ligne, puis recommencez.`,
+    }
+  }
+
+  // Deux motifs de confirmation, un seul dialogue. La condition ne
+  // regardait que les pièces : une ligne sans pièce finançant quatre
+  // tâches pour 40 000 € partait donc en UN CLIC, et les quatre tâches
+  // perdaient leur budget sans que rien ne l'ait annoncé. Le principe
+  // du Product Owner tient — ce qui n'a rien à perdre part en un clic —
+  // il est seulement mesuré complètement.
+  if ((docs.length || fundedCount) && !input.confirm) {
+    const message = [
+      docs.length
+        ? `« ${poste} » porte ${docs.length} pièce${plural(docs.length)} : `
+          + `${docs.slice(0, 5).map(d => `« ${d.filename} »`).join(', ')}`
+          + `${docs.length > 5 ? ` et ${docs.length - 5} autre${plural(docs.length - 5)}` : ''}. `
+          + `${docs.length > 1 ? 'Elles ne seront pas supprimées' : 'Elle ne sera pas supprimée'}, mais `
+          + `${docs.length > 1 ? 'elles perdront' : 'elle perdra'} le rattachement à cette ligne, et rien ne permet `
+          + `de ${docs.length > 1 ? 'les' : 'la'} rattacher à une autre.`
+        : '',
+      // Une valorisation ne pèse ni dans le budget d'une tâche ni dans
+      // la pondération de l'avancement : le dire autrement serait
+      // exact sur la forme et faux sur le fond.
+      fundedCount && line.is_valorisation
+        ? `${docs.length ? 'Elle affecte aussi' : `« ${poste} » affecte`} ${fmtEur(fundedAmount)} en nature `
+          + `à ${fundedCount} tâche${plural(fundedCount)} : ${nommees(5)}. Cet apport ne compte ni dans leur budget `
+          + `ni dans l'avancement de la phase, mais il disparaîtra de leur fiche — et pour le MEAE, la valorisation `
+          + `fait partie du cofinancement.`
+        : '',
+      fundedCount && !line.is_valorisation
+        ? `${docs.length ? 'Elle finance aussi' : `« ${poste} » finance`} ${fundedCount} tâche${plural(fundedCount)} `
+          + `pour ${fmtEur(fundedAmount)} : ${nommees(5)}. `
+          + `${fundedCount > 1 ? 'Ces tâches ne seront pas supprimées' : 'Cette tâche ne sera pas supprimée'}, mais `
+          + `${fundedCount > 1 ? 'elles perdent' : 'elle perd'} ce financement, et le budget d'une tâche sert de poids `
+          + `à l'avancement de sa phase : le pourcentage lu par un financeur bougera. Rien ne reporte ces affectations `
+          + `ailleurs — pour les conserver, affectez ${fundedCount > 1 ? 'ces tâches' : 'cette tâche'} à une autre ligne `
+          + `de la même phase, depuis son dialogue de répartition, avant de supprimer celle-ci.`
+        : '',
+      // La dernière phrase et le bouton du dialogue disent la même
+      // chose, mot pour mot : lire une promesse et en cliquer une autre
+      // fait douter d'avoir compris.
+      (fundedCount
+        ? `Confirmez pour supprimer la ligne et ses ${fundedCount} affectation${plural(fundedCount)}`
+        : 'Confirmez pour supprimer la ligne malgré tout')
+        + (docs.length ? `, ou supprimez ${docs.length > 1 ? 'ces pièces' : 'cette pièce'} d'abord.` : '.'),
+    ].filter(Boolean).join(' ')
+    return { ok: false, needsConfirmation: true, documentCount: docs.length, fundedTasks, error: message }
+  }
+
+  const { error } = await supabase.from('budget_lines').delete().eq('id', input.lineId)
+  if (error) return { ok: false, error: `Suppression refusée : ${error.message}` }
+
+  const trace = {
+    project_id: input.projectId, entity: 'budget_line', entity_id: null,
+    label: `Ligne budgétaire « ${poste} » supprimée`, action: 'supprime', user_id: user.id,
+    comment: [
+      `Prévu ${fmtEur(Number(line.planned_amount ?? 0))}, ni engagé ni payé`,
+      // Les tâches NOMMÉES, et pas seulement comptées : ce sont elles
+      // qui viennent de perdre leur budget, et la trace est le seul
+      // endroit où l'on pourra encore lire lesquelles. Le commentaire
+      // disait « rendus au non affecté » — c'est ce qui se passe quand
+      // on supprime une TÂCHE ; ici la ligne disparaît avec son argent,
+      // et plus aucune ligne ne finance ces tâches.
+      fundedCount
+        ? ` — ${fundedCount} affectation${plural(fundedCount)} de tâche supprimée${plural(fundedCount)} `
+          + `(${fmtEur(fundedAmount)}${line.is_valorisation ? ' en nature' : ''}), `
+          + `${fundedCount > 1 ? 'ces tâches perdent' : 'cette tâche perd'} ce financement : ${nommees(5)}`
+        : '',
+      docs.length
+        ? ` — ${docs.length} pièce${plural(docs.length)} conservée${plural(docs.length)}, désormais sans ligne : `
+          + `${docs.map(d => `« ${d.filename} »`).join(', ')}`
+        : '',
+    ].join(''),
+  }
+  const { error: auditErr } = await supabase.from('audit_log').insert(trace)
+  // Même règle que deleteTask : la ligne n'existe plus, le geste tient,
+  // et le journal serveur porte de quoi réinscrire la trace.
+  if (auditErr) {
+    console.error('[audit] SUPPRESSION NON TRACÉE — à réinscrire à la main :',
+      JSON.stringify(trace), '—', auditErr.message)
+  }
+
   revalidatePath(`/projets/${input.projectId}`)
   return { ok: true }
 }
@@ -983,10 +1592,24 @@ export async function removeProjectMember(input: { projectId: string; userId: st
   const { error } = await supabase.from('project_members')
     .delete().eq('project_id', input.projectId).eq('user_id', input.userId)
   if (error) return { ok: false, error: `Échec du retrait : ${error.message}` }
-  await supabase.from('audit_log').insert({
+  // Suppression de ligne, donc même exigence que les cinq autres sites
+  // (motif complet dans deleteTask) : le rattachement n'existe plus, et
+  // avec lui la seule preuve que cette personne a été membre du projet —
+  // son rôle, et donc ce qu'elle avait le droit d'y faire. Aucune
+  // relecture de la base ne le reconstituera. La trace ne relevait
+  // pourtant même pas son erreur : elle disparaissait sans un mot.
+  //
+  // `archive` et non `supprime`, à dessein : un membre retiré n'est pas
+  // supprimé — son compte, ses écritures et ses traces demeurent.
+  const trace = {
     project_id: input.projectId, entity: 'project_member', entity_id: input.userId,
     label: `${profile?.full_name ?? input.userId} retiré du projet`, action: 'archive', user_id: user.id,
-  })
+  }
+  const { error: auditErr } = await supabase.from('audit_log').insert(trace)
+  if (auditErr) {
+    console.error('[audit] RETRAIT NON TRACÉ — à réinscrire à la main :',
+      JSON.stringify(trace), '—', auditErr.message)
+  }
   revalidatePath(`/projets/${input.projectId}`)
   return { ok: true }
 }
@@ -1029,6 +1652,28 @@ export async function setPublicPage(projectId: string, enabled: boolean): Promis
   }
 }
 
+// ------------------------------------------------------------
+// Supprimer un projet
+// ------------------------------------------------------------
+// La plus destructrice des six suppressions de l'application : phases,
+// tâches, lignes budgétaires, pièces, validations, indicateurs,
+// réunions, décisions partent en cascade, et c'est la seule dont il ne
+// reste ensuite RIEN à examiner. Elle n'écrivait aucune trace — pas un
+// oubli d'inattention : la 0016 avait posé `audit_log.project_id ... on
+// delete cascade`, qui détruisait le journal du projet avec lui et
+// faisait rejeter (23503) toute trace insérée après coup sous son
+// identifiant. La 0060 retire cette clé étrangère et explique
+// longuement pourquoi ce geste-là plutôt qu'un autre.
+//
+// Ce qui n'est PAS ajouté ici, et le mérite d'être dit : aucun refus sur
+// l'argent. `deleteBudgetLine` bloque une ligne portant de l'engagé ou
+// du payé, parce que ses pièces lui survivraient détachées et
+// fausseraient le compte rendu. Ici les pièces partent AVEC le projet :
+// il ne reste pas de comptabilité à fausser, il ne reste rien. Un
+// administrateur qui recopie le nom exact d'un projet exerce une
+// décision que l'application n'a pas à discuter ; ce qu'elle doit, c'est
+// en garder mémoire, et dire dans cette mémoire combien d'argent était
+// suivi là — de quoi mesurer, six mois plus tard, ce qui a disparu.
 export async function deleteProject(input: { projectId: string; confirmation: string }): Promise<{ ok: boolean; error?: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -1036,14 +1681,140 @@ export async function deleteProject(input: { projectId: string; confirmation: st
   if (!(await isUserAdmin(supabase, user.id))) {
     return { ok: false, error: 'La suppression de projet est réservée aux administrateurs YCID / LEY.' }
   }
-  const { data: project } = await supabase.from('projects').select('name').eq('id', input.projectId).maybeSingle()
+  const { data: project } = await supabase.from('projects').select('name, budget').eq('id', input.projectId).maybeSingle()
   if (!project) return { ok: false, error: 'Projet introuvable.' }
+
+  const name = (project.name ?? '').trim()
+  // Même défaut que sur les phases, et à l'endroit où il coûte le plus
+  // cher : `projects.name` est `not null` (0001), ce qui n'interdit ni
+  // la chaîne vide ni une suite d'espaces. La comparaison ci-dessous
+  // évaluait alors `'' !== ''`, donc FAUX — et le projet entier partait
+  // sans qu'on ait rien saisi, l'écran ayant lui aussi déverrouillé son
+  // bouton pour la même raison. On refuse, en indiquant la sortie :
+  // nommer le projet (« Modifier la fiche », `updateProject` exige un
+  // nom non vide), après quoi la recopie retrouve son sens.
+  if (!name) {
+    return {
+      ok: false,
+      error: 'Ce projet n\'a pas de nom : la confirmation consiste à recopier son nom exact, et sans nom '
+        + 'il n\'y a rien à recopier — donc rien qui prouve qu\'on supprime le bon projet. Donnez-lui d\'abord '
+        + 'un nom depuis « Modifier la fiche du projet », puis recommencez.',
+    }
+  }
   // Double confirmation : saisir le nom exact du projet
-  if ((input.confirmation ?? '').trim() !== project.name.trim()) {
+  if ((input.confirmation ?? '').trim() !== name) {
     return { ok: false, error: 'Le nom saisi ne correspond pas — suppression annulée.' }
   }
+
+  // ----------------------------------------------------------
+  // Ce que la suppression emporte, mesuré AVANT
+  // ----------------------------------------------------------
+  // Après le `delete`, plus rien ne pourra répondre : les compteurs
+  // n'existent nulle part ailleurs. C'est le contenu même de la trace —
+  // « projet supprimé » sans ordre de grandeur ne se relit pas devant un
+  // financeur, « 4 phases, 27 tâches, 31 lignes pour 312 400 € prévus et
+  // 58 pièces » se relit.
+  const { data: phaseRows } = await supabase.from('phases').select('id').eq('project_id', input.projectId)
+  const phaseIds = (phaseRows ?? []).map((p: { id: string }) => p.id)
+  // Les tâches pendent aux phases, pas au projet : sans phase, il n'y a
+  // pas de tâche, et `in` sur une liste vide n'a pas à être tenté.
+  let taskCount = 0
+  if (phaseIds.length) {
+    const { count } = await supabase.from('tasks').select('id', { count: 'exact', head: true }).in('phase_id', phaseIds)
+    taskCount = count ?? 0
+  }
+
+  const [{ data: lineRows }, { data: docRows }] = await Promise.all([
+    supabase.from('budget_lines').select('planned_amount, is_valorisation').eq('project_id', input.projectId),
+    supabase.from('documents').select('id, type, amount, paid, storage_path, validations(decision)').eq('project_id', input.projectId),
+  ])
+  // Le prévu est HORS valorisation (spec §10.4) : du bénévolat et des
+  // locaux prêtés ne se votent ni ne se paient, et les additionner
+  // gonflerait le montant que la trace annonce comme disparu. Ils sont
+  // dits À CÔTÉ, jamais dedans — pour le MEAE l'apport en nature fait
+  // partie du cofinancement.
+  const allLines = lineRows ?? []
+  const realLines = allLines.filter((l: { is_valorisation: boolean }) => !l.is_valorisation)
+  const valoLines = allLines.filter((l: { is_valorisation: boolean }) => l.is_valorisation)
+  const plannedReal = realLines.reduce((s: number, l: { planned_amount: number | null }) => s + Number(l.planned_amount ?? 0), 0)
+  const plannedValo = valoLines.reduce((s: number, l: { planned_amount: number | null }) => s + Number(l.planned_amount ?? 0), 0)
+
+  // Engagé et payé viennent de lib/budget.ts, comme partout ailleurs :
+  // une règle recalculée ici finirait par annoncer dans le journal un
+  // montant que l'écran n'a jamais affiché.
+  const docs: (DocLike & { storage_path: string | null })[] = docRows ?? []
+  const engaged = docs.filter(isEngagedDoc).reduce((s, d) => s + (d.amount ?? 0), 0)
+  const paid = docs.filter(isPaidDoc).reduce((s, d) => s + (d.amount ?? 0), 0)
+  // Les LIGNES `documents` partent en cascade ; les FICHIERS du bucket,
+  // eux, ne sont supprimés par personne — Postgres n'a pas la main
+  // dessus, et ce chemin ne passe pas par `deleteDocument`. Ils
+  // deviennent des orphelins, que seul l'écran Administration ▸ Stockage
+  // sait retrouver. Le dire dans la trace, c'est laisser à l'exploitant
+  // la seule indication qu'il aura d'un espace à récupérer.
+  const files = docs.filter(d => d.storage_path).length
+
   const { error } = await supabase.from('projects').delete().eq('id', input.projectId)
   if (error) return { ok: false, error: `Échec de la suppression : ${error.message}` }
+
+  // Le nom ET l'identifiant : le nom pour se relire, l'identifiant parce
+  // qu'il n'existe plus nulle part ailleurs et qu'il est la clé qui
+  // regroupe, dans `audit_log`, tout ce que ce projet a laissé.
+  const trace = {
+    project_id: input.projectId, entity: 'project', entity_id: input.projectId,
+    label: `Projet « ${name} » supprimé`, action: 'supprime', user_id: user.id,
+    comment: [
+      `Identifiant ${input.projectId}`,
+      // `fmtEur(null)` rend « — », qui dans une phrase se lit comme un
+      // tiret de ponctuation et non comme une absence. La fiche projet
+      // écrit « non renseigné » ; la trace dit la même chose.
+      ` — montant voté ${project.budget == null ? 'non renseigné' : fmtEur(project.budget)}`,
+      ` — emporté : ${phaseIds.length} phase${plural(phaseIds.length)}, ${taskCount} tâche${plural(taskCount)}, `,
+      `${realLines.length} ligne${plural(realLines.length)} budgétaire${plural(realLines.length)} `,
+      `(${fmtEur(plannedReal)} prévus)`,
+      valoLines.length
+        ? `, ${valoLines.length} valorisation${plural(valoLines.length)} (${fmtEur(plannedValo)}, hors prévu)`
+        : '',
+      `, ${docs.length} pièce${plural(docs.length)}`,
+      engaged > 0 || paid > 0 ? ` dont ${fmtEur(engaged)} engagés et ${fmtEur(paid)} payés` : '',
+      `. Validations, indicateurs, réunions et décisions supprimés avec le projet.`,
+      files
+        ? ` ${files} fichier${plural(files)} ${files > 1 ? 'restent' : 'reste'} dans le bucket « documents », `
+          + `désormais orphelin${plural(files)} : purge depuis Administration ▸ Stockage.`
+        : '',
+    ].join(''),
+  }
+  const { error: auditErr } = await supabase.from('audit_log').insert(trace)
+  // ----------------------------------------------------------
+  // Règle commune aux suppressions (exposée dans deleteTask), plus un
+  // repli propre à celle-ci
+  // ----------------------------------------------------------
+  // On ne casse pas le geste : le projet est détruit, répondre
+  // `ok: false` ferait croire à l'administrateur qu'il est encore là.
+  //
+  // Le repli, lui, ne vaut que le temps d'un déploiement. Tant que la
+  // 0060 n'est pas appliquée, `audit_log.project_id` référence encore
+  // `projects(id)` : la trace ci-dessus, portant l'identifiant d'un
+  // projet qui vient de disparaître, se fait rejeter (23503). Plutôt que
+  // de tout perdre au pire moment, on réinscrit la MÊME trace avec
+  // `project_id: null` — la forme qu'emploie déjà la purge du stockage.
+  // Elle perd son rattachement, pas son contenu : l'identifiant reste
+  // écrit en toutes lettres dans le commentaire. Le journal serveur dit
+  // que le repli a joué, parce qu'une trace détachée après application
+  // de la 0060 signifierait tout autre chose.
+  if (auditErr) {
+    if (auditErr.code === '23503') {
+      console.error('[audit] 0060 non appliquée — trace de suppression détachée du projet :', input.projectId)
+      const { error: retryErr } = await supabase.from('audit_log').insert({ ...trace, project_id: null })
+      if (retryErr) {
+        console.error('[audit] SUPPRESSION NON TRACÉE — à réinscrire à la main :',
+          JSON.stringify(trace), '—', retryErr.message)
+      }
+    } else {
+      console.error('[audit] SUPPRESSION NON TRACÉE — à réinscrire à la main :',
+        JSON.stringify(trace), '—', auditErr.message)
+    }
+  }
+
   revalidatePath('/projets')
   return { ok: true }
 }

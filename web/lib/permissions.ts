@@ -25,6 +25,33 @@ export async function isUserAdmin(supabase: SupabaseClient, userId: string): Pro
   return (await platformRole(supabase, userId)) === 'admin'
 }
 
+// Anonymiser un compte — l'exercice du droit à l'effacement (RGPD
+// art. 17), tel que la migration 0063 le rend possible : l'identité est
+// remplacée par une pierre tombale, les traces restent.
+//
+// Nommé plutôt que laissé à `isUserAdmin` sur place, pour deux raisons
+// qui ne sont pas cosmétiques :
+//
+//   · c'est la seule opération de l'application qu'on ne peut pas
+//     défaire — ni par une restauration d'écran, ni par une saisie
+//     inverse. La règle qui en décide mérite d'être trouvable en la
+//     cherchant par son nom, pas en relisant une action de 300 lignes ;
+//   · ce n'est PAS une capacité de projet, et il ne faut pas qu'elle le
+//     devienne par imitation. Même raisonnement que `canManageAuditors`
+//     (0047) : passer par `hasCapability` commencerait par accorder le
+//     droit à l'administrateur, puis irait interroger un rôle projet
+//     pour rien — en laissant croire qu'un chef de projet pourrait, un
+//     jour, effacer quelqu'un.
+//
+// Volontairement PLUS STRICT que le `is_admin()` du SQL, qui reconnaît
+// encore l'ancien rôle « ycid » (0017) : `isUserAdmin` ne rend vrai que
+// pour `platform_role = 'admin'`. La fonction SQL reste le dernier
+// verrou, celui qu'on ne peut pas contourner depuis le navigateur ;
+// celui-ci est le premier, et il n'a aucune raison d'être plus large.
+export async function canAnonymizeAccounts(supabase: SupabaseClient, userId: string): Promise<boolean> {
+  return isUserAdmin(supabase, userId)
+}
+
 // Modifier une tâche terminée est réservé aux mêmes admins.
 export async function canEditCompletedTasks(supabase: SupabaseClient, userId: string): Promise<boolean> {
   return isUserAdmin(supabase, userId)
@@ -104,5 +131,31 @@ export async function canManageRoadmap(supabase: SupabaseClient, userId: string)
   const { data } = await supabase.from('profiles')
     .select('can_manage_roadmap, platform_role, is_platform_admin').eq('id', userId).maybeSingle()
   if (data?.can_manage_roadmap) return true
+  return (data?.platform_role ?? (data?.is_platform_admin ? 'admin' : 'user')) === 'admin'
+}
+
+// Gérer les COMPTES : une CAPACITÉ cochée sur le profil, exactement
+// comme l'arbitrage de la roadmap, et pour la même raison. Le seul
+// moyen d'accorder ce droit était jusqu'ici de poser `platform_role =
+// 'admin'` — un rôle qui ne dit pas « gère les comptes » mais
+// « administre l'OUTIL » : configuration, stockage, vision de tous les
+// projets, et l'anonymisation qu'on ne peut pas défaire. C'est la
+// confusion que la 0037 avait défaite en retirant le rôle « ycid » ;
+// la refaire pour ouvrir une console reviendrait sur cet arbitrage.
+//
+// CE MIROIR N'EST PAS LA RÈGLE. Le droit opposable vit dans la 0065 :
+// policy « Manage user accounts » sur `profiles`, policy « Manage user
+// memberships » sur `memberships`, et le trigger `protect_profile_flags`
+// pour tout ce qui relève d'un DELTA (promotion, attribution d'une
+// capacité, date d'effacement). Ce qui suit décide d'afficher ou non un
+// écran — et sert de PREMIER verrou aux actions serveur, qui écrivent
+// avec la clé de service et ne rencontrent donc ni la RLS ni le
+// trigger. C'est pourquoi les bornes anti-escalade sont RÉPÉTÉES dans
+// `user-actions.ts` : ce n'est pas de la redondance, c'est le seul
+// endroit où elles s'appliquent sur ce chemin-là.
+export async function canManageUsers(supabase: SupabaseClient, userId: string): Promise<boolean> {
+  const { data } = await supabase.from('profiles')
+    .select('can_manage_users, platform_role, is_platform_admin').eq('id', userId).maybeSingle()
+  if (data?.can_manage_users) return true
   return (data?.platform_role ?? (data?.is_platform_admin ? 'admin' : 'user')) === 'admin'
 }

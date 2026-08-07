@@ -3,26 +3,33 @@ import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import { Plus, Upload } from "lucide-react"
-import { isUserAdmin } from "@/lib/permissions"
+import { canAnonymizeAccounts, canManageUsers, isUserAdmin } from "@/lib/permissions"
 import UsersTable, { type AdminUserRow } from "@/components/admin/UsersTable"
+import { anonymizationConfirmationTarget } from "./anonymisation"
 
 export default async function AdminUtilisateursPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/")
-  if (!(await isUserAdmin(supabase, user.id))) redirect("/dashboard")
-
-  const [{ data: me }, { data: profiles, error }, { data: allMemberships }] = await Promise.all([
+  // Deux questions distinctes depuis la 0065 : ouvre-t-on l'écran
+  // (capacité OU rôle admin) et jusqu'où peut-on y agir (rôle admin).
+  const [mayManage, isAdmin, { data: me }, { data: profiles, error }, { data: allMemberships }, mayAnonymize] = await Promise.all([
+    canManageUsers(supabase, user.id),
+    isUserAdmin(supabase, user.id),
     supabase.from("profiles").select("platform_role").eq("id", user.id).maybeSingle(),
-    supabase.from("profiles").select("id, full_name, email, platform_role, is_platform_admin, active, can_manage_roadmap").order("full_name"),
+    supabase.from("profiles").select("id, full_name, email, platform_role, is_platform_admin, active, can_manage_roadmap, can_manage_users, anonymized_at").order("full_name"),
     supabase.from("memberships").select("user_id, organizations:org_id(name)"),
+    canAnonymizeAccounts(supabase, user.id),
   ])
+  if (!mayManage) redirect("/dashboard")
   const myRole = me?.platform_role ?? "admin"
 
   type RawProfile = {
     id: string; full_name: string | null; email: string | null
     platform_role: string | null; is_platform_admin: boolean | null; active: boolean | null
     can_manage_roadmap?: boolean | null
+    can_manage_users?: boolean | null
+    anonymized_at?: string | null
   }
   // Rattachement par compte : c'est lui qui explique le périmètre, et
   // il n'apparaissait nulle part.
@@ -41,8 +48,22 @@ export default async function AdminUtilisateursPage() {
     // compris — dont l'enregistrement échouait ensuite. Proposer une
     // action interdite, sur un écran de gestion des comptes, se lit
     // comme une faille alors que le verrou tient.
-    const canDelete = !(myRole === "ycid" && role === "admin")
-    const canEdit = !(myRole === "ycid" && role === "admin")
+    // Une pierre tombale (0063) ne se modifie ni ne se supprime : la
+    // renommer réattribuerait une identité aux traces qu'on vient
+    // d'anonymiser, la supprimer effacerait l'attestation même de
+    // l'effacement. Les deux sont refusés côté serveur ; on ne propose
+    // pas ce que le serveur refuse.
+    // Un porteur de la capacité « gestion des comptes » (0065) ne touche
+    // pas à un compte administrateur : le formulaire porte un champ
+    // « mot de passe », et l'ouvrir sur un administrateur reviendrait à
+    // proposer d'en prendre la place — la borne « ne pas se promouvoir »
+    // se contournerait sans jamais toucher à un rôle. Refusé côté
+    // serveur ET côté page ; on ne propose pas ce que le serveur refuse.
+    const anonymized = !!p.anonymized_at
+    const targetIsAdmin = role === "admin"
+    const forbiddenTarget = (myRole === "ycid" || !isAdmin) && targetIsAdmin
+    const canDelete = !anonymized && !forbiddenTarget
+    const canEdit = !anonymized && !forbiddenTarget
     return {
       id: p.id,
       full_name: p.full_name ?? "",
@@ -54,8 +75,19 @@ export default async function AdminUtilisateursPage() {
       canEdit,
       organizations: (orgsByUser.get(p.id) ?? []).sort(),
       canManageRoadmap: p.can_manage_roadmap === true,
+      canManageUsers: p.can_manage_users === true,
+      anonymizedAt: p.anonymized_at ?? null,
+      // Calculée ICI et transmise, jamais recalculée dans le navigateur :
+      // l'écran et l'action serveur doivent exiger la MÊME chaîne, sans
+      // quoi le bouton se déverrouille sur une saisie que le serveur
+      // refuse. Vide = aucune confirmation possible (ni nom ni adresse),
+      // et l'écran le dit au lieu de laisser `'' === ''` déverrouiller
+      // tout seul le geste le plus irréversible de l'application.
+      confirmationTarget: anonymizationConfirmationTarget(p),
+      canAnonymize: mayAnonymize && !anonymized && p.id !== user.id,
     }
   })
+  const anonymizedCount = users.filter(u => u.anonymizedAt).length
 
   return (
     <div className="p-4 sm:p-8 max-w-5xl mx-auto">
@@ -63,7 +95,13 @@ export default async function AdminUtilisateursPage() {
         <div>
           <h1 className="text-2xl font-bold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>Utilisateurs</h1>
           <p className="mt-1 text-sm" style={{ color: "#66716B" }}>
-            {users.length} compte{users.length !== 1 ? "s" : ""} · gestion réservée aux administrateurs
+            {users.length} compte{users.length !== 1 ? "s" : ""} ·{" "}
+            {isAdmin
+              ? "vous administrez la plateforme"
+              : "vous gérez les comptes : ni rôle Administrateur, ni capacité, ni anonymisation"}
+            {anonymizedCount > 0 && (
+              <> · {anonymizedCount} anonymisé{anonymizedCount > 1 ? "s" : ""}</>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">

@@ -1,4 +1,5 @@
 export const dynamic = 'force-dynamic'
+import Link from "next/link"
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { isUserAdmin } from "@/lib/permissions"
@@ -26,7 +27,7 @@ export default async function AdminAccesPage() {
             <thead>
               <tr style={{ background: "#F5F6F4", borderBottom: "1px solid #E3E6E2" }}>
                 <th className="text-left px-5 py-3 text-xs font-semibold" style={{ color: "#66716B" }}>Permission</th>
-                <th className="text-center px-3 py-3 text-xs font-semibold" style={{ color: "var(--brand-accent,#0E6B5C)" }}>Admin YCID/LEY</th>
+                <th className="text-center px-3 py-3 text-xs font-semibold" style={{ color: "var(--brand-accent,#0E6B5C)" }}>Administrateur</th>
                 {ROLE_COLUMNS.map(r => (
                   <th key={r.key} className="text-center px-3 py-3 text-xs font-semibold" style={{ color: "#66716B" }}>{r.label}</th>
                 ))}
@@ -40,7 +41,7 @@ export default async function AdminAccesPage() {
                     <div className="text-xs font-mono mt-0.5" style={{ color: "#66716B" }}>{p.key}</div>
                     {p.note && <div className="text-xs mt-0.5" style={{ color: "#B4690E" }}>{p.note}</div>}
                   </td>
-                  <td data-label="Admin YCID/LEY" className="text-center px-3 py-3">
+                  <td data-label="Administrateur" className="text-center px-3 py-3">
                     {p.admin ? <Check size={16} className="inline" style={{ color: "var(--brand-accent,#0E6B5C)" }} /> : <span style={{ color: "#66716B" }}>—</span>}
                   </td>
                   {ROLE_COLUMNS.map(r => (
@@ -67,6 +68,37 @@ export default async function AdminAccesPage() {
         <strong>Décider d&apos;une validation ne figure dans aucune colonne</strong> : ce droit ne vient
         pas du rôle projet mais de l&apos;appartenance à l&apos;organisation sollicitée.
       </p>
+
+      {/* Deux droits de la plateforme ne se lisent dans AUCUNE colonne
+          de ce tableau : ils ne viennent ni du rôle projet ni du rôle
+          plateforme, mais d'une case cochée sur le profil. Ne pas le
+          dire ici ferait de cet écran un menteur par omission — c'est
+          exactement le défaut que lib/rbac.ts a été écrit pour
+          supprimer. */}
+      <div className="mt-6 bg-white rounded-2xl border p-5" style={{ borderColor: "#E3E6E2" }}>
+        <h2 className="text-sm font-semibold mb-1" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>
+          Capacités cochées sur le profil
+        </h2>
+        <p className="text-xs mb-3" style={{ color: "#66716B" }}>
+          Elles ne figurent dans aucune colonne : elles ne viennent ni du rôle projet ni du rôle
+          plateforme, mais d&apos;une case cochée compte par compte depuis{" "}
+          <Link href="/admin/utilisateurs" className="underline">Administration ▸ Utilisateurs</Link>.
+          Leur attribution reste réservée à l&apos;administrateur.
+        </p>
+        <ul className="text-xs space-y-2" style={{ color: "#17211D" }}>
+          <li>
+            <strong>Arbitrage de la roadmap</strong> — statut, priorité et difficulté des idées.
+            <span style={{ color: "#66716B" }}> N&apos;ouvre aucun écran d&apos;administration (0037).</span>
+          </li>
+          <li>
+            <strong>Gestion des comptes</strong> — ouvre Administration ▸ Utilisateurs : créer, modifier,
+            rattacher, désactiver un compte ordinaire.
+            <span style={{ color: "#B4690E" }}> N&apos;accorde ni le rôle Administrateur, ni le droit de
+            toucher au compte d&apos;un administrateur, ni l&apos;attribution des capacités,
+            ni l&apos;anonymisation (0065).</span>
+          </li>
+        </ul>
+      </div>
     </div>
   )
 }

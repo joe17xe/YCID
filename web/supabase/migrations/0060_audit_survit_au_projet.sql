@@ -1,0 +1,243 @@
+-- ============================================================
+-- 0060 — Supprimer un projet effaçait aussi TOUT son journal d'audit
+-- ============================================================
+-- `deleteProject` (app/(app)/projets/[id]/actions.ts) est l'opération la
+-- plus destructrice de l'application : elle emporte en cascade les
+-- phases, les tâches, les lignes budgétaires, les pièces, les
+-- validations, les indicateurs, les réunions, les décisions. Elle
+-- n'écrivait AUCUNE trace au journal. Et elle ne le pouvait pas.
+--
+-- La 0016 avait posé, pour une raison qui se tenait à l'époque :
+--
+--   alter table audit_log
+--     add constraint audit_log_project_id_fkey
+--     foreign key (project_id) references projects(id) on delete cascade;
+--
+-- Le motif est écrit dans la 0016 : « la suppression d'un projet doit
+-- emporter son journal d'audit », sans quoi le `delete` échouait sur la
+-- clé étrangère. La contrainte a donc été choisie pour DÉBLOQUER une
+-- suppression, pas après avoir pesé ce qu'il fallait conserver.
+--
+-- Ce que cela produit :
+--
+--   · les traces du projet — qui a créé quelle ligne budgétaire, qui a
+--     validé quel devis, qui a rouvert quelle tâche terminée, quand —
+--     sont détruites AVEC lui, en silence, par la base ;
+--   · la trace de la suppression elle-même est IMPOSSIBLE à écrire. Elle
+--     s'insère forcément APRÈS le `delete` (avant, on tracerait une
+--     suppression qui peut encore échouer : ces appels ne partagent
+--     aucune transaction). Or après, le projet n'existe plus : un insert
+--     portant son identifiant se fait rejeter par la clé étrangère
+--     — `insert or update on table "audit_log" violates foreign key
+--     constraint` (23503). C'est exactement pourquoi la purge du
+--     stockage (admin/stockage/actions.ts) écrit `project_id: null`.
+--
+-- Autrement dit, le seul événement dont il ne reste ensuite RIEN d'autre
+-- à examiner est aussi le seul qui ne peut pas être inscrit. Pour une
+-- application qui justifie de l'argent public devant le MEAE et le
+-- Département, c'est l'endroit où le trou coûte le plus cher : ce qui
+-- subsiste se relit dans les tables, ce qui a été détruit ne se relit
+-- QUE dans le journal.
+
+-- ------------------------------------------------------------
+-- Trois gestes possibles, et pourquoi c'est le troisième
+-- ------------------------------------------------------------
+--
+-- (1) NE RIEN CHANGER, et tracer avec `project_id: null`.
+--     Défendable, et c'est déjà la forme qu'emploie la purge du
+--     stockage. Coût : les traces du projet restent détruites, et
+--     l'unique ligne survivante ne dit ce qu'elle porte que dans son
+--     texte libre. Surtout, ce choix acte que le journal est une
+--     commodité d'écran — il vit et meurt avec l'objet qu'il commente —
+--     alors qu'un journal d'audit sert précisément à survivre à ce qu'il
+--     décrit. Écarté.
+--
+-- (2) PASSER LA CONTRAINTE EN `on delete set null`.
+--     C'est le geste réflexe, et il conserve TOUTES les traces d'un
+--     projet supprimé, pas seulement celle de sa suppression. Il est
+--     pourtant à demi inutile ici, pour deux raisons qui ne sautent pas
+--     aux yeux :
+--
+--       · `on delete set null` n'agit que sur les lignes PRÉSENTES au
+--         moment du `delete`. La trace de la suppression, insérée après,
+--         se heurte toujours à la même clé étrangère : il faudrait
+--         encore l'écrire avec `project_id: null`. On garderait donc
+--         l'histoire du projet d'un côté et l'acte qui y met fin de
+--         l'autre, sans rien pour les relier ;
+--       · toutes les lignes conservées perdent leur seul rattachement.
+--         Deux projets supprimés le même mois deviennent un unique tas
+--         de traces anonymes, mêlées à celles de la purge du stockage
+--         qui portent déjà `project_id: null`. On conserve le volume et
+--         on perd la question à laquelle il répond : « montre-moi
+--         l'histoire de CE projet ». Un archivage qu'on ne peut plus
+--         interroger n'est pas un archivage.
+--
+-- (3) RETIRER LA CLÉ ÉTRANGÈRE, en gardant la colonne. RETENU.
+--     `audit_log.project_id` redevient ce qu'il aurait toujours dû être
+--     dans un journal : l'IDENTIFIANT d'un projet, pas un lien vers une
+--     ligne qui doit encore exister. Les traces d'un projet supprimé
+--     restent groupées sous son identifiant, et la trace de la
+--     suppression — écrite après le `delete`, avec ce même identifiant —
+--     vient s'y ranger comme dernière ligne. Une seule requête rend
+--     alors le dossier complet, de la création à l'effacement :
+--
+--       select at, entity, label, action, comment
+--         from audit_log
+--        where project_id = '<identifiant relevé dans la trace>'
+--        order by at;
+--
+--     C'est la forme habituelle des tables de journal : elles survivent
+--     à leur sujet, donc elles ne peuvent pas dépendre de son existence.
+--     Le prix payé est réel et assumé : plus aucune garantie d'intégrité
+--     sur cette colonne. Un identifiant fantaisiste y serait accepté par
+--     Postgres. Ce risque est faible et borné — la colonne n'est écrite
+--     que par les actions serveur, sous le contrôle de la policy
+--     « Insert audit », et rien ne LIT jamais un projet à partir d'elle
+--     (aucune jointure, aucune imbrication PostgREST : la page projet
+--     n'embarque que `profiles:user_id`).
+--
+-- Ce que le geste NE crée PAS, et qu'on aurait pu craindre :
+--
+--   · VOLUME. Rigoureusement le même qu'en (2) : aucune des deux options
+--     ne supprime de ligne, elles ne diffèrent que par ce qu'elles
+--     écrivent dans une colonne. Une trace pèse quelques centaines
+--     d'octets et naît d'une action humaine ; l'ordre de grandeur reste
+--     celui du millier de lignes par projet. La cascade — l'option (1) —
+--     est la seule des trois qui « fasse de la place », au prix de la
+--     pièce justificative.
+--   · LISIBILITÉ DU JOURNAL. L'onglet Journal filtre par projet
+--     (`.eq("project_id", id)`, page.tsx) et n'affiche que les vingt
+--     derniers événements. Les traces d'un projet supprimé portent un
+--     identifiant qu'aucune page ne peut plus demander — il n'existe
+--     plus de page projet pour cela. Elles n'encombrent donc aucun
+--     écran, dans les trois options.
+--   · RLS. Vérifié plutôt que supposé, la question étant la même pour
+--     un `project_id` nul et pour un identifiant devenu fantôme. La
+--     policy de lecture du journal, posée par la 0001, tient en une
+--     ligne — « See audit », for select, using :
+--
+--         is_project_member(project_id)
+--
+--     `is_project_member(pid)` (dernière version : 0037) vaut
+--     `is_admin() or exists(... where project_id = pid ...)`. Avec `pid`
+--     nul, la comparaison rend NULL, jamais vrai : la fonction se réduit
+--     à `is_admin()` — elle ne casse pas, elle restreint. Avec un
+--     identifiant fantôme, même résultat par un autre chemin :
+--     `project_members` et `project_organizations` référencent
+--     `projects(id) on delete cascade` (0001), leurs lignes ont donc
+--     disparu avec le projet et aucun `exists` ne peut réussir. Dans les
+--     deux cas, la lecture est réservée aux administrateurs plateforme.
+--     C'est le comportement voulu : le dossier d'un projet supprimé
+--     n'appartient plus à ses anciens membres.
+--
+--     L'écriture, elle, passe : « Insert audit » (0005) exige
+--     `user_id = auth.uid() and (is_project_member(project_id) or
+--     can_edit_completed_tasks())`, et `deleteProject` est déjà réservé
+--     au rôle plateforme `admin` (lib/permissions.ts, `isUserAdmin`),
+--     que `is_admin()` reconnaît. La trace part sous l'identité de qui a
+--     supprimé, comme toutes les autres.
+
+-- ------------------------------------------------------------
+-- Le geste
+-- ------------------------------------------------------------
+-- `drop constraint if exists` : idempotent (règle du dépôt), et sans
+-- effet notable sur une base en service — Postgres ne relit pas la
+-- table pour ABANDONNER une contrainte, la 0016 la nommait déjà ainsi,
+-- et la suppression d'un projet ne s'en trouve pas empêchée puisqu'il
+-- n'y a plus rien à faire respecter.
+--
+-- La colonne reste `uuid` et reste NULLABLE : `null` garde son sens
+-- établi — une trace qui ne relève d'aucun projet, comme la purge des
+-- fichiers orphelins de l'écran Stockage.
+--
+-- L'index `audit_log(project_id)` de la 0001 est conservé : c'est lui
+-- qui rend la relecture d'un dossier supprimé praticable.
+alter table audit_log drop constraint if exists audit_log_project_id_fkey;
+
+-- Le sens de la colonne, inscrit DANS la base : c'est le seul endroit
+-- que lira l'exploitant qui découvrira, dans six mois, un `project_id`
+-- ne correspondant à aucun projet et le prendra pour une corruption.
+comment on column audit_log.project_id is
+  'Identifiant du projet concerné, ou null pour une trace hors projet (purge du stockage). '
+  'Volontairement SANS clé étrangère depuis la 0060 : le journal survit au projet supprimé, '
+  'et la trace de cette suppression porte l''identifiant d''un projet qui n''existe plus. '
+  'Un projet absent de la table projects n''est donc pas une anomalie.';
+
+-- ------------------------------------------------------------
+-- Ce que cette migration NE fait pas
+-- ------------------------------------------------------------
+-- · AUCUNE REPRISE. Les journaux des projets déjà supprimés ont été
+--   détruits par la cascade ; rien ne subsiste pour les reconstituer, et
+--   il faut pouvoir le dire à un contrôleur. La conservation ne vaut que
+--   pour les suppressions à venir.
+-- · AUCUN ÉCRAN. Les traces conservées ne sont lisibles que par le SQL
+--   Editor, sous un compte administrateur : l'application n'a pas de
+--   journal global — l'onglet Journal est celui d'un projet, et le
+--   projet n'existe plus. C'est la limite assumée de cette livraison ;
+--   un écran « Journal des suppressions » côté Administration serait la
+--   suite naturelle. En attendant, la trace EXISTE, ce qui n'était pas
+--   le cas, et c'est elle qu'on produit devant un financeur.
+-- · AUCUN CHANGEMENT sur `audit_log.user_id`, qui référence encore
+--   `profiles(id)` sans action de suppression : effacer un compte ayant
+--   agi échouerait sur cette clé. Le défaut est réel mais distinct, et
+--   il ne se corrige pas au passage — le supprimer sans le remplacer
+--   ferait perdre l'auteur des traces, ce qui demande son propre
+--   arbitrage.
+
+-- ------------------------------------------------------------
+-- Ordre de déploiement
+-- ------------------------------------------------------------
+-- Cette migration s'applique AVANT le déploiement applicatif qui
+-- l'accompagne. Dans l'intervalle, la trace de suppression tentée avec
+-- l'identifiant du projet serait rejetée (23503) ; l'action retombe
+-- alors sur `project_id: null` pour qu'il reste au moins l'événement, et
+-- le journal serveur porte le repli en clair. Un `[audit] SUPPRESSION
+-- NON TRACÉE` ou un repli signalé après application de la 0060 veut dire
+-- autre chose — à lire, pas à ignorer.
+
+-- ------------------------------------------------------------
+-- Contrôle
+-- ------------------------------------------------------------
+-- 1. Plus aucune clé étrangère d'audit_log ne pointe vers projects.
+--    La requête liste TOUTES les clés étrangères de la table plutôt que
+--    de chercher celle qu'on vient de nommer : si l'exploitation l'avait
+--    un jour recréée sous un autre nom, le `drop ... if exists` ci-dessus
+--    l'aurait laissée en place sans rien dire, et le contrôle passerait
+--    au vert sur une base non corrigée.
+--
+--      select conname, pg_get_constraintdef(oid)
+--        from pg_constraint
+--       where conrelid = 'audit_log'::regclass and contype = 'f';
+--
+--    Attendu : une seule ligne, `audit_log_user_id_fkey` vers
+--    profiles(id), inchangée. Toute ligne mentionnant `projects` signale
+--    une contrainte homonyme restée en place — à retirer par son nom.
+--
+-- 2. Puis, dans l'application : supprimer un projet d'essai — relever
+--    son identifiant AVANT, il ne s'affichera plus nulle part — et
+--    vérifier que le dossier complet subsiste, la suppression comprise
+--    en dernière ligne :
+--
+--      select at, entity, label, action, comment
+--        from audit_log
+--       where project_id = '<identifiant du projet supprimé>'
+--       order by at;
+--
+--    Attendu : tout l'historique du projet, terminé par
+--    `action = 'supprime'`, `entity = 'project'`.
+--
+--    ZÉRO LIGNE, deux causes à distinguer, dans cet ordre :
+--
+--      select at, label, comment
+--        from audit_log
+--       where project_id is null and action = 'supprime'
+--       order by at desc limit 5;
+--
+--    · la trace y figure, avec l'identifiant en clair dans `comment` :
+--      le repli d'ordre de déploiement a joué (voir ci-dessus) — la 0060
+--      n'était pas appliquée au moment du clic. L'événement est
+--      conservé, son rattachement non ; l'historique antérieur, lui, a
+--      été emporté par la cascade encore en vigueur.
+--    · elle n'y figure pas non plus : rien n'a été écrit. Le journal
+--      SERVEUR porte alors le payload complet, sous
+--      « [audit] SUPPRESSION NON TRACÉE », réinscriptible à la main.

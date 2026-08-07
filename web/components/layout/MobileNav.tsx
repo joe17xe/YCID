@@ -5,12 +5,15 @@ import Link from "next/link"
 import { Menu, X, Settings, LogOut } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { useTranslations, useLocale } from "next-intl"
-import { NAV_GROUPS, ADMIN_NAV, NavLink } from "@/components/layout/Sidebar"
+import { NAV_GROUPS, NavLink, visibleAdminNav } from "@/components/layout/Sidebar"
 import NotificationsBell from "@/components/layout/NotificationsBell"
 import InstallAppButton from "@/components/layout/InstallAppButton"
 
 interface MobileNavProps {
-  showAdmin: boolean
+  // Les clés d'administration autorisées, pas un booléen de bloc : le
+  // porteur de la capacité « gestion des comptes » (0065) n'en reçoit
+  // qu'une. Même liste que la Sidebar — une seule règle, deux surfaces.
+  adminNav: string[]
   brandName: string
   logoUrl: string | null
   name: string
@@ -23,7 +26,8 @@ interface MobileNavProps {
 // même habillage sombre (V1) : une seule liste, une seule identité
 // visuelle. Visible uniquement < md ; la Sidebar et le Header classiques
 // restent inchangés sur desktop.
-export default function MobileNav({ showAdmin, brandName, logoUrl, name, email, avatarUrl }: MobileNavProps) {
+export default function MobileNav({ adminNav, brandName, logoUrl, name, email, avatarUrl }: MobileNavProps) {
+  const adminItems = visibleAdminNav(adminNav)
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
@@ -126,12 +130,12 @@ export default function MobileNav({ showAdmin, brandName, logoUrl, name, email, 
                   ))}
                 </div>
               ))}
-              {showAdmin && (
+              {adminItems.length > 0 && (
                 <div className="space-y-1">
                   <div className="px-3 pt-4 pb-1 text-[11px] font-semibold tracking-wider uppercase" style={{ color: "var(--sidebar-muted)" }}>
                     {t("administration")}
                   </div>
-                  {ADMIN_NAV.map(({ href, key, Icon }) => (
+                  {adminItems.map(({ href, key, Icon }) => (
                     <NavLink key={href} href={href} label={t(key)} Icon={Icon} active={isActive(href)} onNavigate={() => setOpen(false)} />
                   ))}
                 </div>
