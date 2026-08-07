@@ -196,6 +196,9 @@ const SQL_RULES = [
   { capability: 'taches.manage', policy: 'Contributeur delete open tasks', table: 'tasks' },
   { capability: 'budget.manage', policy: 'Manage budget lines', table: 'budget_lines' },
   { capability: 'budget.manage', policy: 'Manage budget line tasks', table: 'budget_line_tasks' },
+  // Les appels de fonds (0066) suivent le budget : mêmes mains pour
+  // promettre, relancer et constater que pour tenir les lignes.
+  { capability: 'budget.manage', policy: 'Manage funding calls', table: 'funding_calls' },
   { capability: 'indicateurs.manage', policy: 'Manage indicators', table: 'indicators' },
   { capability: 'copil.manage', policy: 'Chef manage meetings', table: 'meetings' },
   { capability: 'decisions.manage', policy: 'Manage decisions', table: 'decisions' },

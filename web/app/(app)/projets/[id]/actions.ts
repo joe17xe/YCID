@@ -11,7 +11,7 @@ import { notifyUser } from '@/lib/notify'
 import { fmtDate } from '@/lib/constants'
 import { isEngagedDoc, isPaidDoc, fmtEur, type DocLike } from '@/lib/budget'
 import { ASSIGNABLE_ROLES, isAuditorSeat } from '@/lib/rbac'
-import { notifyPeople, projectLeads } from '@/lib/notify-circuit'
+import { notifyPeople, projectLeads, membersOfOrgs } from '@/lib/notify-circuit'
 import type { TaskStatus } from '@/lib/types'
 
 const TASK_STATUSES: TaskStatus[] = ['a_faire', 'en_cours', 'terminee', 'bloquee']
@@ -2115,4 +2115,218 @@ export async function setProjectCities(input: { projectId: string; cityIds: stri
 
   revalidatePath(`/projets/${input.projectId}`)
   return { ok: true }
+}
+
+// ============================================================
+// Appels de fonds (0066) — promesses annuelles et relances
+// ============================================================
+// Un appel de fonds est un FLUX entre organisations (qui verse quoi, à
+// qui, pour quelle année) — jamais une ligne budgétaire : le budget est
+// la référence, la promesse la réalité politique, et l'écran les
+// compare sans les confondre. Les droits sont ceux du budget
+// (budget.manage), la lecture celle de l'appartenance au projet.
+
+const FUNDING_STATUSES = ['promis', 'demande', 'recu'] as const
+export type FundingStatus = (typeof FUNDING_STATUSES)[number]
+
+export interface FundingCallInput {
+  projectId: string
+  callId?: string
+  year: string | number
+  payerOrgId: string
+  beneficiaryOrgId?: string | null
+  amount: string | number
+  note?: string
+}
+
+// Libellé de Journal : l'année, qui paie, combien. Le Journal survit à
+// la suppression de la promesse — le libellé doit donc se suffire.
+async function fundingLabel(supabase: Awaited<ReturnType<typeof createClient>>, year: number, payerOrgId: string, amount: number): Promise<string> {
+  const { data: org } = await supabase.from('organizations').select('name').eq('id', payerOrgId).maybeSingle()
+  return `${year} · ${org?.name ?? 'organisation'} · ${fmtEur(amount)}`
+}
+
+export async function saveFundingCall(input: FundingCallInput): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Non authentifié.' }
+  if (!(await canManageBudget(supabase, user.id, input.projectId))) {
+    return { ok: false, error: 'Gestion des appels de fonds réservée au chef de projet, au resp. financier et aux admins — comme le budget.' }
+  }
+
+  const year = Math.floor(Number(input.year))
+  if (!Number.isFinite(year) || year < 2000 || year > 2100) {
+    return { ok: false, error: "L'année doit être comprise entre 2000 et 2100." }
+  }
+  if (!input.payerOrgId) return { ok: false, error: "L'organisation qui s'engage à payer est obligatoire." }
+  // La virgule du clavier français, comme partout ailleurs.
+  const amount = Number(String(input.amount ?? '').replace(',', '.'))
+  if (!Number.isFinite(amount) || amount < 0) return { ok: false, error: 'Montant invalide.' }
+  const beneficiary = input.beneficiaryOrgId || null
+  if (beneficiary && beneficiary === input.payerOrgId) {
+    return { ok: false, error: 'Une organisation ne peut pas se verser à elle-même — laissez le bénéficiaire vide pour « réserver ».' }
+  }
+
+  const values = {
+    year,
+    payer_org_id: input.payerOrgId,
+    beneficiary_org_id: beneficiary,
+    amount,
+    note: input.note?.trim() || null,
+  }
+
+  if (input.callId) {
+    const { error } = await supabase.from('funding_calls')
+      .update({ ...values, updated_at: new Date().toISOString() })
+      .eq('id', input.callId).eq('project_id', input.projectId)
+    if (error) return { ok: false, error: `Échec de la modification : ${error.message}` }
+    await supabase.from('audit_log').insert({
+      project_id: input.projectId, entity: 'funding_call', entity_id: input.callId,
+      label: await fundingLabel(supabase, year, input.payerOrgId, amount), action: 'modifie', user_id: user.id,
+    })
+  } else {
+    const { data: created, error } = await supabase.from('funding_calls')
+      .insert({ project_id: input.projectId, ...values, created_by: user.id }).select('id').single()
+    if (error) return { ok: false, error: `Échec de la création : ${error.message}` }
+    await supabase.from('audit_log').insert({
+      project_id: input.projectId, entity: 'funding_call', entity_id: created?.id,
+      label: await fundingLabel(supabase, year, input.payerOrgId, amount), action: 'cree', user_id: user.id,
+    })
+  }
+  revalidatePath(`/projets/${input.projectId}`)
+  return { ok: true }
+}
+
+// promis → demandé → reçu, chacun daté. Le retour en arrière est permis
+// (une promesse « reçue » par erreur se corrige) et EFFACE les dates
+// des états quittés : une date qui survit à l'état qu'elle date est un
+// mensonge en attente.
+export async function setFundingCallStatus(input: { projectId: string; callId: string; status: string }): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Non authentifié.' }
+  if (!(await canManageBudget(supabase, user.id, input.projectId))) {
+    return { ok: false, error: 'Gestion des appels de fonds réservée au chef de projet, au resp. financier et aux admins.' }
+  }
+  if (!FUNDING_STATUSES.includes(input.status as FundingStatus)) return { ok: false, error: 'Statut invalide.' }
+
+  const { data: call } = await supabase.from('funding_calls')
+    .select('year, payer_org_id, amount, requested_at')
+    .eq('id', input.callId).eq('project_id', input.projectId).maybeSingle()
+  if (!call) return { ok: false, error: 'Appel de fonds introuvable.' }
+
+  const now = new Date().toISOString()
+  const patch =
+    input.status === 'promis' ? { status: 'promis', requested_at: null, received_at: null }
+    : input.status === 'demande' ? { status: 'demande', requested_at: call.requested_at ?? now, received_at: null }
+    : { status: 'recu', received_at: now }
+  const { error } = await supabase.from('funding_calls')
+    .update({ ...patch, updated_at: now })
+    .eq('id', input.callId).eq('project_id', input.projectId)
+  if (error) return { ok: false, error: `Échec du changement d'état : ${error.message}` }
+
+  const STATUS_LABELS: Record<FundingStatus, string> = { promis: 'promis', demande: 'demandé', recu: 'reçu' }
+  await supabase.from('audit_log').insert({
+    project_id: input.projectId, entity: 'funding_call', entity_id: input.callId,
+    label: `${await fundingLabel(supabase, call.year, call.payer_org_id, call.amount)} — ${STATUS_LABELS[input.status as FundingStatus]}`,
+    action: 'modifie', user_id: user.id,
+  })
+  revalidatePath(`/projets/${input.projectId}`)
+  return { ok: true }
+}
+
+export async function deleteFundingCall(input: { projectId: string; callId: string }): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Non authentifié.' }
+  if (!(await canManageBudget(supabase, user.id, input.projectId))) {
+    return { ok: false, error: 'Gestion des appels de fonds réservée au chef de projet, au resp. financier et aux admins.' }
+  }
+  // Le libellé se lit AVANT la suppression — après, il n'y a plus rien à
+  // lire, et le Journal doit pouvoir dire ce qui a disparu (0058).
+  const { data: call } = await supabase.from('funding_calls')
+    .select('year, payer_org_id, amount')
+    .eq('id', input.callId).eq('project_id', input.projectId).maybeSingle()
+  if (!call) return { ok: false, error: 'Appel de fonds introuvable.' }
+  const label = await fundingLabel(supabase, call.year, call.payer_org_id, call.amount)
+
+  const { error } = await supabase.from('funding_calls')
+    .delete().eq('id', input.callId).eq('project_id', input.projectId)
+  if (error) return { ok: false, error: `Échec de la suppression : ${error.message}` }
+  await supabase.from('audit_log').insert({
+    project_id: input.projectId, entity: 'funding_call', entity_id: input.callId,
+    label, action: 'supprime', user_id: user.id,
+  })
+  revalidatePath(`/projets/${input.projectId}`)
+  return { ok: true }
+}
+
+// La relance est MANUELLE — relancer une mairie est un geste politique,
+// c'est la responsable qui appuie, jamais un robot (arbitrage roadmap).
+// Elle part aux comptes MEMBRES de l'organisation payeuse (cloche +
+// email, canal notifyPeople). Si l'organisation n'a aucun compte, on le
+// DIT au lieu de laisser croire qu'un rappel est parti.
+export async function sendFundingReminder(input: { projectId: string; callId: string }): Promise<{ ok: boolean; error?: string; sent?: number }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Non authentifié.' }
+  if (!(await canManageBudget(supabase, user.id, input.projectId))) {
+    return { ok: false, error: 'Les relances suivent les droits du budget — chef de projet, resp. financier, admins.' }
+  }
+
+  const [{ data: call }, { data: project }] = await Promise.all([
+    supabase.from('funding_calls')
+      .select('year, amount, note, status, payer_org_id, beneficiary_org_id')
+      .eq('id', input.callId).eq('project_id', input.projectId).maybeSingle(),
+    supabase.from('projects').select('name').eq('id', input.projectId).maybeSingle(),
+  ])
+  if (!call) return { ok: false, error: 'Appel de fonds introuvable.' }
+  if (call.status === 'recu') return { ok: false, error: 'Ce versement est déjà marqué reçu — rien à relancer.' }
+
+  const orgIds = [call.payer_org_id, call.beneficiary_org_id].filter((x): x is string => !!x)
+  const { data: orgs } = await supabase.from('organizations').select('id, name').in('id', orgIds)
+  const orgName = (oid: string | null) => (orgs ?? []).find(o => o.id === oid)?.name ?? 'une organisation'
+  const payerName = orgName(call.payer_org_id)
+
+  const recipients = await membersOfOrgs([call.payer_org_id])
+  if (!recipients.length) {
+    return {
+      ok: false,
+      error: `Aucun compte n'appartient à « ${payerName} » : le rappel n'est PAS parti. Créez un compte depuis l'écran Organisations (bouton + personne), ou contactez l'organisation directement.`,
+    }
+  }
+
+  const projectName = project?.name ?? 'un projet'
+  await notifyPeople(recipients, {
+    type: 'funding_reminder',
+    title: `Rappel de financement — ${projectName}`,
+    body: [
+      call.beneficiary_org_id
+        ? `« ${payerName} » s'est engagée à verser ${fmtEur(call.amount)} à « ${orgName(call.beneficiary_org_id)} » pour le projet « ${projectName} » (${call.year}).`
+        : `« ${payerName} » s'est engagée à réserver ${fmtEur(call.amount)} pour le projet « ${projectName} » (${call.year}).`,
+      ...(call.note?.trim() ? [`Note : ${call.note.trim()}`] : []),
+      'Merci de faire le nécessaire, puis de prévenir la personne qui pilote le budget du projet.',
+    ],
+    path: `/projets/${input.projectId}?tab=budget`,
+    linkLabel: 'Ouvrir le budget du projet',
+  })
+
+  const now = new Date().toISOString()
+  // La relance vaut demande : une promesse encore « promise » passe
+  // « demandée » — c'est le même geste, daté du même jour.
+  const { error } = await supabase.from('funding_calls')
+    .update({
+      last_reminder_at: now, last_reminder_by: user.id, updated_at: now,
+      ...(call.status === 'promis' ? { status: 'demande', requested_at: now } : {}),
+    })
+    .eq('id', input.callId).eq('project_id', input.projectId)
+  if (error) return { ok: false, error: `Rappel envoyé, mais la trace n'a pas pu être posée : ${error.message}` }
+
+  await supabase.from('audit_log').insert({
+    project_id: input.projectId, entity: 'funding_call', entity_id: input.callId,
+    label: `${await fundingLabel(supabase, call.year, call.payer_org_id, call.amount)} — rappel envoyé (${recipients.length} compte${recipients.length > 1 ? 's' : ''})`,
+    action: 'modifie', user_id: user.id,
+  })
+  revalidatePath(`/projets/${input.projectId}`)
+  return { ok: true, sent: recipients.length }
 }
