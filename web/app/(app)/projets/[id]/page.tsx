@@ -14,6 +14,7 @@ import TaskDocuments from "@/components/project/TaskDocuments"
 import DeleteTaskButton from "@/components/tasks/DeleteTaskButton"
 import { DeleteBudgetLineButton, DeletePhaseButton } from "@/components/project/DeleteInTwoSteps"
 import BudgetLineDocuments from "@/components/project/BudgetLineDocuments"
+import FundingCalls, { type FundingCallRow } from "@/components/project/FundingCalls"
 import ProjectPulse from "@/components/project/ProjectPulse"
 import { StatTile } from "@/components/ui/StatTile"
 import NextSteps, { daysUntil, type StepTask } from "@/components/project/NextSteps"
@@ -62,6 +63,7 @@ const AUDIT_ENTITIES: Record<string, string> = {
   budget_line: "Ligne budgétaire", validation: "Validation", decision: "Décision",
   meeting: "Réunion", indicator: "Indicateur", indicator_measure: "Mesure",
   project_member: "Membre", campagne_ia: "Campagne IA", rapport_ia: "Rapport IA",
+  funding_call: "Appel de fonds",
 }
 // « Lien vers l'objet concerné quand il existe encore » : on pointe
 // l'ONGLET qui le porte — lui existe toujours, même si l'objet a été
@@ -69,7 +71,7 @@ const AUDIT_ENTITIES: Record<string, string> = {
 // que pas de lien.
 const AUDIT_TAB: Record<string, string> = {
   phase: "taches", task: "taches", document: "documents",
-  budget_line: "budget", validation: "budget",
+  budget_line: "budget", validation: "budget", funding_call: "budget",
   decision: "copil", meeting: "copil",
   indicator: "impact", indicator_measure: "impact",
   campagne_ia: "comm",
@@ -174,7 +176,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
   // migration n'est pas passée elles échouent, et la fiche n'affiche
   // simplement ni la ligne ni le bouton « Villes » — jamais d'écran
   // cassé entre le déploiement du code et le passage du SQL.
-  const [{ data: projectCityRows, error: pcErr }, { data: allCities, error: cErr }, { data: mpRows, error: mpErr }, { data: orgMembers, error: omErr }, { data: progRows, error: prErr }, { data: viaRows, error: viaErr }, { data: logoRows, error: logoErr }] = await Promise.all([
+  const [{ data: projectCityRows, error: pcErr }, { data: allCities, error: cErr }, { data: mpRows, error: mpErr }, { data: orgMembers, error: omErr }, { data: progRows, error: prErr }, { data: viaRows, error: viaErr }, { data: logoRows, error: logoErr }, { data: fcRows, error: fcErr }] = await Promise.all([
     supabase.from("project_cities").select("city_id, cities(id, name, country)").eq("project_id", id),
     supabase.from("cities").select("id, name, country").order("name"),
     // Invités des réunions (0051) — même dégradation douce : tant que
@@ -195,6 +197,12 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
     // demander dans le select imbriqué du projet casserait TOUTE la
     // fiche tant que la colonne n'existe pas.
     supabase.from("organizations").select("id, logo_url"),
+    // Appels de fonds (0066) — même tolérance : sans la migration, la
+    // section n'apparaît pas et un mot le dit à qui gère le budget.
+    supabase.from("funding_calls")
+      .select("id, year, payer_org_id, beneficiary_org_id, amount, note, status, requested_at, received_at, last_reminder_at")
+      .eq("project_id", id)
+      .order("year", { ascending: false }).order("created_at", { ascending: true }),
   ])
   const citiesReady = !pcErr && !cErr
   const participantsReady = !mpErr
@@ -207,6 +215,17 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
     (logoErr ? [] : (logoRows ?? []) as { id: string; logo_url: string | null }[])
       .filter(r => r.logo_url).map(r => [r.id, r.logo_url as string])
   )
+  const fundingReady = !fcErr
+  const fundingCalls: FundingCallRow[] = fundingReady ? ((fcRows ?? []) as FundingCallRow[]) : []
+  // La référence budgétaire des appels de fonds : ce que budget_lines
+  // prévoit par financeur et par année — hors valorisation, qui est de
+  // la nature, pas de l'argent (check:valorisation).
+  const budgetRefByFunderYear: Record<string, number> = (budgetLines ?? []).reduce((acc: Record<string, number>, l: { is_valorisation?: boolean; funder_org_id?: string | null; year?: number | null; planned_amount?: number | string | null }) => {
+    if (l.is_valorisation || !l.funder_org_id || !l.year) return acc
+    const k = `${l.funder_org_id}|${l.year}`
+    acc[k] = (acc[k] ?? 0) + (Number(l.planned_amount) || 0)
+    return acc
+  }, {})
   const participantsByMeeting = new Map<string, { user_id: string; response: string }[]>()
   if (participantsReady) {
     for (const r of mpRows ?? []) {
@@ -1492,6 +1511,16 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
             </table>
             {!(budgetLines ?? []).length && <div className="p-8 text-center text-sm" style={{ color: "#66716B" }}>Aucune ligne budgétaire</div>}
           </div>
+          {/* Appels de fonds (0066) : les promesses annuelles, sous le
+              budget qu'elles financent — jamais dedans. */}
+          {fundingReady ? (
+            <FundingCalls projectId={id} calls={fundingCalls} orgs={orgOptions}
+              budgetRef={budgetRefByFunderYear} canManage={canBudget} />
+          ) : canBudget && (
+            <p className="mt-6 text-sm rounded-xl px-4 py-3" style={{ background: "#F7EDDD", color: "#8A6A1F" }}>
+              Appels de fonds non activés : appliquez la migration <strong>0066_appels_de_fonds.sql</strong> dans le SQL Editor Supabase.
+            </p>
+          )}
         </div>
       )}
 
