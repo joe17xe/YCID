@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/server'
 import { adminCreateUser } from '@/lib/supabase/auth-admin'
 import { parseRecipients } from '@/lib/recipients'
 import { adminClient } from '@/lib/supabase/admin'
-import { canAnonymizeAccounts, isUserAdmin } from '@/lib/permissions'
+import { canAnonymizeAccounts, canManageUsers, isUserAdmin } from '@/lib/permissions'
 import {
   anonymizationConfirmationTarget, anonymizationConfirmed,
   asTraceCount, describeTraces, type TraceCount,
@@ -19,15 +19,51 @@ import {
 // n'a pas été jouée et où des comptes portent l'ancien rôle.
 const PLATFORM_ROLES = ['admin', 'user']
 
-// Rôle plateforme de l'utilisateur connecté + garde-fous
+// ============================================================
+// Qui parle, et jusqu'où
+// ============================================================
+// Deux réponses, et c'est tout le sujet de la 0057 : gérer les comptes
+// n'est plus la même chose qu'administrer l'outil.
+//
+//   · `isAdmin`  — administre l'OUTIL. Seul à pouvoir promouvoir,
+//                  attribuer une capacité, toucher à un compte
+//                  administrateur, anonymiser ;
+//   · l'accès    — administrateur OU porteur de la capacité
+//                  `can_manage_users`.
+//
+// CES BORNES NE SONT PAS DÉCORATIVES, et elles ne doublent PAS la RLS.
+// Toutes les écritures ci-dessous passent par `adminClient()`, la clé de
+// service : elle contourne la RLS, et `auth.uid()` y étant nul, elle
+// contourne AUSSI le trigger `protect_profile_flags` (règle du contexte
+// privilégié, 0022). Sur ce chemin-là, ce fichier est le SEUL verrou.
+// La 0057 tient l'autre chemin, celui de l'API REST sous la session de
+// l'intéressé, où la RLS et le trigger s'appliquent pleinement.
 async function currentContext(supabase: Awaited<ReturnType<typeof createClient>>) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Non authentifié.' as const }
-  if (!(await isUserAdmin(supabase, user.id))) return { error: 'Gestion des utilisateurs réservée aux administrateurs.' as const }
+  const [admin, manages] = await Promise.all([
+    isUserAdmin(supabase, user.id),
+    canManageUsers(supabase, user.id),
+  ])
+  if (!manages) return { error: 'Gestion des utilisateurs réservée aux administrateurs et aux comptes qui en portent la capacité.' as const }
   const { data: me } = await supabase.from('profiles').select('platform_role, is_platform_admin').eq('id', user.id).maybeSingle()
   const myRole = me?.platform_role ?? (me?.is_platform_admin ? 'admin' : 'user')
-  return { user, myRole }
+  return { user, myRole, isAdmin: admin }
 }
+
+// Les refus opposés au porteur de la capacité, nommés une fois pour que
+// les quatre actions (créer, modifier, supprimer, importer) disent
+// exactement la même chose — et pour que le motif se lise sans avoir à
+// reconstituer l'arbitrage.
+const REFUS_PROMOTION =
+  "Seul un administrateur peut attribuer le rôle Administrateur. La capacité « gestion des comptes » "
+  + "ne se transmet pas en administration de la plateforme."
+const REFUS_CAPACITE =
+  "Seul un administrateur peut attribuer une capacité de profil (gestion des comptes, arbitrage de la roadmap). "
+  + "Qui distribue les droits distribuerait le sien."
+const REFUS_CIBLE_ADMIN =
+  "Un compte Administrateur ne peut être modifié ni supprimé que par un administrateur. "
+  + "Changer son mot de passe reviendrait à prendre sa place."
 
 type Result = { ok: boolean; error?: string }
 
@@ -93,7 +129,13 @@ interface UserFormInput {
   password: string
   confirmPassword: string
   active: boolean
+  // Les deux capacités de profil. `undefined` = le formulaire ne les a
+  // PAS proposées (il ne les affiche qu'à un administrateur) : on laisse
+  // alors la valeur en base intacte, au lieu de la remettre à faux —
+  // sans quoi le porteur de la capacité effacerait, en enregistrant une
+  // correction d'adresse, l'arbitrage roadmap de la personne éditée.
   canManageRoadmap?: boolean
+  canManageUsers?: boolean
   // Rattachement aux organisations (PR 42). C'est LE lien qui porte le
   // périmètre : un membre d'YCID voit les projets où YCID figure. Il
   // n'avait aucun écran — `memberships` était lue trois fois, écrite
@@ -117,6 +159,28 @@ async function syncMemberships(userId: string, orgIds: string[] | undefined) {
   return null
 }
 
+// Les deux colonnes de capacité, à n'écrire QUE pour un administrateur.
+// Rendre un objet vide plutôt que `{ colonne: false }` est délibéré :
+// une clé absente d'un `update` PostgREST laisse la valeur en place, une
+// clé à `false` l'écrase.
+function capabilityColumns(isAdmin: boolean, input: UserFormInput) {
+  if (!isAdmin) return {}
+  return {
+    can_manage_roadmap: !!input.canManageRoadmap,
+    can_manage_users: !!input.canManageUsers,
+  }
+}
+
+// Un non-administrateur qui SOUMET une capacité est refusé, pas ignoré.
+// Le formulaire ne la lui propose pas ; une requête forgée, si. La
+// distinction compte : ignorer en silence, c'est répondre « Enregistré »
+// à quelqu'un qui vient de tenter une escalade.
+function capabilityRefusal(isAdmin: boolean, input: UserFormInput): string | null {
+  if (isAdmin) return null
+  if (input.canManageUsers !== undefined || input.canManageRoadmap !== undefined) return REFUS_CAPACITE
+  return null
+}
+
 function validate(input: UserFormInput, requirePassword: boolean): string | null {
   if (!input.fullName?.trim()) return 'Le nom complet est obligatoire.'
   if (!EMAIL_RE.test((input.email ?? '').trim())) return 'Adresse email invalide.'
@@ -137,6 +201,11 @@ export async function createUser(input: UserFormInput): Promise<Result> {
     if (ctx.myRole === 'ycid' && input.role === 'admin') {
       return { ok: false, error: "Le rôle YCID ne peut pas créer d'Administrateur." }
     }
+    // BORNE 1 — le porteur de la capacité ne fabrique pas d'administrateur.
+    if (!ctx.isAdmin && input.role === 'admin') return { ok: false, error: REFUS_PROMOTION }
+    // BORNE 2 — ni de porteur de capacité, la sienne comprise.
+    const refus = capabilityRefusal(ctx.isAdmin, input)
+    if (refus) return { ok: false, error: refus }
     const invalid = validate(input, true)
     if (invalid) return { ok: false, error: invalid }
 
@@ -159,7 +228,7 @@ export async function createUser(input: UserFormInput): Promise<Result> {
       full_name: input.fullName.trim(),
       platform_role: input.role,
       is_platform_admin: input.role === 'admin',
-      can_manage_roadmap: !!input.canManageRoadmap,
+      ...capabilityColumns(ctx.isAdmin, input),
       active: !!input.active,
     }).eq('id', created.userId)
     if (pErr) {
@@ -186,7 +255,11 @@ export async function updateUser(userId: string, input: UserFormInput): Promise<
     const ctx = await currentContext(supabase)
     if ('error' in ctx) return { ok: false, error: ctx.error }
 
-    const { data: target } = await supabase.from('profiles').select('platform_role, email, anonymized_at').eq('id', userId).maybeSingle()
+    // `is_platform_admin` est lu avec le rôle : sur un compte antérieur à
+    // la 0017, `platform_role` peut être nul et le drapeau seul dit
+    // l'administration. Juger sur le seul rôle laisserait ces comptes-là
+    // modifiables par un porteur de la capacité.
+    const { data: target } = await supabase.from('profiles').select('platform_role, is_platform_admin, email, anonymized_at').eq('id', userId).maybeSingle()
     if (!target) return { ok: false, error: 'Utilisateur introuvable.' }
     // Une anonymisation qu'on peut défaire n'est pas une anonymisation.
     // Sans ce refus, « Modifier » suffirait à réattribuer un nom et une
@@ -205,6 +278,18 @@ export async function updateUser(userId: string, input: UserFormInput): Promise<
     if (ctx.myRole === 'ycid' && (target.platform_role === 'admin' || input.role === 'admin')) {
       return { ok: false, error: "Le rôle YCID ne peut pas modifier ni créer un Administrateur." }
     }
+    // BORNE 4 — la cible d'abord. Le champ « mot de passe » de cet écran
+    // écrit dans GoTrue : sans ce refus, la borne 1 se contournerait sans
+    // jamais toucher à un rôle — on ne se promeut pas, on prend la place
+    // d'un administrateur existant. Même arbitrage que la ligne
+    // ci-dessus pour l'ancien rôle « ycid ».
+    const targetRole = target.platform_role ?? (target.is_platform_admin ? 'admin' : 'user')
+    if (!ctx.isAdmin && targetRole === 'admin') return { ok: false, error: REFUS_CIBLE_ADMIN }
+    // BORNE 1 — puis le résultat.
+    if (!ctx.isAdmin && input.role === 'admin') return { ok: false, error: REFUS_PROMOTION }
+    // BORNE 2.
+    const refus = capabilityRefusal(ctx.isAdmin, input)
+    if (refus) return { ok: false, error: refus }
     const invalid = validate(input, false)
     if (invalid) return { ok: false, error: invalid }
 
@@ -232,7 +317,7 @@ export async function updateUser(userId: string, input: UserFormInput): Promise<
       email,
       platform_role: input.role,
       is_platform_admin: input.role === 'admin',
-      can_manage_roadmap: !!input.canManageRoadmap,
+      ...capabilityColumns(ctx.isAdmin, input),
       active: !!input.active,
     }).eq('id', userId)
     if (pErr) {
@@ -258,10 +343,17 @@ export async function deleteUser(userId: string): Promise<Result> {
     if ('error' in ctx) return { ok: false, error: ctx.error }
     if (ctx.user.id === userId) return { ok: false, error: 'Vous ne pouvez pas supprimer votre propre compte.' }
 
-    const { data: target } = await supabase.from('profiles').select('platform_role, anonymized_at').eq('id', userId).maybeSingle()
+    const { data: target } = await supabase.from('profiles').select('platform_role, is_platform_admin, anonymized_at').eq('id', userId).maybeSingle()
     if (!target) return { ok: false, error: 'Utilisateur introuvable.' }
     if (ctx.myRole === 'ycid' && target.platform_role === 'admin') {
       return { ok: false, error: "Le rôle YCID ne peut pas supprimer un Administrateur." }
+    }
+    // BORNE 4, versant suppression : retirer les administrateurs un par
+    // un jusqu'au dernier laisserait la plateforme sans administration —
+    // et le garde-fou du « dernier administrateur » ci-dessous ne
+    // protège que le dernier, pas l'avant-dernier.
+    if (!ctx.isAdmin && (target.platform_role ?? (target.is_platform_admin ? 'admin' : 'user')) === 'admin') {
+      return { ok: false, error: REFUS_CIBLE_ADMIN }
     }
     // Ne pas supprimer le dernier administrateur
     if (target.platform_role === 'admin') {
@@ -621,6 +713,10 @@ export async function createUsersBulk(raw: string, role: string): Promise<{ ok: 
     if (ctx.myRole === 'ycid' && role === 'admin') {
       return { ok: false, error: "Le rôle YCID ne peut pas créer d'Administrateur." }
     }
+    // BORNE 1 — l'import en masse crée cinquante comptes d'un geste : il
+    // n'y a aucune raison qu'il soit la porte de service de la
+    // promotion que `createUser` refuse.
+    if (!ctx.isAdmin && role === 'admin') return { ok: false, error: REFUS_PROMOTION }
 
     const recipients = parseRecipients(raw ?? '')
     if (!recipients.length) return { ok: false, error: 'Aucune adresse email détectée dans le texte collé.' }

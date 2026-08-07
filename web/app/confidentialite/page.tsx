@@ -37,6 +37,19 @@ export default async function ConfidentialitePage() {
   const aiProvider = ai.hasKey
     ? (AI_PROVIDERS[ai.provider]?.label ?? "fournisseur compatible API OpenAI")
     : "aucun (fonctions IA désactivées)"
+  // Destination des données confiées au modèle (RGPD art. 13.1.f). Lue
+  // dans AI_PROVIDERS, la même table que celle qui s'affiche sous la
+  // liste déroulante d'Admin ▸ Configuration ▸ IA : l'administrateur qui
+  // CHOISIT et la personne qui LIT voient la même phrase, faute de quoi
+  // le choix pourrait changer sans que cette page bouge.
+  //
+  // Repli sur « autre » quand le fournisseur n'est pas dans la table —
+  // configuration par les variables LLM_* du serveur, où `provider` vaut
+  // « autre » : sa fiche dit précisément que la destination dépend de
+  // l'URL saisie et que l'application ne peut pas la qualifier. C'est le
+  // seul repli honnête ; en inventer un rendrait cette page fausse
+  // exactement dans le cas où elle est le moins vérifiable.
+  const aiFiche = AI_PROVIDERS[ai.provider] ?? AI_PROVIDERS.autre
   const h2 = { fontFamily: "var(--font-sora)", color: "#17211D" }
   const p = { color: "#66716B" }
   return (
@@ -92,11 +105,66 @@ export default async function ConfidentialitePage() {
             <p className="text-sm" style={p}>
               Certaines fonctions (rapport d&apos;expertise, propositions de contenus de
               communication) transmettent des <strong>données de projet</strong> — phases,
-              tâches, budgets, indicateurs, et le cas échéant des noms de personnes
-              associées à ces tâches — au fournisseur d&apos;intelligence artificielle
-              <strong> {aiProvider}</strong>, pour la seule durée du traitement de la
-              requête. Ces données ne servent pas à entraîner de modèle.
+              tâches, budgets, indicateurs, réunions, décisions — au fournisseur
+              d&apos;intelligence artificielle <strong>{aiProvider}</strong>, pour la
+              seule durée du traitement de la requête.
             </p>
+            {/* Ce paragraphe remplace « et le cas échéant des noms de
+                personnes associées à ces tâches ». La phrase décrivait
+                une requête qui demandait bien `assignee_id` — mais ne
+                s'en servait nulle part : la page annonçait donc un
+                transfert qui n'avait pas lieu, tout en laissant croire
+                que le sujet avait été traité. La colonne est retirée de
+                la requête, et `scripts/check-anonymat-digest.mjs` fait
+                échouer la vérification si une colonne de personne y
+                revient. La phrase ci-dessous ne tient que par ce
+                contrôle : c'est lui qui la rend vraie demain.
+
+                Le texte libre est dit dans le même souffle, et pas dans
+                une note de bas de page : c'est là que se trouve le
+                risque réel, et le taire aurait fait de la première
+                moitié du paragraphe une demi-vérité — la forme d'erreur
+                que cette page s'interdit. */}
+            <p className="text-sm" style={p}>
+              <strong>Aucun champ vous identifiant n&apos;est transmis</strong> : ni nom,
+              ni adresse électronique, ni identifiant de compte, ni liste des personnes
+              présentes à une réunion. Les seuls noms transmis sont ceux des
+              <strong> organisations</strong> partenaires, financeurs et contributrices.
+              En revanche, les champs de <strong>texte libre</strong> — description du
+              projet, intitulés de phases et de tâches, comptes rendus de réunion,
+              décisions, consignes saisies au moment de la génération — partent
+              <strong> tels qu&apos;ils ont été écrits</strong> : s&apos;ils citent une
+              personne, cette mention part avec eux. La plateforme ne les filtre pas,
+              parce qu&apos;un compte rendu amputé produirait un rapport faux, remis à un
+              financeur public.
+            </p>
+            {/* Les deux paragraphes suivants ne parlent que s'il y a un
+                fournisseur : sans clé configurée, aucune requête ne part
+                et décrire une destination serait décrire un transfert
+                qui n'a pas lieu.
+
+                Le second remplace « Ces données ne servent pas à
+                entraîner de modèle ». La plateforme n'en sait rien et ne
+                peut rien y faire : cela dépend de l'offre souscrite
+                auprès du fournisseur — et certaines offres gratuites,
+                dont les modèles « :free » d'OpenRouter proposés par
+                défaut dans la configuration, ne l'excluent pas. Une page
+                de confidentialité qui promet à la place d'un contrat est
+                exactement ce que la 0056 a entrepris de retirer d'ici. */}
+            {ai.hasKey && (
+              <>
+                <p className="text-sm" style={p}>
+                  <strong>Où partent ces données.</strong> Elles sont traitées
+                  en <strong>{aiFiche.zone}</strong>. {aiFiche.transfert}
+                </p>
+                <p className="text-sm" style={p}>
+                  Ce que le fournisseur fait ensuite de ces données — en particulier leur
+                  réutilisation pour entraîner ses propres modèles — dépend des conditions
+                  souscrites auprès de lui par {s.legalEntity}, que la plateforme
+                  elle-même ne peut ni imposer ni vérifier.
+                </p>
+              </>
+            )}
             <p className="text-sm" style={p}>
               Tout contenu ainsi produit est <strong>signalé comme généré par
               intelligence artificielle</strong> et soumis à une validation humaine avant
@@ -223,8 +291,8 @@ export default async function ConfidentialitePage() {
             <p className="text-sm" style={p}>
               Hébergement applicatif : Hostinger International Ltd. Base de données et
               authentification : Supabase Inc. Génération de contenus par intelligence
-              artificielle : {aiProvider}. Ces prestataires agissent comme sous-traitants
-              au sens du RGPD.
+              artificielle : {aiProvider}{ai.hasKey ? ` (${aiFiche.zone})` : ''}. Ces
+              prestataires agissent comme sous-traitants au sens du RGPD.
             </p>
           </section>
         </div>

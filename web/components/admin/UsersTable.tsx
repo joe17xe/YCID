@@ -19,6 +19,7 @@ export interface AdminUserRow {
   canEdit: boolean
   organizations: string[]
   canManageRoadmap: boolean
+  canManageUsers: boolean
   // Effacement RGPD par anonymisation (migration 0055)
   anonymizedAt: string | null
   confirmationTarget: string
@@ -268,6 +269,15 @@ export default function UsersTable({ users }: { users: AdminUserRow[] }) {
                       arbitre la roadmap
                     </span>
                   )}
+                  {/* La capacité se lit dans la liste, sinon elle ne se
+                      découvre qu'en ouvrant chaque fiche — et l'on ne
+                      sait plus qui gère les comptes. */}
+                  {u.canManageUsers && (
+                    <span className="inline-block text-xs mt-1 ml-1 px-1.5 py-0.5 rounded" style={{ background: "#E4F0EC", color: "#0E6B5C" }}
+                      title="Peut créer et modifier des comptes ordinaires, sans accès à la configuration, au stockage ni à l'anonymisation">
+                      gère les comptes
+                    </span>
+                  )}
                 </td>
                 <td data-label="Statut" className="px-5 py-3">
                   {u.anonymizedAt ? (
@@ -299,7 +309,8 @@ export default function UsersTable({ users }: { users: AdminUserRow[] }) {
                             <Settings size={13} /> Modifier
                           </Link>
                         ) : (
-                          <span className="text-xs" style={{ color: "#9AA39D" }} title="Le rôle YCID ne peut pas modifier un Administrateur">
+                          <span className="text-xs" style={{ color: "#9AA39D" }}
+                            title="Seul un administrateur de la plateforme peut modifier ou supprimer un compte Administrateur — le formulaire porte un champ « mot de passe ».">
                             Administrateur
                           </span>
                         )}

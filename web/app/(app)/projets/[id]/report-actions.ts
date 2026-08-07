@@ -62,7 +62,19 @@ export async function generateExpertReport(projectId: string, instructions?: str
       // NB : plus de colonne budget ici — supprimée par la 0033. La
       // laisser dans le select faisait échouer TOUTE la requête phases,
       // et le rapport se générait avec zéro phase, sans erreur visible.
-      supabase.from('phases').select('id, name, position, start_date, end_date, status, tasks(id, title, status, progress, start_date, end_date, assignee_id)').eq('project_id', projectId).order('position'),
+      //
+      // Plus d'`assignee_id` non plus. Il était demandé et n'atterrissait
+      // dans AUCUN champ du digest : le `.map()` des tâches, vingt lignes
+      // plus bas, ne le lit pas. Une donnée personnelle — l'identifiant
+      // du profil d'une personne — chargée en mémoire d'une fonction dont
+      // la sortie part chez un fournisseur d'IA, sans que rien ne s'en
+      // serve : un risque sans la moindre contrepartie. Le jour où un
+      // champ « responsable » deviendrait utile au rapport, il faudra le
+      // vouloir explicitement — et se demander alors si nommer les
+      // personnes à un modèle tiers est nécessaire à un compte rendu
+      // budgétaire. `scripts/check-anonymat-digest.mjs` fait échouer la
+      // vérification si la colonne revient.
+      supabase.from('phases').select('id, name, position, start_date, end_date, status, tasks(id, title, status, progress, start_date, end_date)').eq('project_id', projectId).order('position'),
       // Pièces justificatives (PR 38e). Un rapport adossé à des preuves
       // datées vaut mieux qu'un rapport adossé à des pourcentages
       // déclaratifs — et l'absence de preuve sur une tâche déclarée
@@ -75,6 +87,12 @@ export async function generateExpertReport(projectId: string, instructions?: str
       supabase.from('budget_lines').select('id, poste, category, year, planned_amount, is_valorisation, status, phase_id, funder:funder_org_id(name), owner:owner_org_id(name), allocations:budget_line_tasks(task_id, amount), documents(type, amount, paid, validations(decision))').eq('project_id', projectId),
       supabase.from('indicators').select('id, name, kind, unit, baseline, target').eq('project_id', projectId),
       supabase.from('indicator_measures').select('indicator_id, period, value').order('period'),
+      // `attendees` — la liste nominative des présents — n'est PAS
+      // demandée, et ce n'est pas un oubli : le rapport commente une
+      // gouvernance (des réunions ont-elles lieu, à quel rythme, quelles
+      // décisions en sortent), pas des personnes. Le compte rendu
+      // (`minutes`) part en revanche tel quel, avec ce que ses auteurs y
+      // ont écrit — voir la note sur le texte libre au-dessus du digest.
       supabase.from('meetings').select('title, kind, date, minutes').eq('project_id', projectId).order('date', { ascending: false }).limit(10),
       // `text`, et non `label` : la colonne s'appelle ainsi depuis la
       // 0001. La requête échouait donc en silence, `decisions` revenait
@@ -182,7 +200,41 @@ export async function generateExpertReport(projectId: string, instructions?: str
     const projectFin = sumFinancials(realLines.map(l => finByLine.get(l.id) ?? EMPTY))
     const voted = project.budget ?? null
 
-    // Digest compact : seules ces données peuvent être citées par l'IA
+    // Digest compact : seules ces données peuvent être citées par l'IA.
+    //
+    // ── CE QUI EN SORT, DU POINT DE VUE DES PERSONNES ──────────────
+    // Ce bloc part chez un prestataire tiers, hors UE selon le
+    // fournisseur configuré (voir `zone` et `transfert` dans
+    // `lib/ai-settings.ts`, repris sur /confidentialite). Deux catégories
+    // à ne pas confondre :
+    //
+    // 1. Les CHAMPS IDENTIFIANTS. Aucun n'est demandé. Pas de nom, pas
+    //    d'adresse, pas d'identifiant de profil : les requêtes ci-dessus
+    //    n'appellent ni `profiles`, ni `full_name`, ni `email`, ni
+    //    `attendees`, ni aucune colonne référençant une personne
+    //    (`assignee_id`, `created_by`, `uploaded_by`…). Les seuls noms
+    //    du digest sont ceux d'ORGANISATIONS — financeurs, porteurs,
+    //    contributeurs en nature — qui sont des personnes morales et
+    //    dont le rapport ne peut pas se passer : un compte rendu qui ne
+    //    nomme pas son financeur n'a aucun usage. `nb_membres` est un
+    //    compte, pas une liste. `scripts/check-anonymat-digest.mjs`
+    //    échoue si une colonne de personne réapparaît ici.
+    //
+    // 2. Le TEXTE LIBRE. Description du projet, noms de phases, titres de
+    //    tâches, postes budgétaires, titres de réunions, comptes rendus
+    //    (`minutes`), décisions, et les consignes saisies à la
+    //    génération : tout part tel qu'il a été écrit. Un compte rendu
+    //    de COPIL cite naturellement des personnes (« M. X présente le
+    //    volet hydraulique »). On ne le censure PAS, et c'est un
+    //    arbitrage assumé, pas un oubli : aucune détection automatique de
+    //    nom propre français n'est fiable — elle raterait la moitié des
+    //    noms et effacerait des toponymes, des intitulés de poste et des
+    //    noms d'associations, produisant un rapport mutilé et faux, sur
+    //    lequel le modèle bâtirait ses constats. Une pièce destinée à un
+    //    financeur ne se construit pas sur du texte trué.
+    //    La conséquence est donc dite là où elle se lit — /confidentialite
+    //    annonce que les champs de texte libre sont transmis tels quels —
+    //    plutôt que promise ici et non tenue.
     const digest = {
       date_du_jour: today,
       projet: project,

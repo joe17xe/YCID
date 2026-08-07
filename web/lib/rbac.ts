@@ -143,7 +143,24 @@ export const RBAC_MATRIX: PermissionRow[] = [
   // consomme la clé du fournisseur d'IA et s'inscrit à l'historique du
   // projet. Un droit de regard qui engage une dépense n'en est plus un.
   { key: 'rapports.generate', label: 'Générer un rapport d’expert IA', note: 'La lecture des rapports existants suit le simple droit de regard', admin: true, roles: CONTRIBUTORS, policy: '"Create ai reports" — 0039' },
-  { key: 'users.manage', label: 'Gérer les utilisateurs et invitations', admin: true, roles: [] },
+  // Ce n'est plus « administrateurs seulement » (0057). Une CAPACITÉ
+  // cochée sur le profil l'ouvre aussi — comme l'arbitrage de la
+  // roadmap l'est depuis la 0037 — parce que le seul moyen de
+  // l'accorder était de donner le rôle « admin », c'est-à-dire la
+  // configuration, le stockage, la vision de tous les projets et
+  // l'anonymisation par-dessus le marché.
+  //
+  // `roles: []` reste JUSTE, et ce n'est pas un raccourci : aucun rôle
+  // PROJET n'ouvre la gestion des comptes, et aucun ne doit l'ouvrir —
+  // un chef de projet qui créerait des comptes se donnerait ses propres
+  // collègues. La capacité vit sur le profil, pas dans le projet ; la
+  // colonne « Administrateur » de l'écran Accès & rôles ne la montrerait
+  // pas, le `note` le dit donc en toutes lettres.
+  {
+    key: 'users.manage', label: 'Gérer les utilisateurs et invitations',
+    note: 'Administrateur, ou capacité « Gestion des comptes » cochée sur le profil — celle-ci n’accorde ni le rôle Administrateur, ni l’attribution des capacités, ni l’anonymisation.',
+    admin: true, roles: [], policy: '"Manage user accounts" — 0057',
+  },
   { key: 'orgs.create', label: 'Créer une organisation', admin: true, roles: [] },
 ]
 

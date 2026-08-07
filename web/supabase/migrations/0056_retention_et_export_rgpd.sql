@@ -190,15 +190,20 @@ insert into retention_policies (category, label, description, retention_days, en
    'reste, pour que le suivi de la dépense conserve son historique complet.',
    400, true),
 
-  -- Deux ans : un import CSV peut être remis en cause lors d'un contrôle
-  -- sur l'exercice précédent. Au-delà, ce qu'il a produit se lit dans les
-  -- tables et au journal d'audit, pas dans le compte rendu de l'import.
+  -- SIX MOIS, arbitrage YCID. Deux ans avaient d'abord été retenus (un
+  -- import peut être remis en cause lors d'un contrôle sur l'exercice
+  -- précédent), mais `errors` est le seul endroit de la base où des
+  -- lignes de fichier source sont recopiées telles quelles : c'est une
+  -- COPIE de données personnelles hors des tables qui les hébergent, et
+  -- la minimisation prime ici sur le confort de relecture. Passé ce
+  -- délai, ce que l'import a produit se lit dans les tables et au
+  -- journal d'audit — pas dans son compte rendu.
   ('import_runs',
    'Journal des imports de fichiers',
    'Compte rendu des imports CSV : nom du fichier, nombre de lignes créées ou '
    'ignorées, et le détail des lignes en erreur — qui reproduit des extraits du '
    'fichier importé, donc parfois des noms et des adresses.',
-   730, true),
+   180, true),
 
   ('email_trace',
    'Trace du dernier envoi d''email',

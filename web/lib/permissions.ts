@@ -133,3 +133,29 @@ export async function canManageRoadmap(supabase: SupabaseClient, userId: string)
   if (data?.can_manage_roadmap) return true
   return (data?.platform_role ?? (data?.is_platform_admin ? 'admin' : 'user')) === 'admin'
 }
+
+// Gérer les COMPTES : une CAPACITÉ cochée sur le profil, exactement
+// comme l'arbitrage de la roadmap, et pour la même raison. Le seul
+// moyen d'accorder ce droit était jusqu'ici de poser `platform_role =
+// 'admin'` — un rôle qui ne dit pas « gère les comptes » mais
+// « administre l'OUTIL » : configuration, stockage, vision de tous les
+// projets, et l'anonymisation qu'on ne peut pas défaire. C'est la
+// confusion que la 0037 avait défaite en retirant le rôle « ycid » ;
+// la refaire pour ouvrir une console reviendrait sur cet arbitrage.
+//
+// CE MIROIR N'EST PAS LA RÈGLE. Le droit opposable vit dans la 0057 :
+// policy « Manage user accounts » sur `profiles`, policy « Manage user
+// memberships » sur `memberships`, et le trigger `protect_profile_flags`
+// pour tout ce qui relève d'un DELTA (promotion, attribution d'une
+// capacité, date d'effacement). Ce qui suit décide d'afficher ou non un
+// écran — et sert de PREMIER verrou aux actions serveur, qui écrivent
+// avec la clé de service et ne rencontrent donc ni la RLS ni le
+// trigger. C'est pourquoi les bornes anti-escalade sont RÉPÉTÉES dans
+// `user-actions.ts` : ce n'est pas de la redondance, c'est le seul
+// endroit où elles s'appliquent sur ce chemin-là.
+export async function canManageUsers(supabase: SupabaseClient, userId: string): Promise<boolean> {
+  const { data } = await supabase.from('profiles')
+    .select('can_manage_users, platform_role, is_platform_admin').eq('id', userId).maybeSingle()
+  if (data?.can_manage_users) return true
+  return (data?.platform_role ?? (data?.is_platform_admin ? 'admin' : 'user')) === 'admin'
+}

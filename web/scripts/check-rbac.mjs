@@ -338,7 +338,112 @@ for (const cmd of ['insert', 'update', 'delete']) {
 }
 
 // ------------------------------------------------------------
-console.log(`Contrôle RBAC — ${matrix.size} capacités, ${ASSIGNABLE.length} rôles attribuables, ${LEGACY.length} retirés.`)
+// 9. Les capacités COCHÉES SUR LE PROFIL tiennent leurs quatre promesses
+// ------------------------------------------------------------
+// Troisième forme de droit du produit, à côté du rôle projet et du rôle
+// plateforme : une case sur `profiles`. `can_manage_roadmap` (0037) puis
+// `can_manage_users` (0057). Elles n'apparaissent dans AUCUNE colonne de
+// la matrice — elles ne s'accordent par aucun rôle — et jusqu'ici aucun
+// contrôle ne les regardait. Ce silence a coûté cher, et pas en théorie :
+//
+//   · le trigger `protect_profile_flags` (0006, durci en 0022) ne gardait
+//     que `is_platform_admin`. `can_manage_roadmap` est né en 0037 sans y
+//     être ajouté, et « Own profile » (0001) autorise chacun à écrire sa
+//     propre ligne : N'IMPORTE QUEL COMPTE pouvait donc se cocher
+//     l'arbitrage de la roadmap d'une requête. Une capacité qui
+//     s'auto-attribue n'est pas une capacité ;
+//   · `anonymize_profile` (0055) remet les capacités à faux une par une,
+//     à la main. En ajouter une sans y penser laisse un compte anonymisé
+//     porteur d'un pouvoir — au sens propre, une personne effacée qui
+//     continue d'arbitrer.
+//
+// Les deux défauts se ressemblent : une colonne ajoutée d'un côté,
+// oubliée de trois autres. On les vérifie donc ensemble, et le seul fait
+// de déclarer une nouvelle capacité ici oblige à fermer les quatre.
+const PROFILE_CAPABILITIES = [
+  { column: 'can_manage_roadmap', fn: 'is_roadmap_manager', capability: null },
+  { column: 'can_manage_users', fn: 'is_user_manager', capability: 'users.manage' },
+]
+
+const protectBody = lastMatch(`create\\s+or\\s+replace\\s+function\\s+(?:public\\.)?protect_profile_flags[\\s\\S]*?\\$\\$;`)
+const anonymizeBody = lastMatch(`create\\s+or\\s+replace\\s+function\\s+(?:public\\.)?anonymize_profile[\\s\\S]*?\\$\\$;`)
+if (!protectBody) fail('capacité', 'protect_profile_flags() introuvable — le verrou anti-escalade est illisible, ce contrôle serait aveugle')
+if (!anonymizeBody) fail('capacité', 'anonymize_profile() introuvable — ce contrôle serait aveugle')
+
+// On cherche la FORME de la garde, pas la mention du nom. Chercher la
+// simple présence de « can_manage_users » dans les deux corps rendait ce
+// contrôle tautologique : les deux fonctions CITENT ces colonnes dans
+// leurs commentaires, et le contrôle restait au vert après suppression
+// de la garde elle-même — vérifié en la retirant.
+//
+//   · le verrou du trigger, c'est la comparaison ancienne/nouvelle
+//     valeur : `new.x is distinct from old.x`. Rien d'autre n'empêche
+//     un CHANGEMENT ;
+//   · le geste de l'anonymisation, c'est l'affectation `x = false`.
+const guardsDelta = (body, column) =>
+  new RegExp(`new\\.${column}\\s+is\\s+distinct\\s+from\\s+old\\.${column}`).test(body)
+const resetsToFalse = (body, column) =>
+  new RegExp(`\\b${column}\\s*=\\s*false`).test(body)
+
+// Le rôle plateforme lui-même passe par les mêmes deux verrous : le
+// laisser hors du contrôle rouvrirait le trou de 2026-08 (chacun
+// pouvait se poser `platform_role = 'admin'`, que `is_admin()` lit).
+if (protectBody && !guardsDelta(protectBody[0], 'platform_role')) {
+  fail('capacité', "protect_profile_flags() ne garde pas `platform_role`.\n"
+    + "     → `is_admin()` le LIT depuis la 0037 et « Own profile » (0001) laisse chacun écrire sa ligne :\n"
+    + '       sans cette garde, n\'importe quel compte se pose administrateur en une requête')
+}
+
+for (const { column, fn, capability } of PROFILE_CAPABILITIES) {
+  const label = `« ${column} »`
+  if (!new RegExp(`add column (?:if not exists )?${column}\\b`).test(sqlAll)) {
+    fail('capacité', `${label} n'est ajoutée par aucune migration — la case à cocher n'a pas de colonne`)
+    continue
+  }
+  // 1. Un porteur nommé, qui admet aussi l'administrateur : sans lui,
+  //    cocher la case retirerait le droit à l'administrateur, ou
+  //    obligerait chaque appelant à réécrire le « ou admin ».
+  // `[\s\S]*?` et non `[^;]*` : le corps d'une fonction contient des
+  // point-virgules (contrairement à celui d'une policy), la borne est
+  // donc le `$$;` de fermeture — le premier, grâce au quantificateur
+  // paresseux, sans quoi on avalerait la fonction suivante.
+  const fnBody = lastMatch(`create\\s+or\\s+replace\\s+function\\s+(?:public\\.)?${fn}\\s*\\([\\s\\S]*?\\$\\$;`)
+  if (!fnBody) {
+    fail('capacité', `${label} n'a pas de fonction ${fn}() : la RLS ne peut pas s'y référer`)
+  } else {
+    if (!fnBody[0].includes(column)) fail('capacité', `${fn}() ne lit pas ${label}`)
+    if (!/'admin'/.test(fnBody[0])) fail('capacité', `${fn}() n'admet pas l'administrateur : cocher la case le lui RETIRERAIT`)
+  }
+  // 2. Elle ne s'auto-attribue pas.
+  if (protectBody && !guardsDelta(protectBody[0], column)) {
+    fail('capacité', `${label} n'est pas gardée par protect_profile_flags()`
+      + ` (il y manque « new.${column} is distinct from old.${column} »).\n`
+      + `     → « Own profile » (0001) laisse chacun écrire sa propre ligne : la capacité se coche toute seule`)
+  }
+  // 3. L'anonymisation la retire.
+  if (anonymizeBody && !resetsToFalse(anonymizeBody[0], column)) {
+    fail('capacité', `anonymize_profile() ne remet pas ${label} à faux : un compte effacé garderait ce pouvoir`)
+  }
+  // 4. Si elle porte une capacité de la matrice, celle-ci le dit — et
+  //    aucun rôle PROJET ne l'ouvre : la capacité vit sur le profil.
+  if (capability) {
+    const roles = matrix.get(capability)
+    if (roles === undefined) fail('capacité', `« ${capability} » absent de la matrice alors que ${label} l'ouvre`)
+    else if (roles.length) {
+      fail('capacité', `« ${capability} » est accordé à ${roles.join(', ')} : c'est une capacité de PROFIL, aucun rôle projet ne doit l'ouvrir`)
+    }
+    // `\bnote:` seul ne suffit pas — il se laisse satisfaire par
+    // « xnote: », dont il n'y a pas de frontière de mot avant le « n ».
+    // On exige le début d'une propriété d'objet.
+    if (!new RegExp(`key:\\s*'${capability}'[\\s\\S]{0,600}?[\\s{,]note:`).test(matrixBlock)) {
+      fail('capacité', `« ${capability} » n'a pas de note : la colonne « Administrateur » de l'écran Accès & rôles\n`
+        + `     ne montre pas une capacité de profil, il faut donc l'écrire`)
+    }
+  }
+}
+
+// ------------------------------------------------------------
+console.log(`Contrôle RBAC — ${matrix.size} capacités, ${ASSIGNABLE.length} rôles attribuables, ${LEGACY.length} retirés, ${PROFILE_CAPABILITIES.length} capacités de profil.`)
 if (failures.length) {
   console.error(`\n✗ ${failures.length} problème(s) :\n`)
   for (const f of failures) console.error(`  · ${f}`)

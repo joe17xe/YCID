@@ -3,16 +3,18 @@ import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import { ChevronLeft } from "lucide-react"
-import { isUserAdmin } from "@/lib/permissions"
+import { canManageUsers, isUserAdmin } from "@/lib/permissions"
 import BulkImportForm from "@/components/admin/BulkImportForm"
 
 export default async function ImportUtilisateursPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/")
-  if (!(await isUserAdmin(supabase, user.id))) redirect("/dashboard")
-
-  const { data: me } = await supabase.from("profiles").select("platform_role").eq("id", user.id).maybeSingle()
+  const [mayManage, isAdmin] = await Promise.all([
+    canManageUsers(supabase, user.id),
+    isUserAdmin(supabase, user.id),
+  ])
+  if (!mayManage) redirect("/dashboard")
 
   return (
     <div className="p-4 sm:p-8 max-w-3xl mx-auto">
@@ -26,7 +28,7 @@ export default async function ImportUtilisateursPage() {
         Collez une liste d&apos;adresses — en-tête de courriel, liste de diffusion, tableau.
         Les adresses sont extraites automatiquement, quels que soient les séparateurs.
       </p>
-      <BulkImportForm canCreateAdmin={(me?.platform_role ?? "admin") === "admin"} />
+      <BulkImportForm canCreateAdmin={isAdmin} />
     </div>
   )
 }

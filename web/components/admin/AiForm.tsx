@@ -1,8 +1,15 @@
 "use client"
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { Check, Sparkles, ExternalLink, AlertTriangle } from "lucide-react"
+import { Check, Sparkles, ExternalLink, AlertTriangle, Globe } from "lucide-react"
 import { updateAiSettings, testAiConnection, listAiModels } from "@/app/(app)/admin/configuration/settings-actions"
+// La fiche d'un fournisseur est décrite là où vivent ses valeurs, dans
+// `lib/ai-settings`. `import type` est effacé à la compilation : rien du
+// module serveur (il ouvre un client Supabase « service ») n'atteint le
+// paquet du navigateur. Cette interface était recopiée plus bas ;
+// ajouter `zone` et `transfert` d'un seul côté aurait suffi à faire
+// diverger l'écran de la donnée qu'il affiche.
+import type { AiProviderInfo } from "@/lib/ai-settings"
 
 // ============================================================
 // PR 31 — Configuration du fournisseur IA (Admin ▸ Configuration)
@@ -15,7 +22,6 @@ const labelCls = "block text-xs font-semibold mb-1 tracking-wider"
 const inputCls = "w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
 const border = { borderColor: "#E3E6E2" }
 
-export interface AiProviderInfo { label: string; baseUrl: string; model: string; keyUrl: string; free: string }
 export interface AiSettingsView {
   provider: string; baseUrl: string; model: string
   hasKey: boolean; source: string; tableMissing: boolean
@@ -138,6 +144,21 @@ export default function AiForm({ settings, providers }: { settings: AiSettingsVi
                   obtenir une clé <ExternalLink size={11} />
                 </a>
               )}
+            </p>
+          )}
+          {/* Destination des données, sous la liste et non dans une aide
+              séparée : c'est au moment où l'on déroule le choix qu'il
+              faut savoir ce qu'il engage. Le fournisseur retenu figure
+              aussi, nommé, sur la page publique de confidentialité —
+              d'où la même phrase des deux côtés, lue dans AI_PROVIDERS.
+              Ton neutre voulu : on informe, on n'interdit pas. */}
+          {current && (
+            <p className="text-xs mt-2 rounded-lg px-3 py-2 flex items-start gap-2" style={{ background: "#EEF0EE", color: "#66716B" }}>
+              <Globe size={13} className="mt-0.5 flex-shrink-0" />
+              <span>
+                Les données transmises sont traitées en <strong style={{ color: "#17211D" }}>{current.zone}</strong>. {current.transfert}
+                {" "}Ce choix apparaît sur la page publique de confidentialité.
+              </span>
             </p>
           )}
         </div>

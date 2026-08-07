@@ -13,11 +13,20 @@ const border = { borderColor: "#E3E6E2" }
 interface UserData {
   id: string; full_name: string; email: string; platform_role: string; active: boolean
   can_manage_roadmap?: boolean
+  can_manage_users?: boolean
   organizationIds?: string[]
 }
 
-export default function UserForm({ user, canCreateAdmin, organizations = [] }: {
+export default function UserForm({ user, canCreateAdmin, canGrantCapabilities, organizations = [] }: {
   user?: UserData; canCreateAdmin: boolean
+  // Attribuer une capacité de profil est réservé à l'administrateur
+  // (0057). Le porteur de la capacité « gestion des comptes » remplit
+  // ce formulaire sans voir les deux cases : les lui montrer grisées
+  // annoncerait un droit qu'il n'a pas, les lui montrer actives ferait
+  // échouer l'enregistrement. Le serveur refuse quoi qu'il arrive, et
+  // laisse les valeurs en base intactes quand le formulaire ne les
+  // envoie pas.
+  canGrantCapabilities: boolean
   organizations?: { id: string; name: string }[]
 }) {
   const router = useRouter()
@@ -37,14 +46,28 @@ export default function UserForm({ user, canCreateAdmin, organizations = [] }: {
     confirmPassword: "",
     active: user?.active ?? true,
     canManageRoadmap: user?.can_manage_roadmap ?? false,
+    canManageUsers: user?.can_manage_users ?? false,
     organizationIds: user?.organizationIds ?? [] as string[],
   })
 
   function submit(e: React.FormEvent) {
     e.preventDefault()
     setError("")
+    // Les deux capacités ne sont ENVOYÉES que par un administrateur.
+    // Les omettre n'est pas une politesse : côté serveur, une clé
+    // absente laisse la colonne en place, une clé à `false` l'écrase —
+    // un gestionnaire corrigeant une adresse retirerait sinon
+    // l'arbitrage roadmap de la personne éditée sans s'en apercevoir.
+    const payload = {
+      fullName: form.fullName, email: form.email, role: form.role,
+      password: form.password, confirmPassword: form.confirmPassword,
+      active: form.active, organizationIds: form.organizationIds,
+      ...(canGrantCapabilities
+        ? { canManageRoadmap: form.canManageRoadmap, canManageUsers: form.canManageUsers }
+        : {}),
+    }
     startTransition(async () => {
-      const res = isEdit ? await updateUser(user!.id, form) : await createUser(form)
+      const res = isEdit ? await updateUser(user!.id, payload) : await createUser(payload)
       if (res.ok) router.push("/admin/utilisateurs")
       else setError(res.error ?? "Une erreur est survenue.")
     })
@@ -125,22 +148,51 @@ export default function UserForm({ user, canCreateAdmin, organizations = [] }: {
             <span className="block text-xs" style={{ color: "#66716B" }}>Un compte désactivé ne peut plus se connecter.</span>
           </span>
         </label>
-        {/* Gouvernance produit : ni un droit projet, ni de
-            l'administration technique. Une capacité cochée, pour ne pas
+        {/* Les CAPACITÉS de profil : ni des droits projet, ni de
+            l'administration technique. Des cases à cocher, pour ne pas
             avoir à inventer un rôle intermédiaire — c'est ce mélange qui
             avait donné la console d'administration à qui n'en avait pas
-            l'usage. */}
-        <label className="flex items-start gap-2.5 cursor-pointer mt-3">
-          <input type="checkbox" checked={form.canManageRoadmap}
-            onChange={e => setForm({ ...form, canManageRoadmap: e.target.checked })} className="mt-0.5" />
-          <span>
-            <span className="text-sm font-medium" style={{ color: "#17211D" }}>Arbitrage de la roadmap</span>
-            <span className="block text-xs" style={{ color: "#66716B" }}>
-              Peut changer le statut, la priorité et la difficulté des idées (rôle Product Owner).
-              N&apos;ouvre aucun accès à l&apos;administration.
-            </span>
-          </span>
-        </label>
+            l'usage (0037). Leur ATTRIBUTION reste à l'administrateur :
+            qui distribue les droits distribuerait le sien. */}
+        {canGrantCapabilities && (
+          <>
+            <label className="flex items-start gap-2.5 cursor-pointer mt-3">
+              <input type="checkbox" checked={form.canManageRoadmap}
+                onChange={e => setForm({ ...form, canManageRoadmap: e.target.checked })} className="mt-0.5" />
+              <span>
+                <span className="text-sm font-medium" style={{ color: "#17211D" }}>Arbitrage de la roadmap</span>
+                <span className="block text-xs" style={{ color: "#66716B" }}>
+                  Peut changer le statut, la priorité et la difficulté des idées (rôle Product Owner).
+                  N&apos;ouvre aucun accès à l&apos;administration.
+                </span>
+              </span>
+            </label>
+            {/* Le libellé dit ce que la case donne ET ce qu'elle ne donne
+                pas. Une aide qui n'énonce que le droit accordé laisse
+                l'administrateur deviner le reste — et c'est en devinant
+                qu'on avait fini par accorder le rôle « admin » à qui ne
+                demandait qu'à créer des comptes. */}
+            <label className="flex items-start gap-2.5 cursor-pointer mt-3">
+              <input type="checkbox" checked={form.canManageUsers}
+                onChange={e => setForm({ ...form, canManageUsers: e.target.checked })} className="mt-0.5" />
+              <span>
+                <span className="text-sm font-medium" style={{ color: "#17211D" }}>Gestion des comptes</span>
+                <span className="block text-xs" style={{ color: "#66716B" }}>
+                  Ouvre Administration ▸ Utilisateurs, et rien d&apos;autre : créer un compte,
+                  modifier son nom, son adresse, son mot de passe et son statut actif,
+                  le rattacher à des organisations (ce qui élargit les projets qu&apos;il voit),
+                  le supprimer s&apos;il n&apos;a laissé aucune trace.
+                </span>
+                <span className="block text-xs mt-1" style={{ color: "#B4690E" }}>
+                  N&apos;ouvre pas Configuration, Stockage ni Accès &amp; rôles, ne montre pas les projets
+                  des autres. Ne permet ni de nommer un Administrateur, ni de toucher au compte
+                  d&apos;un Administrateur, ni de cocher ces deux cases pour quiconque,
+                  ni d&apos;anonymiser un compte : cela reste à vous.
+                </span>
+              </span>
+            </label>
+          </>
+        )}
       </div>
       {error && <p className="text-sm rounded-lg px-3 py-2" style={{ background: "#F6E7E5", color: "#A3342C" }}>{error}</p>}
       <div className="flex items-center gap-3 pt-2">
