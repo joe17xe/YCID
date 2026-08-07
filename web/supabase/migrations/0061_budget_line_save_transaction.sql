@@ -1,5 +1,5 @@
 -- ============================================================
--- 0053 — Enregistrer une ligne budgétaire détruisait sa répartition
+-- 0061 — Enregistrer une ligne budgétaire détruisait sa répartition
 --        avant de savoir si l'enregistrement allait réussir
 -- ============================================================
 -- `saveBudgetLine` (app/(app)/projets/[id]/actions.ts), branche
@@ -65,13 +65,13 @@
 -- Les `security definer` déjà en place dans ce dépôt le sont toutes pour
 -- une raison qu'on ne retrouve PAS ici : lire `storage.objects`, hors de
 -- portée de l'appelant (0034) ; sortir une lecture du corps d'une policy
--- pour ne pas la faire boucler (0045, 0051) ; s'assurer qu'un droit de
--- lecture manquant ne se lise pas comme « rien à conserver » (0051).
+-- pour ne pas la faire boucler (0045, 0059) ; s'assurer qu'un droit de
+-- lecture manquant ne se lise pas comme « rien à conserver » (0059).
 -- Aucune ne s'applique à une écriture ordinaire de ligne budgétaire.
 --
 -- CE QUE `security invoker` COÛTE, et comment on le paie. Un `delete` ou
 -- un `update` ÉCARTÉ par la RLS ne lève aucune erreur : il touche zéro
--- ligne et répond « succès » (le même piège que la 0051 documente pour
+-- ligne et répond « succès » (le même piège que la 0059 documente pour
 -- la suppression d'une pièce). Une fonction qui se contenterait
 -- d'enchaîner les ordres rendrait donc « enregistré » à quelqu'un dont
 -- rien n'a été écrit. Les deux contrôles ci-dessous — `row_count` après
@@ -281,7 +281,7 @@ begin
 end;
 $$;
 
--- Même verrou que `document_has_decision` (0051) : la fonction n'est
+-- Même verrou que `document_has_decision` (0059) : la fonction n'est
 -- offerte qu'aux comptes authentifiés. C'est une formalité tant qu'elle
 -- reste `security invoker` — elle ne peut rien faire que son appelant ne
 -- puisse déjà faire — mais elle vaut pour le jour où quelqu'un la

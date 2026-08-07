@@ -93,12 +93,28 @@ function balanced(src, open, [o, c]) {
 // par accident.
 function declarationMentionsValorisation(src, name) {
   const m = src.match(new RegExp(`\\bconst\\s+${name}\\b[^\\n]*(\\n[^\\n]*){0,2}`))
-  return !!m && m[0].includes('is_valorisation')
+  return !!m && /valo/i.test(m[0])
 }
 
 // La question a-t-elle été posée quelque part sur ce calcul ?
+//
+// On accepte AUSSI le radical « valo » seul, et pas uniquement le nom de
+// colonne : le drapeau se transporte souvent dans une propriété locale
+// plutôt que dans la colonne d'origine. L'export CSV du budget en est le
+// cas d'école — il empile `{ valo: l.is_valorisation, fin }` puis totalise
+// `fins.filter(f => !f.valo)`. Le calcul est JUSTE, et la première version
+// de ce contrôle le signalait quand même : un garde-fou qui accuse du code
+// correct s'apprend à ignorer, et ne protège alors plus rien.
+//
+// L'élargissement ne coûte pas la détection : le défaut d'origine
+// (`for (const l of budgetLines)` qui somme sans distinguer) ne prononce
+// « valo » nulle part, ni dans la liste parcourue ni dans le corps. Ce
+// qu'on relâche, c'est l'exigence d'écrire le nom COMPLET de la colonne ;
+// ce qu'on garde, c'est l'exigence d'avoir posé la question.
+const MENTIONS_VALO = /valo/i
+
 function isAware(src, source, body) {
-  if (`${source}\n${body}`.includes('is_valorisation')) return true
+  if (MENTIONS_VALO.test(`${source}\n${body}`)) return true
   return (source.match(/[A-Za-z_$][\w$]*/g) ?? [])
     .some(id => declarationMentionsValorisation(src, id))
 }

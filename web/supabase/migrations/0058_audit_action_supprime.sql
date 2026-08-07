@@ -1,5 +1,5 @@
 -- ============================================================
--- 0050 — « supprime » manquait à l'enum : AUCUNE suppression n'était tracée
+-- 0058 — « supprime » manquait à l'enum : AUCUNE suppression n'était tracée
 -- ============================================================
 -- La 0001 (l.31) a déclaré les actions du journal d'audit :
 --

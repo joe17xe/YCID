@@ -43,7 +43,7 @@ export const NAV_GROUPS: NavGroup[] = [
 // Les icônes seules vivent ici — un composant ne traverse pas la
 // frontière serveur/client. Les clés et les chemins viennent de
 // `lib/admin-nav.ts`, que le layout serveur interroge pour décider QUI
-// voit QUOI, entrée par entrée (0057). `Record<AdminNavKey, …>` fait
+// voit QUOI, entrée par entrée (0065). `Record<AdminNavKey, …>` fait
 // échouer la compilation si une entrée est ajoutée d'un côté et oubliée
 // de l'autre — c'est ce qui a rattrapé « Programmes » (0055) lors de la
 // reprise sur master.

@@ -61,7 +61,7 @@ export const getPlatformSettings = cache(async (): Promise<PlatformSettings> => 
 })
 
 // ============================================================
-// Durées de conservation (migration 0056)
+// Durées de conservation (migration 0064)
 // ============================================================
 // `legalRetention`, juste au-dessus, est une PHRASE : un texte libre que
 // la page de confidentialité réaffiche. Rien ne l'applique. Ce qui suit
@@ -76,14 +76,14 @@ export type { RetentionPolicy } from '@/lib/retention'
 export { formatRetentionDays } from '@/lib/retention'
 
 // Retourne `null` — et non un tableau vide — quand la table n'existe pas
-// encore (0056 non appliquée). La distinction est le cœur du sujet : un
+// encore (0064 non appliquée). La distinction est le cœur du sujet : un
 // tableau vide se lirait « aucune donnée n'est purgée », et la page
 // afficherait une politique de conservation vide comme si c'en était
 // une. `null` fait retirer la section entière, c'est-à-dire ne rien
 // promettre — la règle du dépôt : soit on livre, soit on retire la
 // phrase.
 //
-// Lecture PUBLIQUE : la policy « Retention policies read » (0056) rend
+// Lecture PUBLIQUE : la policy « Retention policies read » (0064) rend
 // la table lisible sans connexion, parce que /confidentialite l'est.
 export const getRetentionPolicies = cache(async (): Promise<RetentionPolicy[] | null> => {
   try {

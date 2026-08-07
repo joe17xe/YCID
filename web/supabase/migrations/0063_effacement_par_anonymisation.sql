@@ -1,5 +1,5 @@
 -- ============================================================
--- 0055 — On promettait l'effacement à des personnes, et la base le refusait
+-- 0063 — On promettait l'effacement à des personnes, et la base le refusait
 -- ============================================================
 -- `app/confidentialite/page.tsx` annonce, en toutes lettres, à qui vient
 -- lire ses droits :
@@ -171,7 +171,7 @@ create sequence if not exists profiles_anonymized_seq start with 1000;
 -- pas membre, par exemple). Un `security invoker` rendrait un compte
 -- PARTIEL — « 3 traces » au lieu de 42 — c'est-à-dire un chiffre faux
 -- présenté comme un inventaire, juste avant une opération irréversible.
--- C'est le même raisonnement que la 0051 : un droit de lecture manquant
+-- C'est le même raisonnement que la 0059 : un droit de lecture manquant
 -- ne doit pas se lire comme « rien à conserver ». Le privilège est donc
 -- nécessaire, et il est immédiatement borné par `is_admin()`.
 --
@@ -245,7 +245,7 @@ $$;
 -- opération qu'on ne peut pas défaire.
 --
 -- `security definer`, et il faut le justifier parce que le dépôt s'est
--- imposé de le faire (0053) : AUCUNE policy ne permet à un administrateur
+-- imposé de le faire (0061) : AUCUNE policy ne permet à un administrateur
 -- de modifier le profil d'AUTRUI. « Own profile » (0001) couvre
 -- `id = auth.uid()`, les trois autres sont des `select`. C'est d'ailleurs
 -- pourquoi `user-actions.ts` passe par la clé de service pour écrire un
@@ -375,7 +375,7 @@ begin
   if v_number is null then
     raise exception 'Aucun numéro de pierre tombale disponible après 1000 essais : la séquence '
       'profiles_anonymized_seq est très en arrière des comptes déjà anonymisés. '
-      'La recaler (la requête figure au bas de la migration 0055), puis recommencer.';
+      'La recaler (la requête figure au bas de la migration 0063), puis recommencer.';
   end if;
   v_name := 'Utilisateur supprimé #' || v_number;
 
@@ -427,8 +427,8 @@ begin
 end;
 $$;
 
--- Même verrou que `document_has_decision` (0051) et `save_budget_line`
--- (0053) : ces fonctions ne sont offertes qu'aux comptes authentifiés.
+-- Même verrou que `document_has_decision` (0059) et `save_budget_line`
+-- (0061) : ces fonctions ne sont offertes qu'aux comptes authentifiés.
 -- Ici ce n'est pas une formalité — elles sont `security definer`, donc
 -- hors RLS, et l'une des deux anonymise. Leur seule défense de fond est
 -- `is_admin()`, qui rend faux pour un appelant sans session ; ce
@@ -437,7 +437,7 @@ $$;
 -- `anon` est NOMMÉ, et ce n'est pas une redondance. On a d'abord écrit
 -- ici que « `public` inclut le rôle `anon` » : c'est FAUX sur Supabase,
 -- et l'erreur a été prise en flagrant délit sur un cluster d'essai (la
--- migration 0056 l'a mesurée). `public` est le pseudo-rôle par défaut ;
+-- migration 0064 l'a mesurée). `public` est le pseudo-rôle par défaut ;
 -- `anon` est un rôle réel à qui la plateforme accorde l'exécution par un
 -- `alter default privileges` distinct. Après le seul
 -- `revoke ... from public`, l'ACL portait encore `anon=X` — le verrou

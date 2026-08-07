@@ -20,7 +20,7 @@ export interface AdminUserRow {
   organizations: string[]
   canManageRoadmap: boolean
   canManageUsers: boolean
-  // Effacement RGPD par anonymisation (migration 0055)
+  // Effacement RGPD par anonymisation (migration 0063)
   anonymizedAt: string | null
   confirmationTarget: string
   canAnonymize: boolean
@@ -52,7 +52,7 @@ function DeleteButton({ user }: { user: AdminUserRow }) {
 }
 
 // ============================================================
-// Effacement RGPD par anonymisation (migration 0055)
+// Effacement RGPD par anonymisation (migration 0063)
 // ============================================================
 // Deux temps, comme la suppression de projet : d'abord CE QUE ÇA FAIT,
 // ensuite la recopie. Ce qui change ici, et qui compte : le premier

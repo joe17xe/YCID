@@ -9,7 +9,7 @@ import { getAiConfigPublic, AI_PROVIDERS } from "@/lib/ai-settings"
 // Le fournisseur IA est nommé dynamiquement : c'est un sous-traitant au
 // sens du RGPD, il doit figurer dans la liste (rapport de test, point 21).
 //
-// RÈGLE DE CETTE PAGE, posée par la 0056 : elle ne décrit QUE ce que le
+// RÈGLE DE CETTE PAGE, posée par la 0064 : elle ne décrit QUE ce que le
 // code fait. Toute phrase qui décrivait un comportement inexistant a été
 // retirée ou remplacée par ce qui existe réellement — parce que c'est la
 // personne concernée qui lit cette page, et la CNIL qui la relira.
@@ -28,7 +28,7 @@ export default async function ConfidentialitePage() {
   const [s, ai, retention] = await Promise.all([
     getPlatformSettings(), getAiConfigPublic(), getRetentionPolicies(),
   ])
-  // `null` = migration 0056 non appliquée. La section n'annonce alors
+  // `null` = migration 0064 non appliquée. La section n'annonce alors
   // AUCUNE durée : ne rien promettre est la seule chose vraie tant que
   // rien ne purge. C'est la règle du dépôt — soit on livre, soit on
   // retire la phrase — appliquée au repli et pas seulement au cas
@@ -80,7 +80,7 @@ export default async function ConfidentialitePage() {
               <li><strong>Compte utilisateur</strong> : nom, adresse email, photo de profil (facultative), rôle sur la plateforme.</li>
               <li><strong>Données projets</strong> : tâches, budgets, indicateurs, réunions, décisions, documents importés — saisis par les organisations partenaires.</li>
               <li><strong>Journal d&apos;activité</strong> : certaines actions sensibles (ex. modification d&apos;une tâche terminée) sont tracées à des fins d&apos;audit.</li>
-              {/* Ajoutés par la 0056 : la section « Durée de
+              {/* Ajoutés par la 0064 : la section « Durée de
                   conservation » annonce des durées pour ces données ;
                   les taire ici ferait annoncer la conservation de
                   quelque chose dont on n'a jamais dit qu'on le
@@ -150,7 +150,7 @@ export default async function ConfidentialitePage() {
                 dont les modèles « :free » d'OpenRouter proposés par
                 défaut dans la configuration, ne l'excluent pas. Une page
                 de confidentialité qui promet à la place d'un contrat est
-                exactement ce que la 0056 a entrepris de retirer d'ici. */}
+                exactement ce que la 0064 a entrepris de retirer d'ici. */}
             {ai.hasKey && (
               <>
                 <p className="text-sm" style={p}>

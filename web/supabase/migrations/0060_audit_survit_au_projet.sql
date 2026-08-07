@@ -1,5 +1,5 @@
 -- ============================================================
--- 0052 — Supprimer un projet effaçait aussi TOUT son journal d'audit
+-- 0060 — Supprimer un projet effaçait aussi TOUT son journal d'audit
 -- ============================================================
 -- `deleteProject` (app/(app)/projets/[id]/actions.ts) est l'opération la
 -- plus destructrice de l'application : elle emporte en cascade les
@@ -159,7 +159,7 @@ alter table audit_log drop constraint if exists audit_log_project_id_fkey;
 -- ne correspondant à aucun projet et le prendra pour une corruption.
 comment on column audit_log.project_id is
   'Identifiant du projet concerné, ou null pour une trace hors projet (purge du stockage). '
-  'Volontairement SANS clé étrangère depuis la 0052 : le journal survit au projet supprimé, '
+  'Volontairement SANS clé étrangère depuis la 0060 : le journal survit au projet supprimé, '
   'et la trace de cette suppression porte l''identifiant d''un projet qui n''existe plus. '
   'Un projet absent de la table projects n''est donc pas une anomalie.';
 
@@ -192,7 +192,7 @@ comment on column audit_log.project_id is
 -- l'identifiant du projet serait rejetée (23503) ; l'action retombe
 -- alors sur `project_id: null` pour qu'il reste au moins l'événement, et
 -- le journal serveur porte le repli en clair. Un `[audit] SUPPRESSION
--- NON TRACÉE` ou un repli signalé après application de la 0052 veut dire
+-- NON TRACÉE` ou un repli signalé après application de la 0060 veut dire
 -- autre chose — à lire, pas à ignorer.
 
 -- ------------------------------------------------------------
@@ -234,7 +234,7 @@ comment on column audit_log.project_id is
 --       order by at desc limit 5;
 --
 --    · la trace y figure, avec l'identifiant en clair dans `comment` :
---      le repli d'ordre de déploiement a joué (voir ci-dessus) — la 0052
+--      le repli d'ordre de déploiement a joué (voir ci-dessus) — la 0060
 --      n'était pas appliquée au moment du clic. L'événement est
 --      conservé, son rattachement non ; l'historique antérieur, lui, a
 --      été emporté par la cascade encore en vigueur.

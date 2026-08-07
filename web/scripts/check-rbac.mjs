@@ -20,7 +20,7 @@
 // que rien ne l'obligeait à regarder partout. Les écritures promises à
 // ce rôle étaient refusées par la RLS, la moitié d'entre elles en
 // silence (un `update` écarté touche zéro ligne et répond « succès »).
-// La 0054 aligne le SQL ; les contrôles 5 et 6 ci-dessous ferment le
+// La 0062 aligne le SQL ; les contrôles 5 et 6 ci-dessous ferment le
 // silence qui l'avait rendu possible :
 //
 //   5. toute capacité qui accorde un rôle doit DÉCLARER sa règle SQL ;
@@ -174,7 +174,7 @@ const roleLists = (body) =>
 
 // La règle SQL opposable pour chaque capacité qui accorde des rôles.
 // Cette table ne comptait que TROIS lignes, et c'est précisément ce qui
-// a laissé passer l'écart de la 0054 : `referent_mairie` recevait sept
+// a laissé passer l'écart de la 0062 : `referent_mairie` recevait sept
 // capacités dans la matrice sans figurer dans aucune policy
 // correspondante, et le contrôle restait au vert parce qu'il ne
 // regardait pas de ce côté. Le contrôle 5 ci-dessous interdit désormais
@@ -184,7 +184,7 @@ const SQL_RULES = [
   // `projets.update` écrit DEUX tables : changer l'organisation porteuse
   // de la fiche doit faire suivre le rôle « porteur » du rattachement,
   // sans quoi l'écran et le circuit de validation désignent deux
-  // organisations différentes (0054).
+  // organisations différentes (0062).
   { capability: 'projets.update', policy: 'Manage project orgs', table: 'project_organizations' },
   { capability: 'phases.manage', policy: 'Chef manage phases', table: 'phases' },
   { capability: 'membres.manage', policy: 'Manage project members', table: 'project_members' },
@@ -235,7 +235,7 @@ for (const rule of SQL_RULES) {
 // ------------------------------------------------------------
 // 5. Toute capacité qui accorde des rôles a sa règle SQL déclarée
 // ------------------------------------------------------------
-// LE CONTRÔLE QUI MANQUAIT. L'écart de la 0054 n'était pas une
+// LE CONTRÔLE QUI MANQUAIT. L'écart de la 0062 n'était pas une
 // contradiction entre deux listes — le contrôle 4 l'aurait vue — mais un
 // SILENCE : sept capacités de la matrice ne pointaient vers aucune règle
 // SQL, donc personne ne les comparait à rien. Un garde-fou qui ne vérifie
@@ -290,9 +290,24 @@ const HORS_MATRICE = new Map([
   ['budget_categories|Manage budget categories',
    'Référentiel des catégories budgétaires (0006) — la matrice ne décrit aucune capacité de paramétrage de projet'],
   ['documents|Delete documents',
-   'Supprimer une pièce NON décidée (0051) — la matrice décrit le dépôt, pas la suppression'],
+   'Supprimer une pièce NON décidée (0059) — la matrice décrit le dépôt, pas la suppression'],
   ['validations|Delete validation',
-   'Supprimer une validation non décidée (0051) — même trou que ci-dessus, et même arbitrage à rendre'],
+   'Supprimer une validation non décidée (0059) — même trou que ci-dessus, et même arbitrage à rendre'],
+  // Les deux suivantes ne sont pas de notre fait : elles arrivent des 53
+  // commits que `master` a pris pendant ce lot, et ce contrôle — écrit
+  // ici même — les découvre au premier passage. C'est exactement son
+  // office, et c'est la preuve qu'il regarde ailleurs que dans nos
+  // propres ajouts.
+  //
+  // Elles sont déclarées ici, PAS rattachées à une capacité inventée :
+  // décider quelle capacité porte « qui rattache une ville à un projet »
+  // ou « qui invite à une réunion » est un arbitrage produit, et un
+  // garde-fou qui invente la réponse qu'il est censé vérifier ne vérifie
+  // plus rien. À rendre par YCID, puis à déplacer dans SQL_RULES.
+  ['project_cities|Editors manage project cities',
+   'Villes rattachées à un projet (0050, amont) — aucune capacité ne décrit ce geste ; arbitrage produit en attente'],
+  ['meeting_participants|Editors manage meeting participants',
+   'Invités d’une réunion (0051, amont) — `copil.manage` couvre la réunion, pas la liste des invités ; arbitrage produit en attente'],
 ])
 const claimed = new Set(SQL_RULES.filter(r => r.policy).map(r => `${r.table}|${r.policy}`))
 for (const [key, e] of livePolicies) {
@@ -342,7 +357,7 @@ for (const cmd of ['insert', 'update', 'delete']) {
 // ------------------------------------------------------------
 // Troisième forme de droit du produit, à côté du rôle projet et du rôle
 // plateforme : une case sur `profiles`. `can_manage_roadmap` (0037) puis
-// `can_manage_users` (0057). Elles n'apparaissent dans AUCUNE colonne de
+// `can_manage_users` (0065). Elles n'apparaissent dans AUCUNE colonne de
 // la matrice — elles ne s'accordent par aucun rôle — et jusqu'ici aucun
 // contrôle ne les regardait. Ce silence a coûté cher, et pas en théorie :
 //
@@ -352,7 +367,7 @@ for (const cmd of ['insert', 'update', 'delete']) {
 //     propre ligne : N'IMPORTE QUEL COMPTE pouvait donc se cocher
 //     l'arbitrage de la roadmap d'une requête. Une capacité qui
 //     s'auto-attribue n'est pas une capacité ;
-//   · `anonymize_profile` (0055) remet les capacités à faux une par une,
+//   · `anonymize_profile` (0063) remet les capacités à faux une par une,
 //     à la main. En ajouter une sans y penser laisse un compte anonymisé
 //     porteur d'un pouvoir — au sens propre, une personne effacée qui
 //     continue d'arbitrer.

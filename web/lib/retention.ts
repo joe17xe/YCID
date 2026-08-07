@@ -1,5 +1,5 @@
 // ============================================================
-// Conservation des données (0056) — la part sans base de données
+// Conservation des données (0064) — la part sans base de données
 // ============================================================
 // Ce module ne contient QUE du calcul pur : un type et une mise en
 // forme. Il existe pour une raison mécanique, et il vaut mieux l'écrire

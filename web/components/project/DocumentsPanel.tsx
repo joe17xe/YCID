@@ -65,7 +65,7 @@ export default function DocumentsPanel({ projectId, projectName, docs, canManage
   // `ProjectDoc` porte le nom, la nature, le montant — pas les
   // validations : la vue centralisée liste des pièces, elle n'affiche pas
   // de circuit. Elle ne peut donc pas deviner qu'un devis a été refusé,
-  // ni qu'à ce titre il n'est plus supprimable (0051). Sans cette
+  // ni qu'à ce titre il n'est plus supprimable (0059). Sans cette
   // réponse, la corbeille serait proposée sur des pièces que la base
   // garde — un bouton mort par ligne, sur la vue qui en compte le plus.
   //
@@ -310,7 +310,7 @@ export default function DocumentsPanel({ projectId, projectName, docs, canManage
                   <td data-label="Par" className="px-4 py-3 text-xs" style={{ color: "#66716B" }}>{d.uploaderName ?? "—"}</td>
                   <td data-label="Action" className="px-4 py-3">
                     {/* Pièce décidée : la corbeille ordinaire s'efface —
-                        la base la refuserait (0051) et un bouton qui ne
+                        la base la refuserait (0059) et un bouton qui ne
                         peut que refuser est un bouton mort. Reste la
                         purge, nommée, et pour le seul administrateur.
                         Tant que l'état n'est pas revenu du serveur, on

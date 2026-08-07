@@ -303,7 +303,7 @@ export async function deleteTask(input: { taskId: string; projectId: string }): 
   // c'est une confusion de plus.
   //
   // Mais on ne se contente plus de dire QUE la trace a échoué. Jusqu'à
-  // la 0050, cette ligne de log affichait le message de PostgreSQL et
+  // la 0058, cette ligne de log affichait le message de PostgreSQL et
   // rien d'autre : même en la lisant, on ne savait pas quelle
   // suppression n'avait pas été inscrite. Elle porte désormais TOUT ce
   // que la trace aurait porté. Après une suppression, c'est le dernier
@@ -373,7 +373,7 @@ const plural = (n: number) => (n > 1 ? 's' : '')
 // Les deux suppressions qui suivent ont d'abord tracé `archive`, faute
 // de mieux : `supprime` n'existait pas dans l'enum `audit_action`
 // (0001:31), et les trois appels qui l'employaient déjà voyaient leur
-// insert rejeté par PostgreSQL. La 0050 ajoute la valeur ; le
+// insert rejeté par PostgreSQL. La 0058 ajoute la valeur ; le
 // contournement est levé, ici comme ailleurs — devant un financeur,
 // « archivé » et « supprimé » ne désignent pas le même geste, et une
 // phase supprimée ne se retrouve dans aucune archive.
@@ -661,7 +661,7 @@ export async function saveBudgetLine(input: BudgetLineInput): Promise<{ ok: bool
   }
 
   // Appartenance vérifiée avant tout appel : un lineId d'un autre projet
-  // sort sur « introuvable ». La 0053 refait ce contrôle — elle est
+  // sort sur « introuvable ». La 0061 refait ce contrôle — elle est
   // atteignable sans passer par cet écran — mais c'est ici qu'il rend le
   // message lisible.
   if (input.lineId) {
@@ -670,7 +670,7 @@ export async function saveBudgetLine(input: BudgetLineInput): Promise<{ ok: bool
   }
 
   // ----------------------------------------------------------
-  // Un seul appel, une seule transaction (migration 0053)
+  // Un seul appel, une seule transaction (migration 0061)
   // ----------------------------------------------------------
   // Cette branche tenait en trois requêtes : purger `budget_line_tasks`,
   // écrire la ligne, réinsérer la répartition. Trois requêtes HTTP,
@@ -694,7 +694,7 @@ export async function saveBudgetLine(input: BudgetLineInput): Promise<{ ok: bool
   // L'ordre purge-puis-écriture n'était pas le problème et n'a pas
   // changé : le trigger refuserait une baisse de montant ou un
   // changement de phase en voyant encore l'ancienne répartition. Ce qui
-  // manquait, c'est la transaction — elle est dans la 0053, avec le
+  // manquait, c'est la transaction — elle est dans la 0061, avec le
   // raisonnement complet, y compris pourquoi la fonction est
   // `security invoker` et non `security definer`.
   const { data: saved, error: saveErr } = await supabase.rpc('save_budget_line', {
@@ -720,15 +720,15 @@ export async function saveBudgetLine(input: BudgetLineInput): Promise<{ ok: bool
     // 0021 dans `setPublicPage`. Rien n'a été écrit, et c'est le bon
     // sens de l'erreur : un blocage, pas une perte.
     if (saveErr.code === 'PGRST202') {
-      console.error('[budget] save_budget_line introuvable — 0053 non appliquée, ou cache de schéma PostgREST périmé :', saveErr.message)
+      console.error('[budget] save_budget_line introuvable — 0061 non appliquée, ou cache de schéma PostgREST périmé :', saveErr.message)
       return {
         ok: false,
-        error: "Enregistrement impossible : la migration 0053_budget_line_save_transaction.sql n'est pas appliquée sur cette base "
+        error: "Enregistrement impossible : la migration 0061_budget_line_save_transaction.sql n'est pas appliquée sur cette base "
           + "(ou l'API n'a pas rechargé son schéma). Rien n'a été modifié. Signalez-le à l'administrateur, puis recommencez.",
       }
     }
     // Le message dit désormais quelque chose de VRAI, et c'est tout
-    // l'objet de la 0053 : l'échec n'a rien laissé derrière lui.
+    // l'objet de la 0061 : l'échec n'a rien laissé derrière lui.
     return {
       ok: false,
       error: `${input.lineId ? 'Échec de la modification' : 'Échec de la création'} : ${saveErr.message}`
@@ -1662,7 +1662,7 @@ export async function setPublicPage(projectId: string, enabled: boolean): Promis
 // oubli d'inattention : la 0016 avait posé `audit_log.project_id ... on
 // delete cascade`, qui détruisait le journal du projet avec lui et
 // faisait rejeter (23503) toute trace insérée après coup sous son
-// identifiant. La 0052 retire cette clé étrangère et explique
+// identifiant. La 0060 retire cette clé étrangère et explique
 // longuement pourquoi ce geste-là plutôt qu'un autre.
 //
 // Ce qui n'est PAS ajouté ici, et le mérite d'être dit : aucun refus sur
@@ -1792,7 +1792,7 @@ export async function deleteProject(input: { projectId: string; confirmation: st
   // `ok: false` ferait croire à l'administrateur qu'il est encore là.
   //
   // Le repli, lui, ne vaut que le temps d'un déploiement. Tant que la
-  // 0052 n'est pas appliquée, `audit_log.project_id` référence encore
+  // 0060 n'est pas appliquée, `audit_log.project_id` référence encore
   // `projects(id)` : la trace ci-dessus, portant l'identifiant d'un
   // projet qui vient de disparaître, se fait rejeter (23503). Plutôt que
   // de tout perdre au pire moment, on réinscrit la MÊME trace avec
@@ -1800,10 +1800,10 @@ export async function deleteProject(input: { projectId: string; confirmation: st
   // Elle perd son rattachement, pas son contenu : l'identifiant reste
   // écrit en toutes lettres dans le commentaire. Le journal serveur dit
   // que le repli a joué, parce qu'une trace détachée après application
-  // de la 0052 signifierait tout autre chose.
+  // de la 0060 signifierait tout autre chose.
   if (auditErr) {
     if (auditErr.code === '23503') {
-      console.error('[audit] 0052 non appliquée — trace de suppression détachée du projet :', input.projectId)
+      console.error('[audit] 0060 non appliquée — trace de suppression détachée du projet :', input.projectId)
       const { error: retryErr } = await supabase.from('audit_log').insert({ ...trace, project_id: null })
       if (retryErr) {
         console.error('[audit] SUPPRESSION NON TRACÉE — à réinscrire à la main :',

@@ -81,7 +81,7 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
   const [proxy, setProxy] = useState<{ id: string; decision: "valide" | "refuse"; orgName: string } | null>(null)
   const [proxyReason, setProxyReason] = useState("")
   // Purge d'une pièce décidée : le message vient du SERVEUR, qui seul a
-  // compté ce qu'elle emporte (0051). L'écran ne le reformule pas.
+  // compté ce qu'elle emporte (0059). L'écran ne le reformule pas.
   const [purging, setPurging] = useState<{ id: string; message: string } | null>(null)
   // Qui peut purger est un rôle PLATEFORME : rien dans les données de la
   // ligne ne le dit. On le demande, sinon il n'y aurait que deux issues,
@@ -137,7 +137,7 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
   // ------------------------------------------------------------
   // Ce qui a été JUGÉ ne s'efface plus
   // ------------------------------------------------------------
-  // Même ligne de partage que la policy « Delete documents » (0051) et
+  // Même ligne de partage que la policy « Delete documents » (0059) et
   // que `deleteDocument` : une pièce sur laquelle une organisation s'est
   // prononcée — validée OU refusée — ne se retire plus d'un clic, parce
   // que la décision est ce qui justifie la dépense devant le financeur.
@@ -465,7 +465,7 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
                         l&apos;engagé.{" "}
                         {/* « Retirez-le » n'est plus vrai une fois qu'une
                             organisation s'est prononcée : la pièce est
-                            conservée (0051). Indiquer un geste devenu
+                            conservée (0059). Indiquer un geste devenu
                             impossible ferait chercher un bouton qui n'existe
                             plus, et le remède est de toute façon le même
                             qu'ailleurs — un nouveau devis. */}

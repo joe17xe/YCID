@@ -95,7 +95,7 @@ export default async function AdminAccesPage() {
             rattacher, désactiver un compte ordinaire.
             <span style={{ color: "#B4690E" }}> N&apos;accorde ni le rôle Administrateur, ni le droit de
             toucher au compte d&apos;un administrateur, ni l&apos;attribution des capacités,
-            ni l&apos;anonymisation (0057).</span>
+            ni l&apos;anonymisation (0065).</span>
           </li>
         </ul>
       </div>

@@ -180,7 +180,7 @@ export async function decideValidation(input: {
   // compris un refus par une validation, sans que rien ne le signale.
   //
   // « Retirez le devis et redéposez-le » a cessé d'être vrai avec la
-  // 0051 : une pièce décidée n'est plus supprimable par les rôles
+  // 0059 : une pièce décidée n'est plus supprimable par les rôles
   // ordinaires, précisément pour que cette décision-ci survive. Indiquer
   // une issue devenue impossible enverrait chercher un bouton disparu.
   // Le remède réel n'a pas changé, il est seulement plus simple à dire :
@@ -342,7 +342,7 @@ export async function setDocumentPaid(input: {
 }
 
 // ------------------------------------------------------------
-// Retirer une pièce — et la purge administrateur (0051)
+// Retirer une pièce — et la purge administrateur (0059)
 // ------------------------------------------------------------
 // Trois gestes distincts sous un même bouton corbeille, et c'est le
 // serveur qui dit lequel a lieu :
@@ -361,7 +361,7 @@ export async function setDocumentPaid(input: {
 //      `deleteBudgetLine` (voir DeleteInTwoSteps) : le dialogue n'est pas
 //      le passage obligé d'une suppression, il est la suite d'un refus.
 //
-// La règle de fond vit en RLS (policy « Delete documents », 0051) — elle
+// La règle de fond vit en RLS (policy « Delete documents », 0059) — elle
 // seule est opposable. Ce qui suit ne la double pas : une policy ne sait
 // que rendre `false`, et « refusé » sans motif envoie chercher un droit
 // manquant là où il s'agit d'une règle de conservation. Le contrôle
@@ -511,7 +511,7 @@ export async function deleteDocument(
   // mêmes (`on delete cascade`, 0001:154), et « 2 validations » ne se
   // relit pas six mois plus tard — « refusé par LEY » se relit.
   //
-  // `supprime` était refusé par PostgreSQL jusqu'à la 0050 : la valeur
+  // `supprime` était refusé par PostgreSQL jusqu'à la 0058 : la valeur
   // n'existait pas dans l'enum `audit_action`, et aucune suppression de
   // pièce n'a jamais été tracée. Valeur inchangée, devenue valide.
   const purged = decided.length > 0

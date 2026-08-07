@@ -10,7 +10,7 @@
 // chaîne à recopier, le bouton se déverrouille sur une saisie que le
 // serveur refuse, ou l'inverse.
 //
-// La migration 0055 raconte l'arbitrage complet ; on n'en répète ici que
+// La migration 0063 raconte l'arbitrage complet ; on n'en répète ici que
 // ce dont l'interface a besoin.
 
 // ------------------------------------------------------------
@@ -54,7 +54,7 @@ export function anonymizationConfirmed(target: string, typed: string): boolean {
 // ------------------------------------------------------------
 // Ce que le compte laisse derrière lui, dit en français
 // ------------------------------------------------------------
-// `profile_trace_count()` (0055) rend un détail par CLÉ ÉTRANGÈRE —
+// `profile_trace_count()` (0063) rend un détail par CLÉ ÉTRANGÈRE —
 // « audit_log.user_id: 40 » — parce qu'il le lit dans le catalogue et
 // qu'il n'a pas d'opinion sur le vocabulaire du produit. L'opinion est
 // ici, et elle sert deux fois : sur l'écran de confirmation, et dans le
@@ -101,7 +101,7 @@ export interface TraceCount {
 }
 
 // Normalise ce que rend PostgREST : un jsonb devient un objet, mais rien
-// ne garantit sa forme si la migration 0055 n'est pas celle qu'on croit.
+// ne garantit sa forme si la migration 0063 n'est pas celle qu'on croit.
 export function asTraceCount(raw: unknown): TraceCount {
   const o = (raw ?? {}) as Record<string, unknown>
   const detail: Record<string, number> = {}

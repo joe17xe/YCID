@@ -460,14 +460,14 @@ export async function updateAiPricing(input: { priceIn: string; priceOut: string
 }
 
 // ============================================================
-// Données personnelles (0056) — conservation, purge, export RGPD
+// Données personnelles (0064) — conservation, purge, export RGPD
 // ============================================================
 // Deux sujets dans un seul écran, et c'est délibéré : ce sont les deux
 // obligations que la page /confidentialite annonce (limitation de la
 // durée de conservation, art. 5.1.e ; droit d'accès, art. 15 et 20), et
 // les séparer inviterait à n'en tenir qu'une.
 //
-// Tout passe par les fonctions SQL de la 0056. Rien n'est réimplémenté
+// Tout passe par les fonctions SQL de la 0064. Rien n'est réimplémenté
 // ici : la liste de ce qui se purge et la règle « ne pas déverser les
 // données d'autrui » vivent dans la base, à un seul endroit. Une seconde
 // version côté application dériverait — c'est ce que check-rbac.mjs
@@ -508,7 +508,7 @@ export async function loadRetention(): Promise<{
     // Migration non appliquée : on le dit, plutôt que d'afficher un
     // écran vide qui laisserait croire qu'il n'y a rien à purger.
     if (preview.error) {
-      return { ok: false, error: `Politique de conservation illisible — la migration 0056 est-elle appliquée ? (${preview.error.message})` }
+      return { ok: false, error: `Politique de conservation illisible — la migration 0064 est-elle appliquée ? (${preview.error.message})` }
     }
 
     const rows = ((preview.data ?? []) as {
@@ -563,7 +563,7 @@ export async function updateRetentionPolicy(input: {
     // peut dire ce qui a changé.
     const { data: before } = await supabase.from('retention_policies')
       .select('label, retention_days, enabled').eq('category', input.category).maybeSingle()
-    if (!before) return { ok: false, error: 'Catégorie inconnue. Les catégories sont fixées par la migration 0056.' }
+    if (!before) return { ok: false, error: 'Catégorie inconnue. Les catégories sont fixées par la migration 0064.' }
 
     const { error } = await supabase.from('retention_policies').update({
       retention_days: days,
@@ -619,7 +619,7 @@ export async function runRetentionPurge(dryRun: boolean): Promise<{
       return {
         ok: false,
         error: missing
-          ? 'Purge indisponible : appliquez la migration 0056_retention_et_export_rgpd.sql dans le SQL Editor Supabase.'
+          ? 'Purge indisponible : appliquez la migration 0064_retention_et_export_rgpd.sql dans le SQL Editor Supabase.'
           : `Purge interrompue — rien n'a été supprimé : ${error.message}`,
       }
     }
@@ -637,7 +637,7 @@ export async function runRetentionPurge(dryRun: boolean): Promise<{
 // ------------------------------------------------------------
 // Réservé à l'administrateur : c'est lui qui répond à une demande
 // d'exercice de droits, et c'est lui qui RELIT l'export avant de le
-// transmettre. L'arbitrage complet est écrit en tête de la 0056.
+// transmettre. L'arbitrage complet est écrit en tête de la 0064.
 
 export interface PersonHit { id: string; fullName: string; email: string }
 
@@ -688,7 +688,7 @@ export async function exportPersonData(userId: string): Promise<{
       return {
         ok: false,
         error: missing
-          ? 'Export indisponible : appliquez la migration 0056_retention_et_export_rgpd.sql dans le SQL Editor Supabase.'
+          ? 'Export indisponible : appliquez la migration 0064_retention_et_export_rgpd.sql dans le SQL Editor Supabase.'
           : `Export impossible : ${error.message}`,
       }
     }

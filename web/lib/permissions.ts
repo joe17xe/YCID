@@ -26,7 +26,7 @@ export async function isUserAdmin(supabase: SupabaseClient, userId: string): Pro
 }
 
 // Anonymiser un compte — l'exercice du droit à l'effacement (RGPD
-// art. 17), tel que la migration 0055 le rend possible : l'identité est
+// art. 17), tel que la migration 0063 le rend possible : l'identité est
 // remplacée par une pierre tombale, les traces restent.
 //
 // Nommé plutôt que laissé à `isUserAdmin` sur place, pour deux raisons
@@ -143,7 +143,7 @@ export async function canManageRoadmap(supabase: SupabaseClient, userId: string)
 // confusion que la 0037 avait défaite en retirant le rôle « ycid » ;
 // la refaire pour ouvrir une console reviendrait sur cet arbitrage.
 //
-// CE MIROIR N'EST PAS LA RÈGLE. Le droit opposable vit dans la 0057 :
+// CE MIROIR N'EST PAS LA RÈGLE. Le droit opposable vit dans la 0065 :
 // policy « Manage user accounts » sur `profiles`, policy « Manage user
 // memberships » sur `memberships`, et le trigger `protect_profile_flags`
 // pour tout ce qui relève d'un DELTA (promotion, attribution d'une

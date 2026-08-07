@@ -19,7 +19,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     getPlatformSettings(),
   ])
 
-  // Deux réponses distinctes, et c'est le changement de la 0057 :
+  // Deux réponses distinctes, et c'est le changement de la 0065 :
   //   · `isAdmin` — administre-t-on l'outil ? Sert au badge du Header ;
   //   · `adminNav` — QUELLES entrées d'administration s'affichent. Un
   //     porteur de la capacité « gestion des comptes » n'en voit qu'une.

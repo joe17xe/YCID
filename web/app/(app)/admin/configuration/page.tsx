@@ -23,7 +23,7 @@ const SECTIONS = [
   { key: "email", label: "Email", Icon: Mail },
   { key: "validation", label: "Validation", Icon: GitBranch },
   { key: "legal", label: "Mentions légales", Icon: Scale },
-  // 0056 — la conservation et le droit d'accès. Séparé des mentions
+  // 0064 — la conservation et le droit d'accès. Séparé des mentions
   // légales à dessein : celles-ci sont un TEXTE à publier, ceci est un
   // RÉGLAGE qui détruit des lignes. Les mêler ferait cliquer sur
   // « Purger » celui qui venait corriger une adresse postale.
@@ -172,7 +172,7 @@ export default async function ConfigurationPage({ searchParams }: { searchParams
             : (
               <div className="rounded-xl px-4 py-3 text-sm" style={{ background: "#F7EDDD", color: "#8A6A1F" }}>
                 {retention?.error ?? "Politique de conservation illisible."}
-                {" "}Tant que la migration <code>0056_retention_et_export_rgpd.sql</code> n&apos;est pas appliquée,
+                {" "}Tant que la migration <code>0064_retention_et_export_rgpd.sql</code> n&apos;est pas appliquée,
                 la page Politique de confidentialité n&apos;annonce aucune durée — ce qui est exact,
                 puisque rien ne serait purgé.
               </div>

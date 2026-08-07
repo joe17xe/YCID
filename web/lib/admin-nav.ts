@@ -6,7 +6,7 @@
 // la seule question était « administre-t-on l'outil ? », un booléen
 // suffisait.
 //
-// La capacité « gestion des comptes » (0057) casse cette hypothèse : son
+// La capacité « gestion des comptes » (0065) casse cette hypothèse : son
 // porteur doit voir Utilisateurs, et rien d'autre. Lui ouvrir le bloc
 // lui donnerait Configuration (clés d'IA, SMTP, marque, mentions
 // légales), Stockage et Accès & rôles, que personne n'a demandés — et
@@ -50,7 +50,7 @@ export const ADMIN_NAV_HREFS: Record<AdminNavKey, string> = {
 export interface AdminAccess {
   // Administre l'OUTIL : platform_role = 'admin' (0037).
   isAdmin: boolean
-  // Capacité cochée sur le profil (0057). Vraie aussi pour un
+  // Capacité cochée sur le profil (0065). Vraie aussi pour un
   // administrateur — `canManageUsers` l'inclut — d'où l'ordre des tests
   // ci-dessous.
   canManageUsers: boolean

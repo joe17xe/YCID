@@ -1,5 +1,5 @@
 -- ============================================================
--- 0056 — La durée de conservation était une phrase, pas une règle ;
+-- 0064 — La durée de conservation était une phrase, pas une règle ;
 --        et le droit d'accès n'avait aucun moyen de s'exercer
 -- ============================================================
 -- Deux défauts distincts, une seule cause : la page
@@ -42,10 +42,10 @@
 --
 --   · LE JOURNAL D'AUDIT. Il justifie de l'argent public devant le MEAE
 --     et le Département, et le Product Owner vient de trancher : les
---     traces des décisions et des devis RESTENT. La 0052 va dans le même
+--     traces des décisions et des devis RESTENT. La 0060 va dans le même
 --     sens — elle a retiré la clé étrangère de `audit_log.project_id`
 --     précisément pour que le journal SURVIVE au projet supprimé. Poser
---     ici une purge automatique du journal reviendrait à défaire la 0052
+--     ici une purge automatique du journal reviendrait à défaire la 0060
 --     par un autre chemin, quatre migrations plus loin. La ligne
 --     `audit_log` existe donc dans la table de rétention, mais elle est
 --     LIVRÉE DÉSACTIVÉE, et c'est la seule.
@@ -280,13 +280,13 @@ create policy "Admins read retention runs" on retention_runs
 -- rien : le pire défaut possible n'a plus de chemin pour se produire.
 --
 -- `security definer` — nécessaire, et voici pourquoi, parce que ce dépôt
--- écrit ses fonctions en `security invoker` quand il le peut (0053) :
+-- écrit ses fonctions en `security invoker` quand il le peut (0061) :
 -- `ai_usage` n'a AUCUNE policy d'insertion ni de suppression, et
 -- `notifications` porte « Own notifications ... using (user_id =
 -- auth.uid()) » — un administrateur ne voit donc pas les notifications
 -- des autres. Compter en `security invoker` rendrait zéro partout, et la
 -- purge qui suit ne supprimerait rien en répondant « succès ». C'est
--- exactement le mensonge silencieux que la 0051 et la 0053 documentent.
+-- exactement le mensonge silencieux que la 0059 et la 0061 documentent.
 --
 -- Le privilège est borné par le premier geste du corps : `is_admin()`.
 create or replace function public.retention_preview()
@@ -397,7 +397,7 @@ $$;
 -- d'un administrateur ne supprimerait que SES notifications — « Own
 -- notifications » (0001) filtre sur `user_id = auth.uid()` — et
 -- répondrait « succès ». Un delete écarté par la RLS ne lève aucune
--- erreur : il touche zéro ligne. C'est la panne que la 0051 et la 0053
+-- erreur : il touche zéro ligne. C'est la panne que la 0059 et la 0061
 -- décrivent, ici appliquée à une obligation légale.
 --
 -- ET LA RLS SUR LE PROPRIÉTAIRE ? Vérifié plutôt que supposé, parce que
@@ -528,7 +528,7 @@ begin
         raise exception
           'Catégorie de conservation « % » activée mais sans purge associée : '
           'elle serait annoncée aux personnes concernées sans rien effacer. '
-          'Voir la migration 0056.', r.category;
+          'Voir la migration 0064.', r.category;
     end case;
 
     -- Le contrôle qui rattrape une purge muette. Un `delete` ou un
@@ -596,8 +596,8 @@ begin
 end;
 $$;
 
--- Même verrou que `document_has_decision` (0051) et `save_budget_line`
--- (0053), AVEC UNE LIGNE DE PLUS, et elle mérite son explication parce
+-- Même verrou que `document_has_decision` (0059) et `save_budget_line`
+-- (0061), AVEC UNE LIGNE DE PLUS, et elle mérite son explication parce
 -- qu'elle corrige une croyance répandue :
 --
 --   `revoke all ... from public` NE RETIRE PAS le droit à `anon`.
@@ -1048,7 +1048,7 @@ grant execute on function public.export_person_data(uuid) to authenticated;
 -- Cette migration s'applique AVANT le déploiement applicatif qui
 -- l'accompagne. Dans l'intervalle inverse — application déployée,
 -- migration non appliquée — l'écran Données personnelles affiche
--- « Appliquez la migration 0056 » et la page /confidentialite retombe
+-- « Appliquez la migration 0064 » et la page /confidentialite retombe
 -- sur son texte sans tableau de durées : elle n'annonce alors AUCUNE
 -- durée appliquée, ce qui est exactement vrai tant que la migration
 -- n'est pas là.

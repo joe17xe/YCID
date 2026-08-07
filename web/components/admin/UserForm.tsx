@@ -20,7 +20,7 @@ interface UserData {
 export default function UserForm({ user, canCreateAdmin, canGrantCapabilities, organizations = [] }: {
   user?: UserData; canCreateAdmin: boolean
   // Attribuer une capacité de profil est réservé à l'administrateur
-  // (0057). Le porteur de la capacité « gestion des comptes » remplit
+  // (0065). Le porteur de la capacité « gestion des comptes » remplit
   // ce formulaire sans voir les deux cases : les lui montrer grisées
   // annoncerait un droit qu'il n'a pas, les lui montrer actives ferait
   // échouer l'enregistrement. Le serveur refuse quoi qu'il arrive, et

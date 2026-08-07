@@ -1,5 +1,5 @@
 -- ============================================================
--- 0057 — Gérer les comptes sans administrer l'outil
+-- 0065 — Gérer les comptes sans administrer l'outil
 -- ============================================================
 -- Demande du Product Owner : « donner le droit à certaines personnes
 -- d'ajouter des utilisateurs et d'accéder aux consoles de gestion
@@ -11,7 +11,7 @@
 -- geste, la configuration (clés d'IA, SMTP, marque, mentions légales),
 -- le stockage, la vision de TOUS les projets — `is_admin()` est le seul
 -- raccourci global restant depuis la 0037 — et l'anonymisation, la
--- seule opération irréversible de l'application (0055).
+-- seule opération irréversible de l'application (0063).
 --
 -- C'est exactement la confusion que la 0037 a défaite : elle a séparé
 -- l'APPARTENANCE, le PÉRIMÈTRE et la CAPACITÉ, et retiré le rôle
@@ -48,7 +48,7 @@
 --      roadmap). Qui distribue les droits en distribue le sien : la
 --      capacité se propagerait d'elle-même, sans qu'un administrateur
 --      l'ait jamais décidé ;
---   3. ANONYMISER un compte (0055). Irréversible, et déjà borné par
+--   3. ANONYMISER un compte (0063). Irréversible, et déjà borné par
 --      `is_admin()` dans `anonymize_profile()` — cette migration
 --      s'assure surtout que la capacité n'élargit PAS `is_admin()`.
 --
@@ -72,7 +72,7 @@ comment on column profiles.can_manage_users is
   'CAPACITÉ (pas un rôle) : gérer les comptes — créer, modifier, rattacher, désactiver. '
   'N''ouvre ni la configuration, ni le stockage, ni la vision globale des projets, '
   'ni l''anonymisation. Ne permet ni de promouvoir au rôle admin, ni de toucher à un '
-  'compte administrateur, ni d''attribuer cette capacité : voir la migration 0057.';
+  'compte administrateur, ni d''attribuer cette capacité : voir la migration 0065.';
 
 -- ------------------------------------------------------------
 -- 2. Qui la porte
@@ -103,7 +103,7 @@ set search_path = public as $$
 $$;
 
 -- Le rôle plateforme d'une LIGNE de `profiles` — pas celui de
--- l'appelant. La même expression était recopiée dans la 0037, la 0055 et
+-- l'appelant. La même expression était recopiée dans la 0037, la 0063 et
 -- l'application ; elle est écrite ici une fois, parce que les policies
 -- ci-dessous et le trigger doivent en dire exactement la même chose.
 -- `immutable` : elle ne lit aucune table, elle traduit deux colonnes.
@@ -279,7 +279,7 @@ end;
 $$;
 
 -- Le trigger est déjà posé par la 0006 et `create or replace function`
--- suffit à le mettre à jour. On le repose quand même : la 0057 doit
+-- suffit à le mettre à jour. On le repose quand même : la 0065 doit
 -- pouvoir s'appliquer seule sur une base où quelqu'un aurait, un jour,
 -- supprimé le trigger sans supprimer la fonction.
 drop trigger if exists trg_protect_profile_flags on profiles;
@@ -290,7 +290,7 @@ create trigger trg_protect_profile_flags
 -- ------------------------------------------------------------
 -- 6. Une pierre tombale ne conserve aucune capacité
 -- ------------------------------------------------------------
--- `anonymize_profile()` (0055) remet déjà `platform_role`,
+-- `anonymize_profile()` (0063) remet déjà `platform_role`,
 -- `is_platform_admin` et `can_manage_roadmap` à leur valeur neutre. La
 -- capacité neuve doit y figurer, sans quoi un compte anonymisé
 -- continuerait de pouvoir gérer les comptes — c'est-à-dire qu'une
@@ -298,10 +298,10 @@ create trigger trg_protect_profile_flags
 -- gestionnaire des comptes de tous les autres.
 --
 -- La fonction est REPRISE ICI EN ENTIER par `create or replace`, et la
--- 0055 n'est pas touchée : une migration appliquée ne se réécrit pas
+-- 0063 n'est pas touchée : une migration appliquée ne se réécrit pas
 -- (règle du dépôt), sans quoi une base à jour ne verrait jamais le
 -- correctif. Seule la ligne `can_manage_users` est ajoutée ; le reste
--- est identique à la 0055, dont les commentaires font foi pour le
+-- est identique à la 0063, dont les commentaires font foi pour le
 -- détail des arbitrages.
 create or replace function public.anonymize_profile(p_user_id uuid)
 returns jsonb
@@ -319,7 +319,7 @@ declare
   v_email     text;
   v_updated   int;
 begin
-  -- Inchangé, et c'est le point qui compte pour la 0057 : `is_admin()`
+  -- Inchangé, et c'est le point qui compte pour la 0065 : `is_admin()`
   -- ne connaît PAS `can_manage_users`. La capacité n'ouvre donc pas
   -- l'anonymisation, et ce n'est pas un oubli qu'il faudrait combler.
   if not is_admin() then
@@ -364,7 +364,7 @@ begin
   if v_number is null then
     raise exception 'Aucun numéro de pierre tombale disponible après 1000 essais : la séquence '
       'profiles_anonymized_seq est très en arrière des comptes déjà anonymisés. '
-      'La recaler (la requête figure au bas de la migration 0055), puis recommencer.';
+      'La recaler (la requête figure au bas de la migration 0063), puis recommencer.';
   end if;
   v_name := 'Utilisateur supprimé #' || v_number;
 
@@ -376,7 +376,7 @@ begin
       platform_role      = 'user',
       is_platform_admin  = false,
       can_manage_roadmap = false,
-      -- L'ajout de la 0057.
+      -- L'ajout de la 0065.
       can_manage_users   = false,
       anonymized_at      = now()
    where id = p_user_id;
@@ -397,16 +397,16 @@ begin
 end;
 $$;
 
--- Motif de la 0055, reconduit parce que la fonction vient d'être
+-- Motif de la 0063, reconduit parce que la fonction vient d'être
 -- réécrite : `create or replace` conserve l'ACL existante, mais cette
--- migration doit aussi pouvoir s'appliquer à une base où la 0055 est
+-- migration doit aussi pouvoir s'appliquer à une base où la 0063 est
 -- passée AVANT le correctif qui a nommé `anon`.
 --
 -- `anon` est nommé À CÔTÉ de `public`, et ce n'est pas une redondance :
 -- sur Supabase, `revoke ... from public` ne retire RIEN à `anon`, qui
 -- est un rôle réel recevant l'exécution par un `alter default
 -- privileges` distinct. Le défaut a été mesuré sur un cluster et corrigé
--- dans trois migrations (0051, 0053, 0055) — après le seul `revoke from
+-- dans trois migrations (0059, 0061, 0063) — après le seul `revoke from
 -- public`, l'ACL portait encore `anon=X`.
 revoke all on function public.anonymize_profile(uuid) from public, anon;
 grant execute on function public.anonymize_profile(uuid) to authenticated;

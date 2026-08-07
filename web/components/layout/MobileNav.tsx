@@ -11,7 +11,7 @@ import InstallAppButton from "@/components/layout/InstallAppButton"
 
 interface MobileNavProps {
   // Les clés d'administration autorisées, pas un booléen de bloc : le
-  // porteur de la capacité « gestion des comptes » (0057) n'en reçoit
+  // porteur de la capacité « gestion des comptes » (0065) n'en reçoit
   // qu'une. Même liste que la Sidebar — une seule règle, deux surfaces.
   adminNav: string[]
   brandName: string

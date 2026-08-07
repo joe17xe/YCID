@@ -1,5 +1,5 @@
 -- ============================================================
--- 0051 — Le devis refusé s'effaçait, et le refus avec lui
+-- 0059 — Le devis refusé s'effaçait, et le refus avec lui
 -- ============================================================
 -- Le circuit tient sur une règle que la 0041 grave en base et que
 -- `decideValidation` répète à l'écran : une décision ne se rejoue pas.
@@ -14,7 +14,7 @@
 -- clics : un bouton corbeille, deux secondes, et le circuit n'a jamais eu
 -- lieu. Le seul à qui la décision s'impose tient la gomme.
 --
--- Jusqu'à la 0050 l'opération ne laissait STRICTEMENT rien : « supprime »
+-- Jusqu'à la 0058 l'opération ne laissait STRICTEMENT rien : « supprime »
 -- ne figurait pas dans l'enum `audit_action`, l'insert de trace était
 -- rejeté, et la pièce, ses validations et le motif du refus s'évaporaient
 -- ensemble. Devant le MEAE, « il n'y a jamais eu de devis sur cette

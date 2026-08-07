@@ -1,5 +1,5 @@
 -- ============================================================
--- 0054 — Le référent Mairie avait sept droits à l'écran, aucun en base
+-- 0062 — Le référent Mairie avait sept droits à l'écran, aucun en base
 -- ============================================================
 -- `lib/rbac.ts` accorde sept capacités d'écriture au rôle
 -- `referent_mairie` : `projets.update`, `phases.manage`,
@@ -41,8 +41,8 @@
 -- et rend « Enregistré ». Le référent ferme l'écran en croyant avoir
 -- saisi. Rien n'a bougé, et le journal affirme le contraire.
 --
--- C'est le même piège que documentent la 0051 (« un delete écarté par la
--- RLS répondait succès ») et la 0053, qui l'avait constaté sur ce rôle
+-- C'est le même piège que documentent la 0059 (« un delete écarté par la
+-- RLS répondait succès ») et la 0061, qui l'avait constaté sur ce rôle
 -- précis sans le trancher : « La divergence matrice ↔ RLS reste entière
 -- et n'est PAS tranchée ici : elle demande de décider si ce rôle doit
 -- écrire au budget. » C'est cette décision qui manquait.
@@ -111,7 +111,7 @@ $$;
 -- N'ouvrir que `projects` reviendrait donc à créer une écriture à
 -- moitié faite là où il n'y avait qu'un refus complet : le porteur
 -- changé dans la fiche, inchangé dans le circuit. C'est la panne que la
--- 0053 vient de fermer sur le budget. Les deux tables vont ensemble ou
+-- 0061 vient de fermer sur le budget. Les deux tables vont ensemble ou
 -- aucune ; on ouvre les deux.
 --
 -- Au passage, un défaut que cette lecture met au jour : AUCUNE policy
@@ -290,14 +290,14 @@ create policy "Contributeur delete open tasks" on tasks
 -- ------------------------------------------------------------
 -- 6. `budget.manage` — les lignes budgétaires ET leur répartition
 -- ------------------------------------------------------------
--- Deux tables encore, et pour la raison qu'expose la 0053 : le budget
+-- Deux tables encore, et pour la raison qu'expose la 0061 : le budget
 -- d'une tâche EST la somme de ses affectations (0028), il n'existe nulle
 -- part ailleurs, et il sert de poids à l'avancement de la phase.
 -- N'ouvrir que `budget_lines` ferait échouer `save_budget_line()` au
 -- moment de réécrire la répartition — donc, la fonction étant
--- transactionnelle depuis la 0053, ferait échouer TOUT l'enregistrement.
+-- transactionnelle depuis la 0061, ferait échouer TOUT l'enregistrement.
 -- Le référent lirait un refus au lieu d'un mensonge : progrès sur la
--- 0053, mais toujours pas le droit que la matrice affiche.
+-- 0061, mais toujours pas le droit que la matrice affiche.
 drop policy if exists "Manage budget lines" on budget_lines;
 create policy "Manage budget lines" on budget_lines
   for all

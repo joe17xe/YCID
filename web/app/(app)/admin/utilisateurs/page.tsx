@@ -11,7 +11,7 @@ export default async function AdminUtilisateursPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/")
-  // Deux questions distinctes depuis la 0057 : ouvre-t-on l'écran
+  // Deux questions distinctes depuis la 0065 : ouvre-t-on l'écran
   // (capacité OU rôle admin) et jusqu'où peut-on y agir (rôle admin).
   const [mayManage, isAdmin, { data: me }, { data: profiles, error }, { data: allMemberships }, mayAnonymize] = await Promise.all([
     canManageUsers(supabase, user.id),
@@ -48,12 +48,12 @@ export default async function AdminUtilisateursPage() {
     // compris — dont l'enregistrement échouait ensuite. Proposer une
     // action interdite, sur un écran de gestion des comptes, se lit
     // comme une faille alors que le verrou tient.
-    // Une pierre tombale (0055) ne se modifie ni ne se supprime : la
+    // Une pierre tombale (0063) ne se modifie ni ne se supprime : la
     // renommer réattribuerait une identité aux traces qu'on vient
     // d'anonymiser, la supprimer effacerait l'attestation même de
     // l'effacement. Les deux sont refusés côté serveur ; on ne propose
     // pas ce que le serveur refuse.
-    // Un porteur de la capacité « gestion des comptes » (0057) ne touche
+    // Un porteur de la capacité « gestion des comptes » (0065) ne touche
     // pas à un compte administrateur : le formulaire porte un champ
     // « mot de passe », et l'ouvrir sur un administrateur reviendrait à
     // proposer d'en prendre la place — la borne « ne pas se promouvoir »

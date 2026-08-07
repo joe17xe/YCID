@@ -27,7 +27,7 @@ export default async function EditerUtilisateurPage({ params }: { params: Promis
   const targetRole = target.platform_role ?? (target.is_platform_admin ? "admin" : "user")
   // Un YCID ne peut pas éditer un Administrateur
   if (myRole === "ycid" && targetRole === "admin") redirect("/admin/utilisateurs")
-  // Ni un porteur de la capacité « gestion des comptes » (0057). Le
+  // Ni un porteur de la capacité « gestion des comptes » (0065). Le
   // formulaire propose un champ « mot de passe » : l'ouvrir sur un
   // compte administrateur reviendrait à proposer d'en prendre la place.
   // L'écran de liste masque déjà « Modifier » ; ceci ferme l'URL saisie

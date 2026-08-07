@@ -77,7 +77,7 @@ export async function purgeOrphans(): Promise<{ ok: boolean; removed?: number; e
 
   // C'est la seule trace de la purge : les fichiers effacés du bucket ne
   // laissent rien derrière eux, et `storage_orphans()` ne les listera
-  // plus. Jusqu'à la 0050, `supprime` n'existait pas dans l'enum
+  // plus. Jusqu'à la 0058, `supprime` n'existait pas dans l'enum
   // `audit_action` — cet insert était donc rejeté par PostgreSQL, et son
   // erreur n'était même pas lue. Des fichiers disparaissaient du
   // stockage sans que rien, nulle part, ne dise qui les avait purgés.

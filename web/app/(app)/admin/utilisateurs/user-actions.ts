@@ -22,7 +22,7 @@ const PLATFORM_ROLES = ['admin', 'user']
 // ============================================================
 // Qui parle, et jusqu'où
 // ============================================================
-// Deux réponses, et c'est tout le sujet de la 0057 : gérer les comptes
+// Deux réponses, et c'est tout le sujet de la 0065 : gérer les comptes
 // n'est plus la même chose qu'administrer l'outil.
 //
 //   · `isAdmin`  — administre l'OUTIL. Seul à pouvoir promouvoir,
@@ -36,7 +36,7 @@ const PLATFORM_ROLES = ['admin', 'user']
 // service : elle contourne la RLS, et `auth.uid()` y étant nul, elle
 // contourne AUSSI le trigger `protect_profile_flags` (règle du contexte
 // privilégié, 0022). Sur ce chemin-là, ce fichier est le SEUL verrou.
-// La 0057 tient l'autre chemin, celui de l'API REST sous la session de
+// La 0065 tient l'autre chemin, celui de l'API REST sous la session de
 // l'intéressé, où la RLS et le trigger s'appliquent pleinement.
 async function currentContext(supabase: Awaited<ReturnType<typeof createClient>>) {
   const { data: { user } } = await supabase.auth.getUser()
@@ -271,7 +271,7 @@ export async function updateUser(userId: string, input: UserFormInput): Promise<
       return {
         ok: false,
         error: "Ce compte a été anonymisé : son identité ne peut plus être modifiée. "
-          + "L'effacement RGPD est irréversible par construction — voir la migration 0055.",
+          + "L'effacement RGPD est irréversible par construction — voir la migration 0063.",
       }
     }
     // Un YCID ne peut ni modifier un Administrateur, ni promouvoir en Administrateur
@@ -385,11 +385,11 @@ export async function deleteUser(userId: string): Promise<Result> {
     // dont le texte ne nous appartient pas.
     const { data: rawTraces, error: traceErr } = await supabase.rpc('profile_trace_count', { p_user_id: userId })
     if (traceErr) {
-      // Migration 0055 non appliquée : on ne bloque pas une
+      // Migration 0063 non appliquée : on ne bloque pas une
       // fonctionnalité qui existait avant elle. Le comportement
       // d'origine reprend, avec son erreur opaque — et le journal
       // serveur dit pourquoi on n'a pas pu faire mieux.
-      console.error('[deleteUser] inventaire des traces indisponible (migration 0055 appliquée ?) :', traceErr.message)
+      console.error('[deleteUser] inventaire des traces indisponible (migration 0063 appliquée ?) :', traceErr.message)
     } else {
       const traces = asTraceCount(rawTraces)
       if (traces.blocking > 0) {
@@ -423,7 +423,7 @@ export async function deleteUser(userId: string): Promise<Result> {
 // Effacement RGPD (art. 17) par ANONYMISATION
 // ============================================================
 // L'écran Confidentialité promet aux personnes un droit d'effacement que
-// la base refusait de tenir (migration 0055, qui raconte l'arbitrage en
+// la base refusait de tenir (migration 0063, qui raconte l'arbitrage en
 // entier). Le geste retenu n'est pas une suppression : c'est le
 // remplacement, EN PLACE et sans retour, de l'identité par une pierre
 // tombale. La décision de validation du 12 mars reste la décision de
@@ -496,7 +496,7 @@ export async function loadAnonymizationPreview(userId: string): Promise<{
     return {
       ok: false,
       error: error.code === 'PGRST202'
-        ? "Fonction absente : la migration 0055 n'est pas appliquée sur cette base."
+        ? "Fonction absente : la migration 0063 n'est pas appliquée sur cette base."
         : `Inventaire indisponible : ${error.message}`,
     }
   }
@@ -554,7 +554,7 @@ export async function anonymizeUser(userId: string, confirmation: string): Promi
     const { data: rawResult, error: rpcErr } = await supabase.rpc('anonymize_profile', { p_user_id: userId })
     if (rpcErr) {
       if (rpcErr.code === 'PGRST202') {
-        return { ok: false, error: "Anonymisation impossible : la migration 0055 n'est pas appliquée sur cette base. Rien n'a été modifié." }
+        return { ok: false, error: "Anonymisation impossible : la migration 0063 n'est pas appliquée sur cette base. Rien n'a été modifié." }
       }
       console.error('[anonymizeUser] rpc anonymize_profile refusée :', { userId, code: rpcErr.code, message: rpcErr.message, details: rpcErr.details })
       return { ok: false, error: `Anonymisation refusée : ${describeError(rpcErr)}` }

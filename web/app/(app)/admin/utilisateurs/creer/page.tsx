@@ -10,7 +10,7 @@ export default async function CreerUtilisateurPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/")
-  // La capacité « gestion des comptes » (0057) ouvre cet écran ; le
+  // La capacité « gestion des comptes » (0065) ouvre cet écran ; le
   // rôle plateforme décide de ce qu'on peut y accorder.
   const [mayManage, isAdmin] = await Promise.all([
     canManageUsers(supabase, user.id),

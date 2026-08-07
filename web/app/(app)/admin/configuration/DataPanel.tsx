@@ -12,7 +12,7 @@ import {
 import { formatRetentionDays } from "@/lib/retention"
 
 // ============================================================
-// Données personnelles (0056) — conservation, purge, export RGPD
+// Données personnelles (0064) — conservation, purge, export RGPD
 // ============================================================
 // L'écran qui rend vraie la page /confidentialite. Deux blocs :
 //
@@ -244,7 +244,7 @@ export default function DataPanel({ rows, runs, lastRunAt }: {
         <p className="text-xs" style={{ color: "#66716B" }}>
           L&apos;application n&apos;a pas d&apos;ordonnanceur : la purge se déclenche ici.
           Elle peut être planifiée toutes les nuits par <code>pg_cron</code> — la marche à
-          suivre est écrite dans la migration <code>0056_retention_et_export_rgpd.sql</code>.
+          suivre est écrite dans la migration <code>0064_retention_et_export_rgpd.sql</code>.
         </p>
 
         {/* Le rappel qui empêche l'outil de devenir une promesse de
