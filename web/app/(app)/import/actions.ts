@@ -13,6 +13,10 @@ export interface ImportResult {
   created: number
   skipped: number
   errors: string[]
+  // Ce qui est PASSÉ mais laissera un écran vide. Distinct de `errors`,
+  // qui refuse la ligne : un avertissement n'annule rien, il prévient
+  // d'une conséquence qu'on ne découvrirait autrement qu'à l'usage.
+  warnings: string[]
 }
 
 // Normalise un libellé : minuscules, sans accents, espaces → _
@@ -37,7 +41,7 @@ const LINE_STATUSES = new Set(['prevue', 'active', 'cloturee'])
 const LINE_CATEGORIES = new Set(['investissement', 'fonctionnement', 'projet', 'autre'])
 
 export async function runImport(input: { kind: ImportKind; filename: string; rows: Record<string, string>[] }): Promise<ImportResult> {
-  const fail = (error: string): ImportResult => ({ ok: false, error, created: 0, skipped: 0, errors: [] })
+  const fail = (error: string): ImportResult => ({ ok: false, error, created: 0, skipped: 0, errors: [], warnings: [] })
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return fail('Non authentifié.')
@@ -64,6 +68,8 @@ export async function runImport(input: { kind: ImportKind; filename: string; row
   for (const ph of phases ?? []) phaseCountByProject.set(ph.project_id, (phaseCountByProject.get(ph.project_id) ?? 0) + 1)
 
   const errors: string[] = []
+  let budgetNoFunder = 0
+  let budgetNoYear = 0
   const kind = input.kind
 
   // Validation complète AVANT toute écriture ; chaque table est ensuite
@@ -171,6 +177,14 @@ export async function runImport(input: { kind: ImportKind; filename: string; row
         } else if (String(row.montant_tache ?? '').trim()) {
           throw new Error('« montant_tache » exige « tache »')
         }
+        // Ni erreur ni silence : la ligne est valide, mais sans
+        // financeur elle tombera dans « Non affecté » et sans année
+        // elle échappera à la comparaison avec les appels de fonds.
+        // On le COMPTE ici pour le dire à la fin — découvrir un budget
+        // entier « Non affecté » en ouvrant l'écran, après coup, coûte
+        // un réimport.
+        if (!funder) budgetNoFunder++
+        if (!row.annee) budgetNoYear++
         budgetRows.push({
           id: lineId, project_id: projectId, phase_id: phaseId ?? null, poste,
           description: String(row.description ?? '').trim() || null, category,
@@ -228,5 +242,24 @@ export async function runImport(input: { kind: ImportKind; filename: string; row
     created: status === 'echec' ? 0 : created,
     skipped: errors.length,
     errors: errors.slice(0, 20),
+    warnings: status === 'echec' ? [] : buildWarnings(),
+  }
+
+  function buildWarnings(): string[] {
+    const out: string[] = []
+    if (budgetNoFunder > 0) {
+      out.push(
+        `${budgetNoFunder} ligne${budgetNoFunder > 1 ? 's' : ''} sans colonne « financeur » renseignée : `
+        + `elle${budgetNoFunder > 1 ? 's apparaîtront' : ' apparaîtra'} sous « Non affecté » dans la répartition par financeur, `
+        + `et ne se compare${budgetNoFunder > 1 ? 'ront' : ''} à aucun appel de fonds. `
+        + `Le nom doit correspondre EXACTEMENT à une organisation existante (« CD78 » ne suffit pas si l'organisation s'appelle « Département des Yvelines (CD78) »).`,
+      )
+    }
+    if (budgetNoYear > 0) {
+      out.push(
+        `${budgetNoYear} ligne${budgetNoYear > 1 ? 's' : ''} sans « annee » : la comparaison entre le budget et les promesses de versement se fait par financeur ET par année — sans année, elle reste vide.`,
+      )
+    }
+    return out
   }
 }

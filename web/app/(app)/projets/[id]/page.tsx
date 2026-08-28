@@ -1206,6 +1206,33 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
               <ProgressBar value={Math.min(100, Math.round((projectFin.paid / projectFin.planned) * 100))} />
             </div>
           )}
+          {/* Les appels de fonds vivent tout en bas de cet onglet, sous
+              le tableau des lignes — et ne s'y trouvaient pas : « je ne
+              vois pas où on peut contrôler et suivre les appels de
+              fonds » (28/08). Ce bandeau les annonce en haut, avec le
+              chiffre qui donne envie de descendre : promis et reçus. */}
+          {fundingReady && (() => {
+            const promis = fundingCalls.reduce((acc, c) => acc + c.amount, 0)
+            const recu = fundingCalls.reduce((acc, c) => acc + (c.status === "recu" ? c.amount : 0), 0)
+            const attendus = fundingCalls.filter(c => c.status !== "recu").length
+            return (
+              <a href="#appels-de-fonds"
+                className="flex flex-wrap items-center justify-between gap-2 bg-white rounded-2xl border px-4 py-3 mb-6 hover:bg-gray-50 transition-colors"
+                style={{ borderColor: "#E3E6E2" }}>
+                <span className="text-sm" style={{ color: "#17211D" }}>
+                  <strong>Appels de fonds</strong>{" "}
+                  <span style={{ color: "#66716B" }}>
+                    {fundingCalls.length === 0
+                      ? "— aucune promesse de versement saisie"
+                      : `— ${fmtEur(recu)} reçus sur ${fmtEur(promis)} promis${attendus > 0 ? `, ${attendus} en attente` : ""}`}
+                  </span>
+                </span>
+                <span className="text-xs font-semibold" style={{ color: "var(--brand-accent,#0E6B5C)" }}>
+                  Voir et relancer →
+                </span>
+              </a>
+            )
+          })()}
           {/* Répartition par financeur — la vue du compte rendu. Placée
               avant le détail : en COPIL on lit le total, puis qui finance
               quoi, puis seulement la ligne à la ligne. */}

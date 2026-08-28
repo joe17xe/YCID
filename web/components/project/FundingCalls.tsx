@@ -293,7 +293,7 @@ export default function FundingCalls({ projectId, calls, orgs, budgetRef, canMan
   }
 
   return (
-    <div className="bg-white rounded-2xl border mt-6 overflow-hidden" style={border}>
+    <div id="appels-de-fonds" className="bg-white rounded-2xl border mt-6 overflow-hidden scroll-mt-4" style={border}>
       <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
         <div>
           <h2 className="font-semibold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>
