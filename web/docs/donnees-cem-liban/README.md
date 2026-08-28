@@ -9,11 +9,19 @@ est une **transcription**, avec des choix explicites, listés plus bas.
 
 ## Ce que contient le classeur
 
-L'onglet « Budget à gérer » porte 22 dépenses réparties en quatre
-regroupements — Action 1, Action 2, Action 3 et « Autres dépenses » —,
-chacune avec un montant par année (2025, 2026, 2027), en numéraire ou en
-valorisation, et le **bailleur** en colonne « Nom collectivité ou
-partenaire bailleur ». C'est cette colonne qui manque en base.
+L'onglet « Budget à gérer » porte **19 dépenses** réparties en quatre
+regroupements — Action 1, Action 2, Action 3 et « Autres dépenses », qui
+sont des sous-totaux et non des dépenses —, chacune avec un montant par
+année (2025, 2026, 2027), en numéraire ou en valorisation, et le
+**bailleur** en colonne « Nom collectivité ou partenaire bailleur ».
+C'est cette colonne qui manque en base.
+
+⚠️ **Cet onglet n'est pas tout le projet.** L'onglet « rappel budget
+global » totalise 106 200 € (92 700 € de numéraire + 13 500 € de
+valorisation) contre 47 700 € ici. « Budget à gérer » est le périmètre
+géré par LEY/Azour et Villepreux ; le CSV ci-dessous ne couvre que
+celui-là. Rien dans le classeur ne dit ce rapport — c'est le contrôle
+tiers qui l'a établi.
 
 Totaux du classeur, retrouvés à l'identique après transposition :
 
@@ -64,9 +72,15 @@ Choix de transcription, à relire :
   mentionnant du matériel → `investissement` ; « Mise à disposition » et
   remboursements de frais → `fonctionnement` ; tout le reste → `projet`.
   Rien n'empêche de la corriger dans le CSV avant import.
-- `organisation_responsable` — LEY partout, conformément à la colonne
-  « Qui décaisse » (`LEY puis Azour`), sauf que le transfert progressif à
-  Azour ne s'exprime pas dans une colonne : il est dit en commentaire.
+- `organisation_responsable` — lu dans la colonne « Qui décaisse » :
+  LEY sur 24 lignes, Commune de Villepreux sur 7 (la rénovation du CMJ,
+  la délégation au trail, le trail de Villepreux et la mise à
+  disposition communale). Le transfert progressif à Azour
+  (`LEY puis Azour`) ne s'exprime dans aucune colonne de l'outil : il est
+  dit en commentaire. **Contrôle de cohérence** : le numéraire décaissé
+  par Villepreux ressort à 2 500 € et celui de LEY à 38 200 €, soit
+  exactement le bloc « Ce que chaque partenaire doit dépenser » de
+  l'onglet Contributions&Recettes.
 - `commentaire` — reprend les justificatifs attendus et le circuit de
   décaissement du classeur, qui sont l'information de contrôle.
 - `statut` — `prevue` partout : rien n'indique dans le classeur qu'une
@@ -76,6 +90,24 @@ Choix de transcription, à relire :
   l'avancement pondéré.
 
 ### `appels-de-fonds-cem-liban.csv`
+
+⚠️ **À saisir en connaissance de cause.** Le contrôle tiers a établi que
+les montants des tranches YCID (4 980 / 19 920 / 8 300 €) sont des
+**valeurs en cache** : les formules qui les portent sont cassées
+(référence circulaire, multiplication par une ligne vide) et la première
+cellule est un lien vers un fichier local d'un poste de travail. Elles
+sont arithmétiquement conformes à 33 200 € × 15 / 60 / 25 %, mais aucune
+formule du classeur ne les produit — au prochain recalcul complet, elles
+tombent. Le rattachement tranche → année repose de surcroît sur des
+pourcentages décalés d'une colonne par rapport aux en-têtes d'années.
+Ces montants sont donc **à faire confirmer par YCID** avant d'engager
+une relance sur leur base.
+
+Deuxième réserve, plus lourde : **les 33 200 € de subvention YCID ne se
+recoupent avec aucun autre total du classeur** — YCID pèse 3 200 € comme
+bailleur dans « Budget à gérer », 17 000 € au « Total YCID » de
+« rappel budget global », 25 100 € en « géré YCID ». Quatre chiffres pour
+une même subvention.
 
 Les promesses de versement lues dans l'onglet
 « Contributions&Recettes ». **Il n'existe pas d'import pour les appels de
