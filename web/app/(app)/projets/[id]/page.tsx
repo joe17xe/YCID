@@ -67,6 +67,9 @@ interface RawComment {
   created_at: string
   author_id: string | null
   author: { full_name: string | null } | null
+  addressed_to: string | null
+  addressee: { full_name: string | null } | null
+  answered_at: string | null
 }
 
 const AUDIT_ENTITIES: Record<string, string> = {
@@ -110,7 +113,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
 
   const [{ data: project }, { data: phases }, { data: budgetLines }, { data: indicators }, { data: meetings }, { data: audit, count: auditCount }, { data: phasePhotos }, { data: allDocs }, canEditCompleted] = await Promise.all([
     supabase.from("projects").select("*, project_organizations(org_id, role, organizations(id, name, type)), project_members(user_id, role, profiles(id, full_name, email)), validation_rules(id, role, doc_type)").eq("id", id).single(),
-    supabase.from("phases").select("*, tasks(*, profiles:assignee_id(full_name), documents(*), task_comments(id, body, created_at, author_id, author:author_id(full_name)))").eq("project_id", id).order("position"),
+    supabase.from("phases").select("*, tasks(*, profiles:assignee_id(full_name), documents(*), task_comments(id, body, created_at, author_id, author:author_id(full_name), addressed_to, answered_at, addressee:addressed_to(full_name)))").eq("project_id", id).order("position"),
     supabase.from("budget_lines").select("*, funder:funder_org_id(name), owner:owner_org_id(name), phase:phase_id(name), allocations:budget_line_tasks(task_id, amount, task:task_id(title)), documents(id, filename, type, amount, paid, paid_at, uploaded_at, validations(id, org_id, decision, step, comment, org:org_id(name), decider:decided_by(full_name)))").eq("project_id", id).order("year"),
     supabase.from("indicators").select("*, measures:indicator_measures(*)").eq("project_id", id),
     supabase.from("meetings").select("*, decisions(*, owner:owner_user_id(full_name))").eq("project_id", id).order("date", { ascending: false }),
@@ -1050,13 +1053,16 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                               chaque modification ; le fil, lui, ne perd
                               rien et prévient qui de droit. */}
                           <TaskComments projectId={id} taskId={t.id} taskTitle={t.title}
-                            meId={user.id}
+                            meId={user.id} members={memberOptions}
                             comments={([...(t.task_comments ?? [])] as RawComment[])
                               .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))
                               .map(c => ({
                                 id: c.id, body: c.body, created_at: c.created_at,
                                 author_id: c.author_id ?? null,
                                 author: c.author ? { full_name: c.author.full_name ?? null } : null,
+                                addressed_to: c.addressed_to ?? null,
+                                addressee: c.addressee ? { full_name: c.addressee.full_name ?? null } : null,
+                                answered_at: c.answered_at ?? null,
                               }))} />
                           {/* Sens inverse de la création croisée : la
                               tâche existe, son financement reste à
