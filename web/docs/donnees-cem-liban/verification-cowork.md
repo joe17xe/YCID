@@ -175,3 +175,27 @@ Le CSV est fidèle au **budget** ; c'est le **classeur** qui porte des
 totaux de synthèse faux, et ce sont eux qu'un financeur lit en premier.
 Corriger le classeur (les cinq points critiques de l'audit) reste à faire
 côté YCID/LEY, indépendamment de l'outil.
+
+### Prompt 2 — verdict et suites
+
+Verdict rendu : transposition **fidèle**. Les 19 dépenses et les 31
+couples dépense × année sont présents, aux bons montants, aux bonnes
+années, avec les bons bailleurs et un marquage valorisation exact ; les
+11 agrégats coïncident au centime.
+
+Sept réserves, dont quatre appelaient une correction — faite :
+
+| # | Réserve | Suite donnée |
+|---|---|---|
+| 1 | `organisation_responsable` déduite sur les lignes 40 et 44, que le classeur ne teinte pas et dont « Qui décaisse » est vide | Colonne renseignée **uniquement** là où le classeur parle : 21 LEY, 2 Villepreux, 8 vides |
+| 2 | `categorie` entièrement inventée, et incohérente en interne | Une valeur **unique** (`projet`) sur les 31 lignes — la colonne est obligatoire à l'import, le classement se fera dans l'outil |
+| 3 | Colonne B du classeur (bases de calcul) perdue — dont la note de la ligne 36 qui annonce 900 € pour 450 € saisis | Reportée dans `description` : « Base de calcul : … » |
+| 4 | Détail des 8 200 € perdu, puisqu'il n'existait que dans la formule | La formule `=7600+1000+800+600+700+500-3000` est reportée dans `commentaire` |
+| 5 | `tache` / `montant_tache` vides | Sans objet : le classeur ne relie pas les dépenses à des tâches, l'affectation se fait dans l'outil |
+| 6 | `statut` = `prevue` partout, aucune donnée d'exécution | Sans objet : le registre des dépenses du classeur est vide — c'est l'état réel du projet |
+| 7 | `description` renseignée sur 3 lignes | Fidèle, et désormais sur 5 lignes de plus grâce à la réserve 3 |
+
+Les recoupements tiennent après correction : 40 700 € de numéraire,
+7 000 € de valorisation, et 2 500 € / 38 200 € de décaissement Villepreux
+/ LEY — les montants mêmes du bloc « Ce que chaque partenaire doit
+dépenser ».

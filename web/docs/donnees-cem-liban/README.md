@@ -66,28 +66,47 @@ accents, mais **pas** aux mots manquants : `CD78` ne vaut pas
 noms, corrigez la colonne `financeur` du CSV — c'est plus sûr que de
 renommer les organisations, qui servent ailleurs.
 
-Choix de transcription, à relire :
+Choix de transcription, après le contrôle tiers du 28/08 (voir
+`verification-cowork.md`). La règle retenue est simple : **le CSV ne dit
+rien que le classeur ne dise**. Une colonne du format cible que la source
+ne renseigne pas reste vide, plutôt que d'être déduite.
 
-- `categorie` — le classeur n'en a pas. Règle appliquée : justificatif
-  mentionnant du matériel → `investissement` ; « Mise à disposition » et
-  remboursements de frais → `fonctionnement` ; tout le reste → `projet`.
-  Rien n'empêche de la corriger dans le CSV avant import.
-- `organisation_responsable` — lu dans la colonne « Qui décaisse » :
-  LEY sur 24 lignes, Commune de Villepreux sur 7 (la rénovation du CMJ,
-  la délégation au trail, le trail de Villepreux et la mise à
-  disposition communale). Le transfert progressif à Azour
-  (`LEY puis Azour`) ne s'exprime dans aucune colonne de l'outil : il est
-  dit en commentaire. **Contrôle de cohérence** : le numéraire décaissé
-  par Villepreux ressort à 2 500 € et celui de LEY à 38 200 €, soit
-  exactement le bloc « Ce que chaque partenaire doit dépenser » de
-  l'onglet Contributions&Recettes.
-- `commentaire` — reprend les justificatifs attendus et le circuit de
-  décaissement du classeur, qui sont l'information de contrôle.
-- `statut` — `prevue` partout : rien n'indique dans le classeur qu'une
-  ligne serait déjà engagée.
-- `tache` — vide. Le classeur ne relie pas les dépenses à des tâches ;
-  l'affectation ligne → tâche se fait dans l'application, où elle pilote
-  l'avancement pondéré.
+- `categorie` — le classeur n'en porte AUCUNE. Une première version
+  appliquait une heuristique (matériel → investissement, mise à
+  disposition → fonctionnement) : le contrôle l'a écartée à juste titre,
+  d'autant qu'elle se contredisait — le trail de Villepreux classé
+  investissement, la délégation au même trail classée projet. La colonne
+  est obligatoire à l'import ; elle porte donc **une valeur unique,
+  `projet`**, sur les 31 lignes. Une valeur uniforme n'est pas une
+  classification : elle laisse le classement se faire dans l'outil, par
+  ceux qui savent, et se voit d'un coup d'œil comme « pas encore classé ».
+- `organisation_responsable` — lue dans la colonne « Qui décaisse », et
+  **seulement là où elle est renseignée** : LEY sur 21 lignes, Commune de
+  Villepreux sur 2 (la rénovation du CMJ et la délégation au trail — les
+  deux seules cellules que le classeur teinte « géré par Villepreux »),
+  vide sur 8. Une version antérieure attribuait aussi Villepreux au trail
+  et à sa mise à disposition : plausible, mais absent du fichier.
+  **Contrôle de cohérence** : le numéraire décaissé ressort à 2 500 €
+  pour Villepreux et 38 200 € pour LEY, soit exactement le bloc « Ce que
+  chaque partenaire doit dépenser » de l'onglet Contributions&Recettes.
+- `description` — les puces détaillées de l'intitulé (3 lignes), **et la
+  colonne B du classeur** (quantités et bases de calcul), sous la forme
+  « Base de calcul : 150 euros par session, 3 sessions à Azour et 3
+  sessions à Jeita ». Cette colonne se perdait ; c'est elle qui rend
+  visible que la ligne 36 annonce 900 € pour 450 € saisis. Devant un
+  financeur, la base de calcul d'un poste n'est pas un confort.
+- `commentaire` — justificatifs attendus, circuit de décaissement, **et
+  la formule d'origine quand le montant en est une** : les 8 200 € de la
+  ligne 25 valent `=7600+1000+800+600+700+500-3000` au classeur. L'import
+  scellait cette opacité ; elle voyage désormais avec le montant, en
+  clair, et pourra être élucidée.
+- `statut` — `prevue` sur les 31 lignes. Cohérent avec l'onglet
+  « Registre des dépenses », qui est vide : après import, le réalisé sera
+  nul et les écarts égaux à 100 % du prévu. C'est l'état réel du projet,
+  pas une lacune du fichier.
+- `tache` et `montant_tache` — vides. Le classeur ne relie pas les
+  dépenses à des tâches ; l'affectation ligne → tâche se fait dans
+  l'application, où elle pilote l'avancement pondéré.
 
 ### `appels-de-fonds-cem-liban.csv`
 
