@@ -1,166 +1,163 @@
-# Budget CEM Liban — Villepreux · Azour · LEY
+# Budget CEM Liban — les trois volets
 
-Ce dossier contient les données du classeur
-`Budget_CEM_Liban_LEY_Villepreux_Azour.xlsx` transposées au format que
-l'application sait lire, et de quoi corriger ce qui a déjà été saisi.
+Transcription du classeur `Budget_CEM_Liban_LEY_Villepreux_Azour.xlsx`
+au format que l'application sait lire. Le classeur reste la source ; ce
+qui est ici est une transposition, avec des choix explicites, listés.
 
-Il ne remplace pas le classeur : celui-ci reste la source. Ce qui est ici
-est une **transcription**, avec des choix explicites, listés plus bas.
+## Le périmètre : 106 200 €, et non 47 700 €
 
-## Ce que contient le classeur
+Une première version ne reprenait que l'onglet « Budget à gérer » —
+47 700 €, la part gérée par LEY/Azour. C'était un contresens :
+**l'onglet « rappel budget global » porte le budget entier, 106 200 €,
+soit les trois volets du programme**. Arbitrage du 28/08 : l'application
+gère les trois, toutes les lignes doivent y être, correctement affectées.
 
-L'onglet « Budget à gérer » porte **19 dépenses** réparties en quatre
-regroupements — Action 1, Action 2, Action 3 et « Autres dépenses », qui
-sont des sous-totaux et non des dépenses —, chacune avec un montant par
-année (2025, 2026, 2027), en numéraire ou en valorisation, et le
-**bailleur** en colonne « Nom collectivité ou partenaire bailleur ».
-C'est cette colonne qui manque en base.
-
-⚠️ **Cet onglet n'est pas tout le projet.** L'onglet « rappel budget
-global » totalise 106 200 € (92 700 € de numéraire + 13 500 € de
-valorisation) contre 47 700 € ici. « Budget à gérer » est le périmètre
-géré par LEY/Azour et Villepreux ; le CSV ci-dessous ne couvre que
-celui-là. Rien dans le classeur ne dit ce rapport — c'est le contrôle
-tiers qui l'a établi.
-
-Totaux du classeur, retrouvés à l'identique après transposition :
-
-| | 2025 | 2026 | 2027 | total |
+| | numéraire | valorisation | total | lignes |
 |---|---|---|---|---|
-| Numéraire | 3 050 € | 28 800 € | 8 850 € | **40 700 €** |
-| Valorisation | 1 500 € | 2 500 € | 3 000 € | **7 000 €** |
+| Triade Villepreux · Azour · LEY | 40 700 € | 8 500 € | **49 200 €** | 32 |
+| Triade Jouy-en-Josas · Jeïta · Comité | 26 900 € | 3 000 € | **29 900 €** | 21 |
+| Coordination et actions communes (YCID) | 25 100 € | 2 000 € | **27 100 €** | 12 |
+| **Total** | **92 700 €** | **13 500 €** | **106 200 €** | **65** |
 
-Par bailleur (numéraire), la transposition redonne exactement le
-« Tableau des ressources » de l'onglet *Suivi budget* — MEAE 15 550 €,
-CD78 14 450 €, YCID 3 200 €, LEY 3 000 € — **à une exception près** :
+Les totaux du classeur (`rappel budget global` B67:B69) sont retrouvés à
+l'euro. Et les **huit totaux par partenaire** du classeur (B71:B79) le
+sont aussi, valorisation comprise :
 
-> Villepreux ressort à **4 500 €** ici, contre 4 000 € dans le tableau
-> des ressources du classeur. L'écart de 500 € est la ligne « Organisation
-> par le Conseil municipal des jeunes d'une rénovation à Villepreux »
-> (2026, bailleur Villepreux), qui semble absente du récapitulatif.
-> **C'est une incohérence interne au classeur**, pas un défaut de
-> transposition : à trancher côté YCID/LEY avant de figer le budget.
+MEAE 51 200 · CD78 15 000 · YCID 17 000 · Villepreux 8 500 ·
+LEY 6 000 · Jouy-en-Josas 3 000 · Comité de Jumelage 2 500 ·
+Azour 1 500 · Jeïta 1 500.
 
-## Les fichiers
+Le découpage en trois se recoupe enfin avec le bloc « Ce que dépense
+chaque partenaire » (colonnes O:S) : LEY/Azour 38 200 + Villepreux 2 500
+= 40 700 pour Azour ; Comité/Jeïta 26 400 + Jouy 500 = 26 900 pour
+Jeïta ; YCID 25 100 pour le commun. Trois lectures indépendantes du même
+classeur, trois fois le même résultat.
 
-### `budget-cem-liban-azour.csv`
+## Comment chaque ligne est affectée
 
-31 lignes prêtes pour **Import ▸ Lignes budgétaires** (séparateur `;`).
-Une ligne de dépense du classeur donne autant de lignes qu'elle a
-d'années servies — le budget de l'application est annuel, le classeur est
-en colonnes par année.
+Le classeur porte un **code couleur de gestion** (légende ligne 17 :
+« dépenses gérées par LEY/Azour », « par Comité/Jeïta », « par YCID »,
+« par Villepreux », « par Jouy »). C'est la seule information présente
+sur toutes les lignes colorées — y compris celles dont la colonne
+« Qui décaisse » est vide. C'est donc elle qui affecte, et la colonne
+« Qui décaisse » qui corrobore. Les deux ne se contredisent jamais.
 
-Prérequis, sinon l'import refuse les lignes concernées :
+Villepreux rejoint la triade d'Azour et Jouy-en-Josas celle de Jeïta :
+ce sont les communes françaises de chaque jumelage.
 
-1. le projet doit exister sous le nom exact
-   `CEM Liban — Triade Villepreux · Azour · LEY` ;
-2. les phases doivent exister sous les intitulés d'action du classeur
-   (colonne `phase` du CSV) — **importer les phases d'abord** ;
-3. les organisations doivent exister sous ces noms **exacts** :
-   `MEAE`, `YCID`, `Département des Yvelines (CD78)`,
-   `Commune de Villepreux`, `Libanais en Yvelines (LEY)`.
+Trois cas ont demandé un arbitrage, et aucun n'est masqué — chaque ligne
+concernée le dit dans son commentaire :
 
-Le rapprochement se fait sur le nom, insensible à la casse et aux
-accents, mais **pas** aux mots manquants : `CD78` ne vaut pas
-`Département des Yvelines (CD78)`. Si vos organisations portent d'autres
-noms, corrigez la colonne `financeur` du CSV — c'est plus sûr que de
-renommer les organisations, qui servent ailleurs.
+1. **Les six lignes sans code couleur** sont rattachées d'après leur
+   bailleur : cérémonie d'inauguration à Azour (1 500 € en nature,
+   bailleur Azour) → Azour ; la même à Jeïta → Jeïta ; trail de
+   Villepreux et Jouy (2 000 € en nature, bailleur Villepreux) → Azour ;
+   mises à disposition du Comité → Jeïta, de Villepreux et de LEY →
+   Azour.
+2. **Les réunions de travail et COPIL** (1 100 €) portent une teinte
+   intermédiaire et la mention « réparti pour facilité logistique » :
+   partagées moitié-moitié par année entre les deux triades, comme le
+   fait l'onglet « Budget à gérer » (50 / 250 / 250).
+3. **Les visites de terrain par un spécialiste** (900 €) sont teintées
+   des DEUX couleurs, 450 € en 2026 et 450 € en 2027. Chaque triade en
+   porte 450 € ; **l'année attribuée à chacune est un choix de
+   transposition** — 2027 pour Azour, comme l'onglet « Budget à gérer »,
+   2026 pour Jeïta. Le total est juste, la répartition par année est à
+   confirmer.
 
-Choix de transcription, après le contrôle tiers du 28/08 (voir
-`verification-cowork.md`). La règle retenue est simple : **le CSV ne dit
-rien que le classeur ne dise**. Une colonne du format cible que la source
-ne renseigne pas reste vide, plutôt que d'être déduite.
+## Les fichiers, et l'ordre d'import
 
-- `categorie` — le classeur n'en porte AUCUNE. Une première version
-  appliquait une heuristique (matériel → investissement, mise à
-  disposition → fonctionnement) : le contrôle l'a écartée à juste titre,
-  d'autant qu'elle se contredisait — le trail de Villepreux classé
-  investissement, la délégation au même trail classée projet. La colonne
-  est obligatoire à l'import ; elle porte donc **une valeur unique,
-  `projet`**, sur les 31 lignes. Une valeur uniforme n'est pas une
-  classification : elle laisse le classement se faire dans l'outil, par
-  ceux qui savent, et se voit d'un coup d'œil comme « pas encore classé ».
-- `organisation_responsable` — lue dans la colonne « Qui décaisse », et
-  **seulement là où elle est renseignée** : LEY sur 21 lignes, Commune de
-  Villepreux sur 2 (la rénovation du CMJ et la délégation au trail — les
-  deux seules cellules que le classeur teinte « géré par Villepreux »),
-  vide sur 8. Une version antérieure attribuait aussi Villepreux au trail
-  et à sa mise à disposition : plausible, mais absent du fichier.
-  **Contrôle de cohérence** : le numéraire décaissé ressort à 2 500 €
-  pour Villepreux et 38 200 € pour LEY, soit exactement le bloc « Ce que
-  chaque partenaire doit dépenser » de l'onglet Contributions&Recettes.
-- `description` — les puces détaillées de l'intitulé (3 lignes), **et la
-  colonne B du classeur** (quantités et bases de calcul), sous la forme
-  « Base de calcul : 150 euros par session, 3 sessions à Azour et 3
-  sessions à Jeita ». Cette colonne se perdait ; c'est elle qui rend
-  visible que la ligne 36 annonce 900 € pour 450 € saisis. Devant un
-  financeur, la base de calcul d'un poste n'est pas un confort.
-- `commentaire` — justificatifs attendus, circuit de décaissement, **et
-  la formule d'origine quand le montant en est une** : les 8 200 € de la
-  ligne 25 valent `=7600+1000+800+600+700+500-3000` au classeur. L'import
-  scellait cette opacité ; elle voyage désormais avec le montant, en
-  clair, et pourra être élucidée.
-- `statut` — `prevue` sur les 31 lignes. Cohérent avec l'onglet
-  « Registre des dépenses », qui est vide : après import, le réalisé sera
-  nul et les écarts égaux à 100 % du prévu. C'est l'état réel du projet,
-  pas une lacune du fichier.
+L'import crée, il ne met pas à jour : deux passages font deux budgets.
+Vérifier que rien n'existe déjà avant de commencer.
+
+1. **Les projets** doivent exister sous ces noms exacts — ce sont ceux
+   des trois volets :
+   - `CEM Liban — Triade Villepreux · Azour · LEY`
+   - `CEM Liban — Triade Jouy-en-Josas · Jeïta · Comité de Jumelage`
+   - `CEM Liban — Coordination et actions communes`
+2. **Les organisations** aussi, sous ces noms exacts : `MEAE`, `YCID`,
+   `Département des Yvelines (CD78)`, `Commune de Villepreux`,
+   `Commune de Jouy-en-Josas`, `Libanais en Yvelines (LEY)`,
+   `Comité de Jumelage de Jouy-en-Josas`, `Municipalité d'Azour`,
+   `Municipalité de Jeïta`. Le rapprochement ignore la casse et les
+   accents, pas les mots manquants : `CD78` ne vaut pas
+   `Département des Yvelines (CD78)`.
+3. **`phases-cem.csv`** — Import ▸ Phases. Les 10 phases des trois
+   projets. Dates et statuts volontairement vides : le classeur n'en
+   porte pas, et une date inventée vaut moins qu'une date absente.
+4. **`budget-cem-azour.csv`**, **`budget-cem-jeita.csv`**,
+   **`budget-cem-commun.csv`** — Import ▸ Lignes budgétaires, un fichier
+   par projet. Une dépense donne autant de lignes qu'elle sert d'années :
+   le classeur est en colonnes par année, le budget de l'outil est
+   annuel.
+5. **`appels-de-fonds-cem-liban.csv`** — pas d'import : bordereau de
+   saisie à la main, section « Appels de fonds » de l'onglet Budget.
+
+`rattrapage-financeurs.sql` sert au cas où des lignes ont déjà été
+saisies sans financeur — diagnostic puis correction en deux temps.
+
+## Choix de transcription
+
+Règle unique, tirée du contrôle tiers du 28/08 (voir
+`verification-cowork.md`) : **le CSV ne dit rien que le classeur ne
+dise.** Une colonne que la source ne renseigne pas reste vide plutôt
+qu'être déduite.
+
+- `categorie` — le classeur n'en porte aucune. La colonne est obligatoire
+  à l'import : elle porte donc une valeur **unique**, `projet`, sur les
+  65 lignes. Une valeur uniforme n'est pas une classification ; elle
+  laisse le classement se faire dans l'outil, par ceux qui savent, et se
+  lit d'un coup d'œil comme « pas encore classé ».
+- `organisation_responsable` — la colonne « Qui décaisse », et seulement
+  là où elle est renseignée. Vide ailleurs.
+- `description` — les puces détaillées de l'intitulé, et la **colonne B**
+  du classeur (quantités et bases de calcul) sous la forme « Base de
+  calcul : 150 euros par session, 3 sessions à Azour et 3 sessions à
+  Jeita ». C'est elle qui rend visible que cette ligne annonce 900 €
+  pour 450 € saisis.
+- `commentaire` — justificatifs attendus, circuit de décaissement, la
+  **formule d'origine** quand le montant en est une (les 8 200 € de
+  l'aménagement du Shir valent `=7600+1000+800+600+700+500-3000` au
+  classeur), et la mention d'arbitrage pour les lignes partagées ou
+  déduites.
+- `statut` — `prevue` partout. L'onglet « Registre des dépenses » du
+  classeur est vide : après import, le réalisé sera nul et les écarts
+  égaux à 100 % du prévu. C'est l'état réel du projet.
 - `tache` et `montant_tache` — vides. Le classeur ne relie pas les
   dépenses à des tâches ; l'affectation ligne → tâche se fait dans
   l'application, où elle pilote l'avancement pondéré.
 
-### `appels-de-fonds-cem-liban.csv`
+## Réserves à connaître avant tout compte rendu
 
-⚠️ **À saisir en connaissance de cause.** Le contrôle tiers a établi que
-les montants des tranches YCID (4 980 / 19 920 / 8 300 €) sont des
-**valeurs en cache** : les formules qui les portent sont cassées
-(référence circulaire, multiplication par une ligne vide) et la première
-cellule est un lien vers un fichier local d'un poste de travail. Elles
-sont arithmétiquement conformes à 33 200 € × 15 / 60 / 25 %, mais aucune
-formule du classeur ne les produit — au prochain recalcul complet, elles
-tombent. Le rattachement tranche → année repose de surcroît sur des
-pourcentages décalés d'une colonne par rapport aux en-têtes d'années.
-Ces montants sont donc **à faire confirmer par YCID** avant d'engager
-une relance sur leur base.
+Établies par le contrôle tiers, et portant sur le **classeur**, pas sur
+la transposition :
 
-Deuxième réserve, plus lourde : **les 33 200 € de subvention YCID ne se
-recoupent avec aucun autre total du classeur** — YCID pèse 3 200 € comme
-bailleur dans « Budget à gérer », 17 000 € au « Total YCID » de
-« rappel budget global », 25 100 € en « géré YCID ». Quatre chiffres pour
-une même subvention.
+1. **Les tranches YCID sont des valeurs en cache.** Les formules qui les
+   portent sont cassées (référence circulaire en `L18`, multiplication
+   par une ligne vide) et la première cellule est un lien vers un fichier
+   local. Elles sont conformes à 33 200 € × 15 / 60 / 25 %, mais aucune
+   formule ne les produit : au prochain recalcul, elles tombent.
+2. **Les 33 200 € de subvention YCID ne se recoupent avec rien** :
+   15 000 € de numéraire comme bailleur, 17 000 € avec la valorisation.
+3. **Cinq lignes « TOTAL » sont saisies en dur et fausses** dans l'onglet
+   Contributions&Recettes — ce sont les lignes de synthèse qu'un
+   financeur lit en premier.
+4. **Le tableau des ressources de « Suivi budget » omet 500 €** (la
+   formule `B81` ne référence pas la ligne du CMJ de Villepreux). Il
+   totalise 40 200 € au lieu de 40 700 €.
 
-Les promesses de versement lues dans l'onglet
-« Contributions&Recettes ». **Il n'existe pas d'import pour les appels de
-fonds** : ces 9 lignes se saisissent à la main dans l'onglet Budget,
-section « Appels de fonds ». Le fichier sert de bordereau de saisie.
+Ces quatre points se corrigent dans le classeur, côté YCID/LEY, et
+n'attendent pas l'outil.
+
+## Les appels de fonds
+
+Les 9 promesses lues dans « Contributions&Recettes ». Il n'existe pas
+d'import pour les appels de fonds : ces lignes se saisissent à la main.
 
 - YCID → LEY : 4 980 € (2025), 19 920 € (2026), 8 300 € (2027) —
-  subvention de 33 200 € versée par tranches de 15 / 60 / 25 %, selon
-  décaissements ;
+  subvention de 33 200 € par tranches de 15 / 60 / 25 %, selon
+  décaissements. **À faire confirmer par YCID** avant toute relance :
+  voir la réserve n°1.
 - Commune de Villepreux → LEY : 2 000 € (2026) ;
 - LEY, réservé pour le projet : 1 000 € par an ;
-- Commune de Villepreux, réservé : 500 € (2026) et 2 000 € (2027).
-
-> Réserve de lecture : la ligne « TOTAL » de cet onglet
-> (10 960 / 20 920 / 4 320) ne se déduit pas des lignes au-dessus —
-> 2025 y vaut deux fois la tranche YCID, 2027 moins qu'elle. Les totaux
-> paraissent être des formules devenues fausses. Les montants
-> **par partenaire** sont cohérents entre eux et avec la subvention de
-> 33 200 € ; ce sont eux qui ont été repris. À confirmer avant de s'en
-> servir en COPIL.
-
-### `rattrapage-financeurs.sql`
-
-Pour les lignes budgétaires **déjà saisies** sans financeur : un
-diagnostic (que se passe-t-il, et pourquoi l'écran dit « Non affecté »),
-puis une correction en deux temps — on regarde d'abord ce qui serait
-écrit, on écrit ensuite. À exécuter dans le SQL Editor Supabase.
-
-## Réimporter ou corriger ?
-
-- **Corriger** (le script SQL, ou les lignes une à une dans l'écran
-  Budget) si les lignes actuelles sont bonnes et qu'il ne leur manque que
-  le bailleur. C'est le cas le plus probable, et le moins destructeur.
-- **Réimporter** le CSV si les montants ou le découpage par année ne
-  correspondent pas au classeur. Dans ce cas, **supprimer d'abord les
-  lignes existantes** : l'import crée, il ne met pas à jour, et deux
-  passages font deux budgets.
+- Commune de Villepreux, réservé : 500 € (2026), 2 000 € (2027).
