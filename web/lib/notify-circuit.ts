@@ -137,3 +137,52 @@ export async function projectLeads(projectId: string): Promise<string[]> {
     .in('role', rolesWith('projets.update'))
   return (data ?? []).map(m => m.user_id as string)
 }
+
+// Tous les membres d'un projet — le cercle de ceux qui y voient déjà
+// tout. Sert au dépôt de pièce (0067) : « à chaque ajout de document,
+// une notification doit apparaître chez les personnes sur le projet ».
+export async function projectMembers(projectId: string): Promise<string[]> {
+  const db = adminDb()
+  if (!db) return []
+  const { data } = await db.from('project_members').select('user_id').eq('project_id', projectId)
+  return (data ?? []).map(m => m.user_id as string)
+}
+
+// Les administrateurs des organisations PILOTES — YCID et LEY. La règle
+// n'est pas réinventée ici : c'est mot pour mot celle de
+// `is_lead_org_admin()` (0007), qui gouverne déjà en base ce que
+// « admin YCID / LEY » veut dire. Deux définitions du même cercle
+// finiraient par diverger, et c'est le genre de divergence qui se
+// découvre le jour où quelqu'un ne reçoit rien.
+export async function leadOrgAdmins(): Promise<string[]> {
+  const db = adminDb()
+  if (!db) return []
+  const { data: orgs } = await db.from('organizations').select('id, name')
+  const leadIds = (orgs ?? [])
+    .filter(o => {
+      const n = String(o.name ?? '').toUpperCase()
+      return n.includes('YCID') || n.includes('LEY')
+    })
+    .map(o => o.id as string)
+  if (!leadIds.length) return []
+  const { data } = await db.from('memberships')
+    .select('user_id').in('org_id', leadIds).eq('role', 'admin_org')
+  return (data ?? []).map(m => m.user_id as string)
+}
+
+// La direction du programme dont relève le projet (0055). Elle est le
+// plus souvent DÉJÀ membre du projet — le déclencheur de la 0055 lui
+// pose une ligne `chef_projet` via_programme — mais on ne s'appuie pas
+// là-dessus : un projet rattaché à un programme sans que la
+// synchronisation ait eu lieu laisserait la directrice sans nouvelles,
+// et c'est précisément la personne qu'il ne faut pas rater.
+export async function programmeDirectors(projectId: string): Promise<string[]> {
+  const db = adminDb()
+  if (!db) return []
+  const { data: project } = await db.from('projects')
+    .select('programme_id').eq('id', projectId).maybeSingle()
+  if (!project?.programme_id) return []
+  const { data } = await db.from('programme_directors')
+    .select('user_id').eq('programme_id', project.programme_id)
+  return (data ?? []).map(d => d.user_id as string)
+}

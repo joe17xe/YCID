@@ -152,3 +152,11 @@ export const PLATFORM_ROLES: Record<string, { label: string; fg: string; bg: str
   // Le périmètre vient de l'organisation, les capacités du rôle projet.
   user: { label: 'Utilisateur', fg: '#66716B', bg: '#EEF0EE' },
 }
+
+// Longueur maximale d'un commentaire de tâche (0067). Une borne, pas
+// une opinion : au-delà, ce n'est plus un commentaire mais un document,
+// et il a sa place dans les pièces jointes. Elle vit ICI et non dans
+// l'action serveur — un fichier « use server » ne peut exporter que des
+// fonctions asynchrones — pour que le champ de saisie et la validation
+// serveur lisent le même chiffre.
+export const MAX_COMMENT = 2000

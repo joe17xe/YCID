@@ -11,6 +11,7 @@ import PhaseDialog from "@/components/tasks/PhaseDialog"
 import TaskDialog from "@/components/tasks/TaskDialog"
 import { BudgetLineDialog, CreateTaskFromLineButton, IndicatorDialog, MeasureDialog, MeetingDialog, DecisionDialog } from "@/components/project/ProjectDataDialogs"
 import TaskDocuments from "@/components/project/TaskDocuments"
+import TaskComments from "@/components/project/TaskComments"
 import DeleteTaskButton from "@/components/tasks/DeleteTaskButton"
 import { DeleteBudgetLineButton, DeletePhaseButton } from "@/components/project/DeleteInTwoSteps"
 import BudgetLineDocuments from "@/components/project/BudgetLineDocuments"
@@ -58,6 +59,16 @@ function ProgressBar({ value }: { value: number }) {
 // aucun état client. platform_settings et stockage n'apparaissent pas :
 // leurs événements n'ont pas de projet.
 const AUDIT_PAGE = 20
+// Une ligne de `task_comments` telle que la remonte le select imbriqué
+// de la page (0067).
+interface RawComment {
+  id: string
+  body: string
+  created_at: string
+  author_id: string | null
+  author: { full_name: string | null } | null
+}
+
 const AUDIT_ENTITIES: Record<string, string> = {
   project: "Projet", phase: "Phase", task: "Tâche", document: "Pièce",
   budget_line: "Ligne budgétaire", validation: "Validation", decision: "Décision",
@@ -99,7 +110,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
 
   const [{ data: project }, { data: phases }, { data: budgetLines }, { data: indicators }, { data: meetings }, { data: audit, count: auditCount }, { data: phasePhotos }, { data: allDocs }, canEditCompleted] = await Promise.all([
     supabase.from("projects").select("*, project_organizations(org_id, role, organizations(id, name, type)), project_members(user_id, role, profiles(id, full_name, email)), validation_rules(id, role, doc_type)").eq("id", id).single(),
-    supabase.from("phases").select("*, tasks(*, profiles:assignee_id(full_name), documents(*))").eq("project_id", id).order("position"),
+    supabase.from("phases").select("*, tasks(*, profiles:assignee_id(full_name), documents(*), task_comments(id, body, created_at, author_id, author:author_id(full_name)))").eq("project_id", id).order("position"),
     supabase.from("budget_lines").select("*, funder:funder_org_id(name), owner:owner_org_id(name), phase:phase_id(name), allocations:budget_line_tasks(task_id, amount, task:task_id(title)), documents(id, filename, type, amount, paid, paid_at, uploaded_at, validations(id, org_id, decision, step, comment, org:org_id(name), decider:decided_by(full_name)))").eq("project_id", id).order("year"),
     supabase.from("indicators").select("*, measures:indicator_measures(*)").eq("project_id", id),
     supabase.from("meetings").select("*, decisions(*, owner:owner_user_id(full_name))").eq("project_id", id).order("date", { ascending: false }),
@@ -1031,6 +1042,22 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                               + {fmtEur(taskValo(t.id))} en nature
                             </span>
                           )}
+                          {/* Le fil de la tâche (0067). Il vit avec les
+                              autres pastilles parce qu'il dit la même
+                              chose qu'elles : où en est cette tâche.
+                              `tasks.comment` (0001) reste ce qu'il a
+                              toujours été — une note unique, écrasée à
+                              chaque modification ; le fil, lui, ne perd
+                              rien et prévient qui de droit. */}
+                          <TaskComments projectId={id} taskId={t.id} taskTitle={t.title}
+                            meId={user.id}
+                            comments={([...(t.task_comments ?? [])] as RawComment[])
+                              .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))
+                              .map(c => ({
+                                id: c.id, body: c.body, created_at: c.created_at,
+                                author_id: c.author_id ?? null,
+                                author: c.author ? { full_name: c.author.full_name ?? null } : null,
+                              }))} />
                           {/* Sens inverse de la création croisée : la
                               tâche existe, son financement reste à
                               saisir. Le dialogue s'ouvre déjà rattaché. */}

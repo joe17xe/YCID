@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { DOC_TYPES, DOC_TYPE_LABELS, DOC_MOMENTS, GALLERY_URL_TTL, type DocType, type DocMoment } from '@/lib/documents'
-import { notifyPeople, membersOfOrgs } from '@/lib/notify-circuit'
+import { notifyPeople, membersOfOrgs, projectMembers } from '@/lib/notify-circuit'
 import { isUserAdmin } from '@/lib/permissions'
 // Le montant se met en forme au même endroit que partout ailleurs : un
 // « 12 000 € » recopié à la main finit par différer de celui du tableau,
@@ -97,6 +97,44 @@ export async function saveDocument(input: SaveDocumentInput): Promise<{ ok: bool
     comment: `Pièce déposée (${DOC_TYPE_LABELS[input.type]})`,
   })
   if (auditErr) console.error('[audit] trace NON enregistrée:', auditErr.message)
+
+  // Prévenir LE PROJET (demande du 28/08). Jusqu'ici, une pièce déposée
+  // n'était annoncée qu'aux organisations sollicitées, et seulement
+  // pour un devis : tout le reste — photos, justificatifs, comptes
+  // rendus — arrivait en silence, et se découvrait par hasard en
+  // ouvrant l'onglet Documents.
+  //
+  // Le déposant ne se notifie pas lui-même. Pour un devis, la mise en
+  // validation a déjà écrit aux décideurs : ils reçoivent ici un second
+  // message, et c'est assumé — l'un dit « une décision vous attend »,
+  // l'autre « une pièce est arrivée sur le projet ». Ce ne sont pas les
+  // mêmes destinataires ni le même geste.
+  //
+  // Jamais bloquant : la pièce est enregistrée, une notification qui
+  // échoue ne doit pas faire croire au contraire.
+  try {
+    const members = (await projectMembers(input.projectId)).filter(uid => uid !== user.id)
+    if (members.length) {
+      const { data: project } = await supabase.from('projects')
+        .select('name').eq('id', input.projectId).maybeSingle()
+      const { data: me } = await supabase.from('profiles')
+        .select('full_name').eq('id', user.id).maybeSingle()
+      await notifyPeople(members, {
+        type: 'document_ajoute',
+        title: `Nouvelle pièce : ${filename}`,
+        body: [
+          `Projet : ${project?.name ?? 'projet'}`,
+          `Nature : ${DOC_TYPE_LABELS[input.type]}`,
+          `Déposée par : ${me?.full_name ?? 'un membre du projet'}`,
+        ],
+        path: `/projets/${input.projectId}?tab=documents`,
+        linkLabel: 'Voir la pièce',
+      })
+    }
+  } catch (e) {
+    console.error('[saveDocument] notification de dépôt non émise:', e)
+  }
+
   revalidatePath(`/projets/${input.projectId}`)
   return { ok: true, warning }
 }
