@@ -3,6 +3,7 @@ import { NextIntlClientProvider } from 'next-intl'
 import { getLocale } from 'next-intl/server'
 import { getTerritoire } from '@/lib/content'
 import { dirFor, tx } from '@/lib/i18n-text'
+import SWRegister from '@/components/SWRegister'
 import './globals.css'
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -12,6 +13,7 @@ export async function generateMetadata(): Promise<Metadata> {
     title: { default: marque, template: `%s · ${marque}` },
     description: tx(territoire.slogan, locale),
     manifest: '/manifest.webmanifest',
+    icons: { icon: '/icons/icon-192.png', apple: '/icons/apple-touch-icon.png' },
     appleWebApp: { capable: true, title: marque, statusBarStyle: 'default' },
   }
 }
@@ -40,6 +42,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Sans+Arabic:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
         />
         <NextIntlClientProvider>{children}</NextIntlClientProvider>
+        <SWRegister />
       </body>
     </html>
   )
