@@ -33,7 +33,7 @@ export default function ImportClient({ canImport }: { canImport: boolean }) {
   const [errors, setErrors] = useState<string[]>([])
   const [filename, setFilename] = useState("")
   const [step, setStep] = useState<"upload" | "preview" | "done">("upload")
-  const [result, setResult] = useState<{ created: number; skipped: number; errors: string[] } | null>(null)
+  const [result, setResult] = useState<{ created: number; skipped: number; errors: string[]; warnings: string[] } | null>(null)
   const [serverError, setServerError] = useState("")
   const [pending, startTransition] = useTransition()
   const fileRef = useRef<HTMLInputElement>(null)
@@ -72,7 +72,7 @@ export default function ImportClient({ canImport }: { canImport: boolean }) {
     startTransition(async () => {
       const res = await runImport({ kind: importType, filename, rows })
       if (res.ok) {
-        setResult({ created: res.created, skipped: res.skipped, errors: res.errors })
+        setResult({ created: res.created, skipped: res.skipped, errors: res.errors, warnings: res.warnings ?? [] })
         setStep("done")
       } else {
         setServerError(res.error ?? "Une erreur est survenue.")
@@ -98,6 +98,21 @@ export default function ImportClient({ canImport }: { canImport: boolean }) {
               ? `${result.skipped} ligne${result.skipped > 1 ? "s" : ""} ignorée${result.skipped > 1 ? "s" : ""} — détail dans le journal ci-dessous.`
               : "Toutes les lignes valides ont été enregistrées."}
           </p>
+          {/* Ce qui est passé mais laissera un écran vide. Un budget
+              entier « Non affecté » se découvrait jusqu'ici en ouvrant
+              l'onglet Budget, une fois l'import fait — et se corrigeait
+              en recommençant. */}
+          {result.warnings.length > 0 && (
+            <div className="mt-4 mx-auto max-w-2xl text-left rounded-xl px-4 py-3 space-y-2"
+              style={{ background: "#F7EDDD", color: "#8A6A1F" }}>
+              <p className="flex items-center gap-2 text-sm font-semibold">
+                <AlertTriangle size={16} aria-hidden="true" /> Importé, mais à vérifier
+              </p>
+              <ul className="list-disc pl-5 text-xs space-y-1">
+                {result.warnings.map((w, i) => <li key={i}>{w}</li>)}
+              </ul>
+            </div>
+          )}
           <button onClick={reset} className="mt-4 px-6 py-2.5 rounded-xl text-white font-semibold text-sm" style={{ background: "var(--brand-accent,#0E6B5C)" }}>
             Nouvel import
           </button>
