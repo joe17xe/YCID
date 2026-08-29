@@ -38,6 +38,11 @@
    consultation, et de toute façon **paramétrable** (cohérent avec le
    point 1 : le nom appartient à la configuration du territoire, pas au
    code).
+7. **Les coordonnées GPS sont des données, jamais du code** (demande du
+   29/08 au soir) : chaque point et chaque trace se saisit au
+   back-office avec ses informations en paramètres — la carte et les
+   parcours évoluent sans redéploiement. Modèle de données, modes de
+   saisie et impacts techniques : `07-modele-de-donnees.md`.
 
 ## Encore ouvert
 

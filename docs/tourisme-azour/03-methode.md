@@ -106,6 +106,12 @@ Périmètre V1 (« must ») :
   partout dès sa saisie), liste des hébergements. Rien de propre à Azour
   n'est codé en dur : dupliquer un territoire = créer une configuration,
   pas un logiciel.
+- Cette logique va jusqu'aux **coordonnées GPS elles-mêmes** (arbitrage
+  du 29/08 au soir) : points saisis au back-office (coller, cliquer sur
+  la carte, ou « prendre ma position » sur le terrain), traces importées
+  en GPX/KML avec calculs automatiques et prévisualisation avant
+  publication — la carte et les parcours évoluent sans redéploiement.
+  Modèle complet et impacts : `07-modele-de-donnees.md`.
 - La fiche du sentier « Hyrax Rock » (accès guidé par cordes uniquement)
   inaugure le gabarit « expérience encadrée » : pas de bouton
   « télécharger le GPX » mais « réserver avec un guide » (WhatsApp).
