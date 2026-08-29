@@ -28,13 +28,13 @@ let sql = `-- Seed « ${territoire.nom.fr} » — GÉNÉRÉ par scripts/gen-seed
 -- Ne pas éditer à la main : modifier content/ puis relancer \`node scripts/gen-seed.mjs\`.
 -- Idempotent : rejouable (upsert par slug).
 
-insert into territoires (slug, nom, slogan, actif, langues, langue_defaut, photo_accueil,
+insert into territoires (slug, nom, marque, slogan, actif, langues, langue_defaut, photo_accueil,
   contact_tel, contact_whatsapp, contact_email, urgences, etat_acces, centre, zoom_defaut)
-values (${q(territoire.slug)}, ${j(territoire.nom)}, ${j(territoire.slogan)}, ${b(territoire.actif)},
+values (${q(territoire.slug)}, ${j(territoire.nom)}, ${t(territoire.marque)}, ${j(territoire.slogan)}, ${b(territoire.actif)},
   ${arr(territoire.langues)}, ${q(territoire.langue_defaut)}, ${t(territoire.photo_accueil)},
   ${t(territoire.contact_tel)}, ${t(territoire.contact_whatsapp)}, ${t(territoire.contact_email)},
   ${j(territoire.urgences)}, ${j(territoire.etat_acces)}, ${pt(territoire.centre)}, ${n(territoire.zoom_defaut)})
-on conflict (slug) do update set nom = excluded.nom, slogan = excluded.slogan,
+on conflict (slug) do update set nom = excluded.nom, marque = excluded.marque, slogan = excluded.slogan,
   actif = excluded.actif, langues = excluded.langues, langue_defaut = excluded.langue_defaut,
   photo_accueil = excluded.photo_accueil, urgences = excluded.urgences,
   etat_acces = excluded.etat_acces, centre = excluded.centre, zoom_defaut = excluded.zoom_defaut;

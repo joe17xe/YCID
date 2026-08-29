@@ -1,0 +1,166 @@
+@import "tailwindcss";
+
+/* ————————————————————————————————————————————————————————————————
+   Les tokens Visit Azour — la palette vient du paysage (04-design).
+   Sémantiques : ils changent en mode sombre, les composants ne
+   connaissent que les noms. Un territoire peut les surcharger.
+———————————————————————————————————————————————————————————————— */
+:root {
+  --fond: #f4f2e8;
+  --surface: #fdfcf6;
+  --surface-2: #efecdf;
+  --encre: #1d2a21;
+  --encre-2: #59635a;
+  --encre-3: #7e877d;
+  --pin: #1e5741;
+  --pin-fort: #174735;
+  --sur-pin: #f6f4ea;
+  --bisri: #2b6b8c;
+  --ocre: #9a6524;
+  --ocre-pale: #f3e5ce;
+  --ocre-bord: #e8d3ae;
+  --vert-pale: #dce9df;
+  --danger: #a43e2c;
+  --danger-pale: #f4ded8;
+  --ligne: #e4e1d2;
+  --ombre: 0 1px 2px rgb(29 42 33 / 0.06), 0 8px 24px rgb(29 42 33 / 0.07);
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fond: #0f1d16;
+    --surface: #16241c;
+    --surface-2: #1d2e24;
+    --encre: #e8ece2;
+    --encre-2: #a7b1a4;
+    --encre-3: #7c877b;
+    --pin: #5fbe93;
+    --pin-fort: #7acfa8;
+    --sur-pin: #0f1d16;
+    --bisri: #6fb3d6;
+    --ocre: #d69c52;
+    --ocre-pale: #3a2f1c;
+    --ocre-bord: #55452a;
+    --vert-pale: #1f3128;
+    --danger: #e07b62;
+    --danger-pale: #3b1e16;
+    --ligne: #2a3c30;
+    --ombre: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px rgb(0 0 0 / 0.35);
+  }
+}
+
+/* Le kiosque reste clair et très contrasté quel que soit le thème :
+   il vit en extérieur, à la lumière du jour. */
+[data-kiosque] {
+  --fond: #f4f2e8;
+  --surface: #fdfcf6;
+  --surface-2: #efecdf;
+  --encre: #1d2a21;
+  --encre-2: #59635a;
+  --encre-3: #7e877d;
+  --pin: #1e5741;
+  --pin-fort: #174735;
+  --sur-pin: #f6f4ea;
+  --ligne: #e4e1d2;
+  color-scheme: light;
+}
+
+body {
+  background: var(--fond);
+  color: var(--encre);
+  font-family: "IBM Plex Sans", "IBM Plex Sans Arabic", "Segoe UI", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+/* L'arabe se lit plus grand, jamais espacé (les ligatures cassent). */
+[dir="rtl"] body,
+[dir="rtl"] {
+  letter-spacing: 0;
+}
+[dir="rtl"] body {
+  font-size: 17.5px;
+  line-height: 1.75;
+}
+[dir="rtl"] .eyebrow {
+  letter-spacing: 0;
+}
+
+h1, h2, h3, .titres {
+  font-family: "Bricolage Grotesque", "IBM Plex Sans", "IBM Plex Sans Arabic", system-ui, sans-serif;
+  text-wrap: balance;
+  line-height: 1.15;
+}
+[dir="rtl"] h1, [dir="rtl"] h2, [dir="rtl"] h3, [dir="rtl"] .titres {
+  font-family: "IBM Plex Sans Arabic", "Bricolage Grotesque", system-ui, sans-serif;
+  font-weight: 700;
+}
+
+.mono {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.eyebrow {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--encre-2);
+}
+
+/* ————— composants récurrents ————— */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--ligne);
+  border-radius: 16px;
+  box-shadow: var(--ombre);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 3px 11px;
+  font-size: 12.5px;
+  font-weight: 600;
+  background: var(--surface-2);
+  color: var(--encre-2);
+}
+
+.badge-facile { background: var(--vert-pale); color: var(--pin); }
+.badge-modere { background: var(--ocre-pale); color: var(--ocre); }
+.badge-difficile { background: var(--danger-pale); color: var(--danger); }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 14px;
+  padding: 13px 18px;
+  font-weight: 700;
+  font-size: 15px;
+  min-height: 48px; /* cible tactile en marche, au soleil */
+  transition: opacity 0.15s;
+}
+.btn:active { opacity: 0.85; }
+.btn-pin { background: var(--pin); color: var(--sur-pin); }
+.btn-ocre { background: var(--ocre-pale); color: var(--ocre); border: 1px solid var(--ocre-bord); }
+.btn-surface { background: var(--surface); color: var(--encre); border: 1px solid var(--ligne); }
+.btn-danger { background: var(--danger-pale); color: var(--danger); border: 1px solid var(--danger); }
+
+.prose-app p { margin: 0 0 12px; }
+.prose-app { color: var(--encre); }
+
+/* Carte MapLibre : attribution lisible dans les deux thèmes */
+.maplibregl-ctrl-attrib {
+  font-size: 10px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

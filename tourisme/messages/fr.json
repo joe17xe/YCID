@@ -1,0 +1,128 @@
+{
+  "nav": {
+    "accueil": "Accueil",
+    "parcours": "Parcours",
+    "explorer": "Explorer",
+    "agenda": "Agenda",
+    "pratique": "Pratique"
+  },
+  "commun": {
+    "difficulte": { "facile": "Facile", "modere": "Modéré", "difficile": "Difficile" },
+    "type": { "boucle": "Boucle", "lineaire": "Linéaire", "guide": "Accès guidé" },
+    "distance": "Distance",
+    "denivelePos": "Dénivelé +",
+    "deniveleNeg": "Dénivelé −",
+    "duree": "Durée",
+    "niveau": "Niveau",
+    "depart": "Départ",
+    "etapes": "Étapes — numérotées comme les panneaux",
+    "panneau": "panneau",
+    "horsLigne": "Hors-ligne",
+    "dispoHorsLigne": "Disponible hors-ligne",
+    "telechargerSentier": "Télécharger pour le sentier",
+    "packNote": "Fiche, carte et trace consultables sans réseau",
+    "telechargerGpx": "Télécharger la trace GPX",
+    "traceProvisoire": "Tracé provisoire — dessiné d'après l'étude des sentiers, en attente du relevé officiel sur le terrain.",
+    "accesGuide": "Sortie encadrée uniquement — réservation avec un guide",
+    "reserverGuide": "Réserver avec un guide",
+    "urgences": "Urgences",
+    "voirCarte": "Voir la carte",
+    "voirListe": "Voir la liste",
+    "misAJour": "Mis à jour le {date}",
+    "ouvrirSentier": "Ouvrir le mode sentier",
+    "retour": "Retour",
+    "aPropos": "À propos",
+    "kiosque": "Kiosque",
+    "appareilPhoto": "Ouvrez l'appareil photo et visez le QR"
+  },
+  "accueil": {
+    "bienvenue": "Bienvenue à",
+    "siteEmblematique": "Site emblématique",
+    "decouvrir": "Découvrir",
+    "aujourdhui": "Les parcours",
+    "tousParcours": "Tous les parcours",
+    "agendaTitre": "En ce moment",
+    "voirAgenda": "Tout l'agenda",
+    "pratiqueTitre": "Préparer sa venue",
+    "meteo": "Vérifiez la météo avant de partir"
+  },
+  "parcours": {
+    "titre": "Les parcours",
+    "sousTitre": "Trois façons de rencontrer le Shir — choisissez selon vos jambes et votre envie.",
+    "profil": "Profil du parcours",
+    "dangers": "Sécurité",
+    "saison": "Saison conseillée",
+    "acces": "Accès et départ",
+    "description": "Le parcours",
+    "aussi": "Autres parcours"
+  },
+  "sentier": {
+    "titre": "Mode sentier",
+    "restants": "restants",
+    "prochainPoint": "Prochain point",
+    "maPosition": "Ma position",
+    "gpsAttente": "Recherche du signal GPS…",
+    "gpsRefuse": "Position indisponible — autorisez la géolocalisation pour vous situer sur la trace.",
+    "horsTrace": "Vous semblez à plus de {distance} m de la trace",
+    "surLaTrace": "Sur la trace",
+    "note": "Gardez l'œil sur le balisage : le téléphone aide, il ne remplace pas le terrain."
+  },
+  "explorer": {
+    "titre": "Explorer",
+    "sousTitre": "Les lieux qui font Azour : belvédères, patrimoine, nature — et où dormir, manger, camper."
+  },
+  "pratique": {
+    "titre": "Pratique",
+    "dormir": "Dormir",
+    "manger": "Manger",
+    "guides": "Les guides",
+    "camper": "Camper",
+    "venir": "Venir à Azour",
+    "venirTexte": "Azour se trouve dans le caza de Jezzine (Sud-Liban), à ~20 minutes de Jezzine par la route. Stationnement sur la place du village, au départ des sentiers.",
+    "urgencesTitre": "Numéros d'urgence",
+    "appeler": "Appeler",
+    "whatsapp": "WhatsApp",
+    "siteWeb": "Site web",
+    "independant": "Établissement indépendant du projet",
+    "kiosqueTitre": "Le kiosque touristique",
+    "kiosqueTexte": "Sur la place du village, animé par les jeunes et les guides d'Azour : informations, conseils, réservations.",
+    "aucunContact": "Le numéro d'information sera annoncé ici prochainement."
+  },
+  "agenda": {
+    "titre": "Agenda",
+    "sousTitre": "Le trail, les rendez-vous du village et les saisons de la nature.",
+    "saisonnier": "Chaque année",
+    "dateAVenir": "Date annoncée prochainement"
+  },
+  "apropos": {
+    "titre": "À propos",
+    "texte1": "Les sentiers d'Azour sont aménagés par la municipalité d'Azour et l'association Libanais en Yvelines (LEY), avec les communes de Villepreux et de Jouy-en-Josas, YCID (Yvelines Coopération Internationale et Développement), le Département des Yvelines et le ministère français de l'Europe et des Affaires étrangères, dans le cadre du programme de coopération CEM Liban 2025-2027.",
+    "texte2": "Les jeunes du village ont défriché les premiers tronçons, se forment au métier de guide et font vivre le kiosque. Cette application est la leur : les contenus sont écrits et mis à jour à Azour.",
+    "photosTitre": "Crédits photos",
+    "photos": "Photos issues de l'étude des sentiers d'Azour (2026) et du programme CEM Liban.",
+    "duplicable": "Cette plateforme est conçue pour être dupliquée : chaque village peut ouvrir la sienne avec ses parcours, ses points d'intérêt et ses contacts — sans toucher au code."
+  },
+  "kiosque": {
+    "titre": "Kiosque touristique",
+    "bienvenue": "Bienvenue à Azour",
+    "choisirLangue": "Choisissez votre langue",
+    "parcoursDuJour": "Le parcours du jour",
+    "emportez": "Emportez Azour dans votre poche",
+    "scannez": "Scannez : les parcours vous suivent sur le sentier, même sans réseau.",
+    "renseignement": "Un renseignement ? Les jeunes guides répondent :",
+    "renseignementSansTel": "Un renseignement ? Adressez-vous aux jeunes guides du kiosque.",
+    "inactivite": "L'écran revient à l'accueil après {secondes} s d'inactivité",
+    "recommencer": "Recommencer",
+    "toucherPourCommencer": "Touchez l'écran pour commencer"
+  },
+  "etatAcces": {
+    "ouvert": "Sentiers ouverts",
+    "prudence": "Prudence",
+    "ferme": "Accès fermé",
+    "misAJourLe": "État au {date}"
+  },
+  "footer": {
+    "programme": "Programme CEM Liban — Villepreux · Azour · LEY, avec YCID, le Département des Yvelines et le MEAE.",
+    "traceNote": "Tracés en cours de vérification terrain — suivez toujours le balisage."
+  }
+}

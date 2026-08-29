@@ -2,13 +2,13 @@
 -- Ne pas éditer à la main : modifier content/ puis relancer `node scripts/gen-seed.mjs`.
 -- Idempotent : rejouable (upsert par slug).
 
-insert into territoires (slug, nom, slogan, actif, langues, langue_defaut, photo_accueil,
+insert into territoires (slug, nom, marque, slogan, actif, langues, langue_defaut, photo_accueil,
   contact_tel, contact_whatsapp, contact_email, urgences, etat_acces, centre, zoom_defaut)
-values ('azour', '{"fr":"Azour","ar":"عازور","en":"Azour"}'::jsonb, '{"fr":"Le village du Shir, entre falaises et vallée du Bisri","ar":"قرية الشير، بين الجروف ووادي بسري","en":"The village of the Shir, between cliffs and the Bisri valley"}'::jsonb, true,
+values ('azour', '{"fr":"Azour","ar":"عازور","en":"Azour"}'::jsonb, 'Visit Azour', '{"fr":"Le village du Shir, entre falaises et vallée du Bisri","ar":"قرية الشير، بين الجروف ووادي بسري","en":"The village of the Shir, between cliffs and the Bisri valley"}'::jsonb, true,
   '{ar,fr,en}', 'fr', '/photos/panorama-crete.jpg',
   null, null, null,
   '[{"nom":{"fr":"Défense civile (secours)","ar":"الدفاع المدني","en":"Civil Defence (rescue)"},"tel":"125"},{"nom":{"fr":"Croix-Rouge libanaise","ar":"الصليب الأحمر اللبناني","en":"Lebanese Red Cross"},"tel":"140"},{"nom":{"fr":"Forces de sécurité intérieure","ar":"قوى الأمن الداخلي","en":"Internal Security Forces"},"tel":"112"}]'::jsonb, '{"niveau":"ouvert","message":{"fr":"Sentiers en cours d''aménagement (programme 2026-2027) : certains tronçons sont encore en chantier. Renseignez-vous au kiosque avant de partir.","ar":"الدروب قيد التأهيل (برنامج ٢٠٢٦–٢٠٢٧): بعض المقاطع لا تزال قيد الأشغال. استعلموا عند الكشك قبل الانطلاق.","en":"Trails under development (2026-2027 programme): some sections are still being worked on. Check at the kiosk before setting out."},"date":"2026-08-29"}'::jsonb, st_setsrid(st_makepoint(35.57, 33.53), 4326), 13.5)
-on conflict (slug) do update set nom = excluded.nom, slogan = excluded.slogan,
+on conflict (slug) do update set nom = excluded.nom, marque = excluded.marque, slogan = excluded.slogan,
   actif = excluded.actif, langues = excluded.langues, langue_defaut = excluded.langue_defaut,
   photo_accueil = excluded.photo_accueil, urgences = excluded.urgences,
   etat_acces = excluded.etat_acces, centre = excluded.centre, zoom_defaut = excluded.zoom_defaut;

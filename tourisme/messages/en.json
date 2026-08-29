@@ -1,0 +1,128 @@
+{
+  "nav": {
+    "accueil": "Home",
+    "parcours": "Trails",
+    "explorer": "Explore",
+    "agenda": "What's on",
+    "pratique": "Info"
+  },
+  "commun": {
+    "difficulte": { "facile": "Easy", "modere": "Moderate", "difficile": "Hard" },
+    "type": { "boucle": "Loop", "lineaire": "One-way", "guide": "Guided access" },
+    "distance": "Distance",
+    "denivelePos": "Ascent",
+    "deniveleNeg": "Descent",
+    "duree": "Duration",
+    "niveau": "Level",
+    "depart": "Trailhead",
+    "etapes": "Waypoints — numbered like the trail signs",
+    "panneau": "sign",
+    "horsLigne": "Offline",
+    "dispoHorsLigne": "Available offline",
+    "telechargerSentier": "Download for the trail",
+    "packNote": "Page, map and track available without signal",
+    "telechargerGpx": "Download GPX track",
+    "traceProvisoire": "Provisional track — drawn from the trail study, awaiting the official field survey.",
+    "accesGuide": "Supervised outing only — book with a guide",
+    "reserverGuide": "Book with a guide",
+    "urgences": "Emergency",
+    "voirCarte": "Map view",
+    "voirListe": "List view",
+    "misAJour": "Updated {date}",
+    "ouvrirSentier": "Open trail mode",
+    "retour": "Back",
+    "aPropos": "About",
+    "kiosque": "Kiosk",
+    "appareilPhoto": "Open your camera and point it at the QR"
+  },
+  "accueil": {
+    "bienvenue": "Welcome to",
+    "siteEmblematique": "Landmark site",
+    "decouvrir": "Discover",
+    "aujourdhui": "The trails",
+    "tousParcours": "All trails",
+    "agendaTitre": "Happening now",
+    "voirAgenda": "Full calendar",
+    "pratiqueTitre": "Plan your visit",
+    "meteo": "Check the weather before you go"
+  },
+  "parcours": {
+    "titre": "The trails",
+    "sousTitre": "Three ways to meet the Shir — pick by legs and mood.",
+    "profil": "Trail profile",
+    "dangers": "Safety",
+    "saison": "Best season",
+    "acces": "Getting there",
+    "description": "The trail",
+    "aussi": "Other trails"
+  },
+  "sentier": {
+    "titre": "Trail mode",
+    "restants": "to go",
+    "prochainPoint": "Next waypoint",
+    "maPosition": "My position",
+    "gpsAttente": "Looking for GPS signal…",
+    "gpsRefuse": "Position unavailable — allow location access to see yourself on the track.",
+    "horsTrace": "You seem to be more than {distance} m off the track",
+    "surLaTrace": "On the track",
+    "note": "Keep an eye on the waymarks: the phone helps, the terrain decides."
+  },
+  "explorer": {
+    "titre": "Explore",
+    "sousTitre": "The places that make Azour: viewpoints, heritage, nature — and where to sleep, eat and camp."
+  },
+  "pratique": {
+    "titre": "Info",
+    "dormir": "Sleep",
+    "manger": "Eat",
+    "guides": "The guides",
+    "camper": "Camp",
+    "venir": "Getting to Azour",
+    "venirTexte": "Azour is in the Jezzine district (South Lebanon), ~20 minutes from Jezzine by road. Park on the village square, right at the trailhead.",
+    "urgencesTitre": "Emergency numbers",
+    "appeler": "Call",
+    "whatsapp": "WhatsApp",
+    "siteWeb": "Website",
+    "independant": "Independent from the project",
+    "kiosqueTitre": "The tourist kiosk",
+    "kiosqueTexte": "On the village square, run by Azour's young people and guides: information, advice, bookings.",
+    "aucunContact": "The information number will be announced here soon."
+  },
+  "agenda": {
+    "titre": "What's on",
+    "sousTitre": "The trail race, village events and the seasons of nature.",
+    "saisonnier": "Every year",
+    "dateAVenir": "Date to be announced"
+  },
+  "apropos": {
+    "titre": "About",
+    "texte1": "The Azour trails are being developed by the Municipality of Azour and the Libanais en Yvelines association (LEY), with the towns of Villepreux and Jouy-en-Josas, YCID (Yvelines International Cooperation and Development), the Département des Yvelines and the French Ministry for Europe and Foreign Affairs, within the CEM Lebanon cooperation programme 2025-2027.",
+    "texte2": "The village youth cleared the first sections, are training as guides and run the kiosk. This app is theirs: its content is written and updated in Azour.",
+    "photosTitre": "Photo credits",
+    "photos": "Photos from the Azour trail study (2026) and the CEM Lebanon programme.",
+    "duplicable": "This platform is built to be duplicated: any village can open its own, with its trails, places and contacts — without touching the code."
+  },
+  "kiosque": {
+    "titre": "Tourist kiosk",
+    "bienvenue": "Welcome to Azour",
+    "choisirLangue": "Choose your language",
+    "parcoursDuJour": "Today's trail",
+    "emportez": "Take Azour in your pocket",
+    "scannez": "Scan: the trails follow you on the path, even without signal.",
+    "renseignement": "A question? The young guides answer:",
+    "renseignementSansTel": "A question? Ask the young guides at the kiosk.",
+    "inactivite": "The screen returns home after {secondes}s of inactivity",
+    "recommencer": "Start over",
+    "toucherPourCommencer": "Touch the screen to begin"
+  },
+  "etatAcces": {
+    "ouvert": "Trails open",
+    "prudence": "Caution",
+    "ferme": "Access closed",
+    "misAJourLe": "Status as of {date}"
+  },
+  "footer": {
+    "programme": "CEM Lebanon programme — Villepreux · Azour · LEY, with YCID, the Département des Yvelines and the MEAE.",
+    "traceNote": "Tracks under field verification — always follow the waymarks."
+  }
+}

@@ -12,6 +12,7 @@ create table territoires (
   id uuid primary key default gen_random_uuid(),
   slug text unique not null check (slug ~ '^[a-z0-9-]+$'),
   nom jsonb not null,                       -- {"fr":"Azour","ar":"عازور","en":"Azour"}
+  marque text,                              -- le nom commercial (« Visit Azour »), paramétrable
   slogan jsonb,
   actif boolean not null default true,
   langues text[] not null default '{ar,fr,en}',
