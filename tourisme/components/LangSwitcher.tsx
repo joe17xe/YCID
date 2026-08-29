@@ -2,13 +2,15 @@
 import { useLocale } from 'next-intl'
 import { LOCALES, LOCALE_NAMES } from '@/lib/i18n-text'
 
+function poserCookieLangue(l: string) {
+  document.cookie = `VA_LOCALE=${l}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`
+  window.location.reload()
+}
+
 // Chaque langue dans sa propre écriture — jamais de drapeaux.
 export default function LangSwitcher({ compact = true }: { compact?: boolean }) {
   const locale = useLocale()
-  const choisir = (l: string) => {
-    document.cookie = `VA_LOCALE=${l}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`
-    window.location.reload()
-  }
+  const choisir = poserCookieLangue
   return (
     <div className="flex items-center gap-1" role="group" aria-label="Language">
       {LOCALES.map((l) => (
