@@ -214,7 +214,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
     // Appels de fonds (0066) — même tolérance : sans la migration, la
     // section n'apparaît pas et un mot le dit à qui gère le budget.
     supabase.from("funding_calls")
-      .select("id, year, payer_org_id, beneficiary_org_id, amount, note, status, requested_at, received_at, last_reminder_at")
+      .select("id, year, payer_org_id, beneficiary_org_id, amount, note, status, requested_at, received_at, last_reminder_at, paid_on, payment_ref, received_on, received_on_behalf, receiver:received_by(full_name)")
       .eq("project_id", id)
       .order("year", { ascending: false }).order("created_at", { ascending: true }),
   ])
@@ -230,7 +230,39 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
       .filter(r => r.logo_url).map(r => [r.id, r.logo_url as string])
   )
   const fundingReady = !fcErr
-  const fundingCalls: FundingCallRow[] = fundingReady ? ((fcRows ?? []) as FundingCallRow[]) : []
+  // 0069 — qui peut constater quoi sur CHAQUE appel de fonds. Le droit
+  // ne suit pas le rôle projet mais l'APPARTENANCE à l'organisation
+  // concernée : la mairie déclare son virement, LEY confirme sa
+  // réception. La base tranche à nouveau (fonctions `security
+  // definer`) ; ceci ne fait qu'éviter d'afficher un bouton qui serait
+  // refusé.
+  // `myOrgIds` est déjà lu plus haut pour les validations de devis : le
+  // même fait — de quelles organisations je suis membre — ne se demande
+  // pas deux fois.
+  const { data: proofRows } = fundingReady
+    ? await supabase.from("documents").select("id, filename, funding_call_id")
+        .eq("project_id", id).not("funding_call_id", "is", null)
+    : { data: [] as { id: string; filename: string; funding_call_id: string }[] }
+  const proofsByCall = new Map<string, { id: string; filename: string }[]>()
+  for (const d of (proofRows ?? []) as { id: string; filename: string; funding_call_id: string }[]) {
+    proofsByCall.set(d.funding_call_id, [...(proofsByCall.get(d.funding_call_id) ?? []), { id: d.id, filename: d.filename }])
+  }
+  const fundingCalls: FundingCallRow[] = fundingReady
+    ? (fcRows ?? []).map((c: Record<string, unknown>) => {
+        const payer = c.payer_org_id as string
+        const beneficiary = (c.beneficiary_org_id as string | null) ?? null
+        // Le détenteur des fonds : le bénéficiaire, ou le payeur
+        // lui-même quand la somme est « réservée » — elle reste chez lui.
+        const holder = beneficiary ?? payer
+        return {
+          ...(c as unknown as FundingCallRow),
+          received_on_behalf: !!c.received_on_behalf,
+          can_declare_payment: myOrgIds.has(payer) || canBudget || isPlatformAdmin,
+          can_confirm_receipt: myOrgIds.has(holder) || isPlatformAdmin,
+          proofs: proofsByCall.get(c.id as string) ?? [],
+        }
+      })
+    : []
   // La référence budgétaire des appels de fonds : ce que budget_lines
   // prévoit par financeur et par année — hors valorisation, qui est de
   // la nature, pas de l'argent (check:valorisation).
@@ -1578,7 +1610,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
               budgetRef={budgetRefByFunderYear} canManage={canBudget} />
           ) : canBudget && (
             <p className="mt-6 text-sm rounded-xl px-4 py-3" style={{ background: "#F7EDDD", color: "#8A6A1F" }}>
-              Appels de fonds non activés : appliquez la migration <strong>0066_appels_de_fonds.sql</strong> dans le SQL Editor Supabase.
+              Appels de fonds non activés : appliquez les migrations <strong>0066_appels_de_fonds.sql</strong> puis <strong>0069_reception_des_versements.sql</strong> dans le SQL Editor Supabase.
             </p>
           )}
         </div>
