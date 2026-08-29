@@ -1,0 +1,47 @@
+[
+  {
+    "slug": "trail-azour-2027",
+    "nom": { "fr": "Trail d'Azour 2027", "ar": "سباق عازور الجبلي ٢٠٢٧", "en": "Azour Trail 2027" },
+    "description": {
+      "fr": "Le premier trail annuel d'Azour, préparé avec l'appui du Lebanon Mountain Trail : parcours sur les sentiers du Shir, ravitaillements au village, 250 coureurs attendus. Date et inscriptions annoncées ici et au kiosque.",
+      "ar": "أول سباق جبلي سنوي في عازور، بدعم من درب الجبل اللبناني: مسارات على دروب الشير وتموين في القرية و٢٥٠ عدّاءً متوقعًا. الموعد والتسجيل يُعلنان هنا وعند الكشك.",
+      "en": "Azour's first annual trail race, prepared with the support of the Lebanon Mountain Trail: routes on the Shir trails, refreshments in the village, 250 runners expected. Date and registration announced here and at the kiosk."
+    },
+    "date_debut": "2027-05-01",
+    "date_fin": null,
+    "recurrent": true,
+    "lien": null,
+    "photo": "/photos/panorama-crete.jpg",
+    "statut": "publie"
+  },
+  {
+    "slug": "randonnee-inauguration",
+    "nom": { "fr": "Randonnée d'inauguration des sentiers", "ar": "مسيرة افتتاح الدروب", "en": "Trail inauguration hike" },
+    "description": {
+      "fr": "La grande randonnée d'ouverture officielle des sentiers d'Azour, avec les partenaires du programme, les jeunes du village et la diaspora. Date annoncée à l'achèvement des aménagements.",
+      "ar": "المسيرة الكبرى للافتتاح الرسمي لدروب عازور، مع شركاء البرنامج وشباب القرية والمغتربين. يُعلن الموعد عند اكتمال الأشغال.",
+      "en": "The official opening hike of the Azour trails, with the programme partners, the village youth and the diaspora. Date announced once the works are complete."
+    },
+    "date_debut": "2027-06-01",
+    "date_fin": null,
+    "recurrent": false,
+    "lien": null,
+    "photo": "/photos/chemin-agricole.jpg",
+    "statut": "publie"
+  },
+  {
+    "slug": "migration-cigognes",
+    "nom": { "fr": "La migration des cigognes", "ar": "هجرة اللقلق", "en": "The stork migration" },
+    "description": {
+      "fr": "Deux fois par an, les cigognes traversent le ciel de la vallée du Bisri — un spectacle à observer depuis la falaise panoramique, jumelles en main. Passages principaux : mars-avril vers le nord, septembre-octobre vers le sud.",
+      "ar": "مرتين في السنة تعبر طيور اللقلق سماء وادي بسري — مشهد يُراقب من الجرف البانورامي بالمناظير. العبور الرئيسي: آذار-نيسان شمالًا، وأيلول-تشرين الأول جنوبًا.",
+      "en": "Twice a year, storks cross the sky of the Bisri valley — a spectacle to watch from the panoramic cliff, binoculars in hand. Main passages: March-April northbound, September-October southbound."
+    },
+    "date_debut": null,
+    "date_fin": null,
+    "recurrent": true,
+    "lien": null,
+    "photo": "/photos/cigognes.jpg",
+    "statut": "publie"
+  }
+]

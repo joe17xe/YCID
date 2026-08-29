@@ -1,0 +1,32 @@
+{
+  "slug": "azour",
+  "nom": { "fr": "Azour", "ar": "عازور", "en": "Azour" },
+  "slogan": {
+    "fr": "Le village du Shir, entre falaises et vallée du Bisri",
+    "ar": "قرية الشير، بين الجروف ووادي بسري",
+    "en": "The village of the Shir, between cliffs and the Bisri valley"
+  },
+  "actif": true,
+  "langues": ["ar", "fr", "en"],
+  "langue_defaut": "fr",
+  "photo_accueil": "/photos/panorama-crete.jpg",
+  "contact_tel": null,
+  "contact_whatsapp": null,
+  "contact_email": null,
+  "urgences": [
+    { "nom": { "fr": "Défense civile (secours)", "ar": "الدفاع المدني", "en": "Civil Defence (rescue)" }, "tel": "125" },
+    { "nom": { "fr": "Croix-Rouge libanaise", "ar": "الصليب الأحمر اللبناني", "en": "Lebanese Red Cross" }, "tel": "140" },
+    { "nom": { "fr": "Forces de sécurité intérieure", "ar": "قوى الأمن الداخلي", "en": "Internal Security Forces" }, "tel": "112" }
+  ],
+  "etat_acces": {
+    "niveau": "ouvert",
+    "message": {
+      "fr": "Sentiers en cours d'aménagement (programme 2026-2027) : certains tronçons sont encore en chantier. Renseignez-vous au kiosque avant de partir.",
+      "ar": "الدروب قيد التأهيل (برنامج ٢٠٢٦–٢٠٢٧): بعض المقاطع لا تزال قيد الأشغال. استعلموا عند الكشك قبل الانطلاق.",
+      "en": "Trails under development (2026-2027 programme): some sections are still being worked on. Check at the kiosk before setting out."
+    },
+    "date": "2026-08-29"
+  },
+  "centre": [35.57, 33.53],
+  "zoom_defaut": 13.5
+}

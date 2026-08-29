@@ -1,0 +1,176 @@
+[
+  {
+    "slug": "boucle-foret-falaise",
+    "nom": {
+      "fr": "Boucle de la forêt d'Azour et de la falaise panoramique",
+      "ar": "جولة غابة عازور والجرف البانورامي",
+      "en": "Azour forest and panoramic cliff loop"
+    },
+    "accroche": {
+      "fr": "La boucle familiale : pins, chênes et le grand balcon du Shir sur la vallée du Bisri.",
+      "ar": "الجولة العائلية: صنوبر وسنديان وشرفة الشير الكبيرة على وادي بسري.",
+      "en": "The family loop: pines, oaks and the great Shir balcony over the Bisri valley."
+    },
+    "description": {
+      "fr": "Itinéraire circulaire au départ du village d'Azour. Le sentier traverse la forêt méditerranéenne (pins, chênes, pistachier de Palestine), longe des chemins agricoles puis atteint les points de vue des falaises calcaires qui dominent la vallée du Bisri. Au printemps, ouvrez l'œil : trois orchidées remarquables vivent ici, et les cigognes passent au-dessus de la vallée en saison de migration.",
+      "ar": "مسار دائري ينطلق من ساحة قرية عازور. يمرّ الدرب في الغابة المتوسطية (صنوبر وسنديان وبطم فلسطيني)، ويمتد على طرق زراعية قبل الوصول إلى مطلات الجروف الكلسية المشرفة على وادي بسري. في الربيع تتفتح هنا سحلبيات نادرة، وتعبر طيور اللقلق فوق الوادي في موسم الهجرة.",
+      "en": "A circular route starting from Azour's village square. The trail crosses Mediterranean forest (pines, oaks, Palestine pistachio), follows farm tracks, then reaches the limestone cliff viewpoints overlooking the Bisri valley. In spring, keep your eyes open: three remarkable orchids live here, and storks cross the valley in migration season."
+    },
+    "type": "boucle",
+    "difficulte": "facile",
+    "acces_guide": false,
+    "trace_statut": "provisoire",
+    "distance_m": 3100,
+    "denivele_pos_m": 215,
+    "denivele_neg_m": 215,
+    "duree_min_minutes": 90,
+    "duree_max_minutes": 120,
+    "saison": {
+      "fr": "Toute l'année ; éviter les heures chaudes en été. Orchidées en avril-mai.",
+      "ar": "على مدار السنة؛ تجنّبوا ساعات الحر صيفًا. السحلبيات في نيسان وأيار.",
+      "en": "Year-round; avoid the hottest hours in summer. Orchids in April-May."
+    },
+    "dangers": {
+      "fr": "Bords de falaise non protégés aux points de vue : restez sur le sentier balisé, surveillez les enfants.",
+      "ar": "حواف الجرف غير محمية عند المطلات: التزموا بالدرب المعلَّم وانتبهوا إلى الأطفال.",
+      "en": "Unprotected cliff edges at the viewpoints: stay on the waymarked trail and keep children close."
+    },
+    "acces": {
+      "fr": "Départ de la place du village d'Azour (stationnement sur la place). Azour est à ~20 min de Jezzine par la route.",
+      "ar": "الانطلاق من ساحة قرية عازور (موقف سيارات في الساحة). تبعد عازور نحو ٢٠ دقيقة عن جزين بالسيارة.",
+      "en": "Start from Azour's village square (parking on the square). Azour is ~20 min from Jezzine by road."
+    },
+    "depart": [35.5715, 33.5295],
+    "photo": "/photos/shir-falaise.jpg",
+    "statut": "publie",
+    "ordre": 1,
+    "version": 1,
+    "etapes": ["place-du-village", "foret-des-pins", "falaise-panoramique", "chemin-agricole"],
+    "trace": {
+      "type": "LineString",
+      "coordinates": [
+        [35.5715, 33.5295], [35.5704, 33.5301], [35.5695, 33.531], [35.5687, 33.5316],
+        [35.5678, 33.5322], [35.5669, 33.5329], [35.5662, 33.5335], [35.5655, 33.5339],
+        [35.5648, 33.5342], [35.5643, 33.5347], [35.564, 33.5352], [35.5632, 33.535],
+        [35.5628, 33.5344], [35.5633, 33.5337], [35.5638, 33.533], [35.5648, 33.5323],
+        [35.5658, 33.5318], [35.5668, 33.5311], [35.568, 33.5305], [35.5691, 33.5297],
+        [35.5698, 33.5292], [35.5708, 33.529], [35.5715, 33.5295]
+      ]
+    }
+  },
+  {
+    "slug": "azour-joubeh-bisri",
+    "nom": {
+      "fr": "Falaise d'Azour – Joubeh – vallée du Bisri",
+      "ar": "جرف عازور – الجوبة – وادي بسري",
+      "en": "Azour cliff – Joubeh – Bisri valley"
+    },
+    "accroche": {
+      "fr": "La grande descente : des falaises d'Azour au fond de la vallée du Bisri, par le Chir el Joube.",
+      "ar": "النزول الكبير: من جروف عازور إلى قاع وادي بسري مرورًا بشير الجوبة.",
+      "en": "The great descent: from the Azour cliffs down to the Bisri valley floor, past Chir el Joube."
+    },
+    "description": {
+      "fr": "Itinéraire linéaire reliant le village d'Azour à la vallée et au village du Bisri. Le sentier suit d'abord les falaises panoramiques au-dessus du corridor de la rivière Awali, passe le Chir el Joube, puis descend par les sentiers forestiers et les chemins agricoles jusqu'au fond de la vallée. Prévoyez un véhicule à l'arrivée ou un retour accompagné — la remontée ajoute presque 600 m de dénivelé.",
+      "ar": "مسار خطي يربط قرية عازور بوادي بسري وقريته. يتبع الدرب أولًا الجروف البانورامية فوق مجرى نهر الأولي، ويمرّ بشير الجوبة، ثم ينحدر عبر دروب الغابة والطرق الزراعية حتى قاع الوادي. دبّروا سيارة عند الوصول أو عودة برفقة أحد — فالصعود يضيف نحو ٦٠٠ متر من الارتفاع.",
+      "en": "A linear route linking Azour village to the Bisri valley and its village. The trail first follows the panoramic cliffs above the Awali river corridor, passes Chir el Joube, then descends through forest paths and farm tracks to the valley floor. Arrange a vehicle at the far end or a guided return — climbing back adds almost 600 m of ascent."
+    },
+    "type": "lineaire",
+    "difficulte": "modere",
+    "acces_guide": false,
+    "trace_statut": "provisoire",
+    "distance_m": 5000,
+    "denivele_pos_m": 185,
+    "denivele_neg_m": 594,
+    "duree_min_minutes": 150,
+    "duree_max_minutes": 180,
+    "saison": {
+      "fr": "Octobre à juin de préférence ; très exposé au soleil en plein été.",
+      "ar": "يفضَّل من تشرين الأول إلى حزيران؛ معرّض جدًا للشمس في عز الصيف.",
+      "en": "Best from October to June; very exposed to the sun at the height of summer."
+    },
+    "dangers": {
+      "fr": "Passages en bord de falaise exposés ; forte descente (−594 m) éprouvante pour les genoux ; pas de point d'eau confirmé sur le parcours — emportez au moins 2 L par personne.",
+      "ar": "مقاطع مكشوفة على حافة الجرف؛ نزول قوي (−٥٩٤ م) مُتعِب للركبتين؛ لا نقطة ماء مؤكدة على المسار — احملوا لترين على الأقل للشخص.",
+      "en": "Exposed cliff-edge sections; a strong descent (−594 m) that is hard on the knees; no confirmed water point on the route — carry at least 2 L per person."
+    },
+    "acces": {
+      "fr": "Départ de la place du village d'Azour. Arrivée au village du Bisri : prévoyez une voiture déposée à l'avance ou contactez un guide pour la navette.",
+      "ar": "الانطلاق من ساحة قرية عازور. الوصول إلى قرية بسري: اتركوا سيارة مسبقًا أو تواصلوا مع دليل لتأمين النقل.",
+      "en": "Start from Azour's village square. Finish at Bisri village: leave a car in advance or contact a guide for a shuttle."
+    },
+    "depart": [35.5715, 33.5295],
+    "photo": "/photos/vallee-bisri.jpg",
+    "statut": "publie",
+    "ordre": 2,
+    "version": 1,
+    "etapes": ["place-du-village", "falaise-panoramique", "chir-el-joube", "belvedere-bisri", "village-bisri"],
+    "trace": {
+      "type": "LineString",
+      "coordinates": [
+        [35.5715, 33.5295], [35.5703, 33.5302], [35.5693, 33.531], [35.5681, 33.5319],
+        [35.5668, 33.5328], [35.5656, 33.5336], [35.5648, 33.5342], [35.5641, 33.535],
+        [35.5636, 33.5358], [35.5629, 33.5366], [35.5624, 33.5374], [35.562, 33.5382],
+        [35.5615, 33.539], [35.5618, 33.5397], [35.5625, 33.5403], [35.5618, 33.541],
+        [35.5608, 33.5416], [35.5597, 33.5425], [35.5588, 33.5436], [35.558, 33.545],
+        [35.5572, 33.5464], [35.5565, 33.548], [35.5558, 33.5496], [35.5552, 33.5512],
+        [35.5546, 33.5527], [35.554, 33.5541], [35.5535, 33.5552], [35.553, 33.556]
+      ]
+    }
+  },
+  {
+    "slug": "hyrax-rock",
+    "nom": {
+      "fr": "Éco-aventure verticale « Hyrax Rock »",
+      "ar": "مغامرة الحبال «صخرة الوبر»",
+      "en": "\"Hyrax Rock\" vertical eco-adventure"
+    },
+    "accroche": {
+      "fr": "400 mètres d'aventure encadrée, cordes fixes et falaise, jusqu'au rocher du daman.",
+      "ar": "٤٠٠ متر من المغامرة المؤطَّرة بحبال مثبتة على الجرف حتى صخرة الوبر.",
+      "en": "400 metres of supervised adventure, fixed ropes and cliff, up to the hyrax's rock."
+    },
+    "description": {
+      "fr": "Un itinéraire court et technique reliant la zone des falaises panoramiques au rocher de Hyrax Rock — le rocher du daman, ce petit animal des falaises qui a donné son nom au site. Progression assistée par cordes fixes (50 m), sur un relief calcaire exposé, encadrée obligatoirement par un guide formé. La récompense : un belvédère naturel unique au-dessus de la vallée, au coucher du soleil si vous réservez en fin de journée.",
+      "ar": "مسار قصير وتقني يربط منطقة الجروف البانورامية بصخرة الوبر — ذلك الحيوان الصغير ساكن الجروف الذي أعطى الموقع اسمه. تقدّم بمساعدة حبال مثبتة (٥٠ م) على صخر كلسي مكشوف، برفقة دليل مدرّب إلزاميًا. المكافأة: مطلّ طبيعي فريد فوق الوادي، وعند الغروب إن حجزتم في آخر النهار.",
+      "en": "A short, technical route linking the panoramic cliff area to Hyrax Rock — named after the rock hyrax, the small cliff-dwelling animal that lives here. Progression on fixed ropes (50 m) over exposed limestone, always supervised by a trained guide. The reward: a unique natural viewpoint above the valley — at sunset if you book late in the day."
+    },
+    "type": "guide",
+    "difficulte": "difficile",
+    "acces_guide": true,
+    "trace_statut": "provisoire",
+    "distance_m": 400,
+    "denivele_pos_m": null,
+    "denivele_neg_m": null,
+    "duree_min_minutes": 30,
+    "duree_max_minutes": 45,
+    "saison": {
+      "fr": "Mars à novembre, par temps sec uniquement.",
+      "ar": "من آذار إلى تشرين الثاني، وفي الطقس الجاف فقط.",
+      "en": "March to November, in dry weather only."
+    },
+    "dangers": {
+      "fr": "Falaise calcaire exposée : accès UNIQUEMENT avec un guide formé et le matériel fourni (casque, baudrier). Interdit par temps humide ou venteux. Âge minimum et condition physique : voir avec le guide.",
+      "ar": "جرف كلسي مكشوف: الدخول فقط برفقة دليل مدرّب وبالمعدات المؤمَّنة (خوذة وحزام). ممنوع في الطقس الرطب أو العاصف. الحد الأدنى للعمر واللياقة: يُنسَّق مع الدليل.",
+      "en": "Exposed limestone cliff: access ONLY with a trained guide and the provided gear (helmet, harness). Forbidden in wet or windy weather. Minimum age and fitness: check with the guide."
+    },
+    "acces": {
+      "fr": "Rendez-vous fixé avec le guide au kiosque de la place du village, puis approche commune par le sentier de la falaise.",
+      "ar": "الموعد مع الدليل عند كشك ساحة القرية، ثم مقاربة مشتركة عبر درب الجرف.",
+      "en": "Meet the guide at the village-square kiosk, then walk in together via the cliff trail."
+    },
+    "depart": [35.5648, 33.5342],
+    "photo": "/photos/hyrax-rock.jpg",
+    "statut": "publie",
+    "ordre": 3,
+    "version": 1,
+    "etapes": ["falaise-panoramique", "rocher-hyrax"],
+    "trace": {
+      "type": "LineString",
+      "coordinates": [
+        [35.5648, 33.5342], [35.5644, 33.5344], [35.5641, 33.5346],
+        [35.5637, 33.5348], [35.5633, 33.5349], [35.563, 33.535]
+      ]
+    }
+  }
+]
