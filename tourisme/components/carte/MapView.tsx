@@ -56,6 +56,19 @@ export default function MapView({
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right')
     map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }))
 
+    // Connectivité de montagne : si le style ne charge pas (tuiles
+    // inaccessibles), on retombe sur un fond uni — la trace et les
+    // étapes restent dessinées, l'essentiel survit.
+    const secours = window.setTimeout(() => {
+      if (!map.isStyleLoaded()) {
+        map.setStyle({
+          version: 8,
+          sources: {},
+          layers: [{ id: 'fond', type: 'background', paint: { 'background-color': '#e9e6da' } }],
+        })
+      }
+    }, 3500)
+
     map.on('load', () => {
       for (const t of traces) {
         map.addSource(`trace-${t.id}`, {
@@ -106,6 +119,7 @@ export default function MapView({
     }
 
     return () => {
+      window.clearTimeout(secours)
       map.remove()
       mapRef.current = null
     }
