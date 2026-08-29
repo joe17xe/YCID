@@ -2126,7 +2126,7 @@ export async function setProjectCities(input: { projectId: string; cityIds: stri
 // compare sans les confondre. Les droits sont ceux du budget
 // (budget.manage), la lecture celle de l'appartenance au projet.
 
-const FUNDING_STATUSES = ['promis', 'demande', 'recu'] as const
+const FUNDING_STATUSES = ['promis', 'demande', 'verse', 'recu'] as const
 export type FundingStatus = (typeof FUNDING_STATUSES)[number]
 
 export interface FundingCallInput {
@@ -2219,13 +2219,25 @@ export async function setFundingCallStatus(input: { projectId: string; callId: s
   const patch =
     input.status === 'promis' ? { status: 'promis', requested_at: null, received_at: null }
     : input.status === 'demande' ? { status: 'demande', requested_at: call.requested_at ?? now, received_at: null }
-    : { status: 'recu', received_at: now }
+    // « versé » et « reçu » ne se posent plus par ce chemin depuis la
+    // 0069 : ce sont des CONSTATS, chacun par la main qui l'a vu — le
+    // payeur pour l'émission, le bénéficiaire pour la réception. Les
+    // laisser ici rendrait ce bouton capable de signer à leur place.
+    : null
+  if (!patch) {
+    return {
+      ok: false,
+      error: input.status === 'verse'
+        ? "« Versé » se déclare par l'organisation qui paie, avec la date du virement — bouton « Virement émis »."
+        : "« Reçu » se confirme par l'organisation qui reçoit, avec la date de réception — bouton « Je confirme la réception ».",
+    }
+  }
   const { error } = await supabase.from('funding_calls')
     .update({ ...patch, updated_at: now })
     .eq('id', input.callId).eq('project_id', input.projectId)
   if (error) return { ok: false, error: `Échec du changement d'état : ${error.message}` }
 
-  const STATUS_LABELS: Record<FundingStatus, string> = { promis: 'promis', demande: 'demandé', recu: 'reçu' }
+  const STATUS_LABELS: Record<FundingStatus, string> = { promis: 'promis', demande: 'demandé', verse: 'versé', recu: 'reçu' }
   await supabase.from('audit_log').insert({
     project_id: input.projectId, entity: 'funding_call', entity_id: input.callId,
     label: `${await fundingLabel(supabase, call.year, call.payer_org_id, call.amount)} — ${STATUS_LABELS[input.status as FundingStatus]}`,

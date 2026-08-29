@@ -24,6 +24,9 @@ export interface SaveDocumentInput {
   phaseId?: string | null
   taskId?: string | null
   budgetLineId?: string | null
+  // 0069 — l'avis de virement se dépose sur l'appel de fonds : un
+  // versement ne concerne pas une ligne budgétaire en particulier.
+  fundingCallId?: string | null
   type: DocType
   filename: string
   storagePath: string
@@ -60,6 +63,7 @@ export async function saveDocument(input: SaveDocumentInput): Promise<{ ok: bool
     phase_id: input.phaseId || null,
     task_id: input.taskId || null,
     budget_line_id: input.budgetLineId || null,
+    funding_call_id: input.fundingCallId || null,
     type: input.type,
     filename,
     storage_path: input.storagePath,

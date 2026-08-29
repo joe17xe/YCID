@@ -1,11 +1,15 @@
 "use client"
 import { useId, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { Plus, Pencil, BellRing } from "lucide-react"
+import { Plus, Pencil, BellRing, Send, CheckCircle2, Paperclip, Trash2, Download } from "lucide-react"
 import BaseModal, { ErrorMessage } from "@/components/ui/Modal"
 import { fmtEur } from "@/lib/budget"
 import { fmtDate } from "@/lib/constants"
 import { saveFundingCall, setFundingCallStatus, deleteFundingCall, sendFundingReminder } from "@/app/(app)/projets/[id]/actions"
+import { declareFundingPayment, confirmFundingReceipt, revokeFundingReceipt } from "@/app/(app)/projets/[id]/funding-actions"
+import { saveDocument, deleteDocument, getDocumentUrl } from "@/app/(app)/projets/[id]/document-actions"
+import { createClient } from "@/lib/supabase/client"
+import { MAX_DOC_SIZE, buildStoragePath } from "@/lib/documents"
 
 // ============================================================
 // Appels de fonds (0066) — la section de l'onglet Budget
@@ -34,6 +38,17 @@ export interface FundingCallRow {
   requested_at: string | null
   received_at: string | null
   last_reminder_at: string | null
+  // 0069 — le versement et sa réception, chacun constaté par sa main.
+  paid_on: string | null
+  payment_ref: string | null
+  received_on: string | null
+  received_on_behalf: boolean
+  receiver: { full_name: string | null } | null
+  // Ce que le serveur a tranché pour CE compte sur CET appel de fonds :
+  // l'écran ne recalcule pas des droits, il les reçoit.
+  can_declare_payment: boolean
+  can_confirm_receipt: boolean
+  proofs: { id: string; filename: string }[]
 }
 
 interface Option { id: string; name: string }
@@ -45,8 +60,15 @@ const border = { borderColor: "#E3E6E2" }
 const STATUS_UI: Record<string, { label: string; fg: string; bg: string }> = {
   promis: { label: "Promis", fg: "#66716B", bg: "#EEF0EE" },
   demande: { label: "Demandé", fg: "#8A6A1F", bg: "#F7EDDD" },
+  verse: { label: "Versé", fg: "#3B5488", bg: "#E8ECF5" },
   recu: { label: "Reçu", fg: "var(--brand-accent,#0E6B5C)", bg: "var(--brand-accent-soft,#E4F0EC)" },
 }
+
+// Les deux états qui ne se DÉCRÈTENT pas : ils se constatent, chacun par
+// la main qui a vu la chose. Le bouton d'état ne les propose donc plus.
+const STATUS_BUTTONS = ["promis", "demande"] as const
+
+const today = () => new Date().toISOString().slice(0, 10)
 
 function Field({ label, children }: { label: React.ReactNode; children: (id: string) => React.ReactNode }) {
   const id = useId()
@@ -177,6 +199,137 @@ function FundingCallDialog({ projectId, orgs, budgetRef, call, onClose }: {
 // ------------------------------------------------------------
 // Une rangée — la promesse, son état, ses gestes
 // ------------------------------------------------------------
+// ------------------------------------------------------------
+// Le virement est parti — côté payeur
+// ------------------------------------------------------------
+// La date est SAISIE, jamais déduite du clic : un virement se relève en
+// fin de semaine, et c'est la date de valeur qui compte en comptabilité.
+function PaymentDialog({ projectId, call, onClose }: {
+  projectId: string; call: FundingCallRow; onClose: () => void
+}) {
+  const router = useRouter()
+  const [paidOn, setPaidOn] = useState(call.paid_on ?? today())
+  const [ref, setRef] = useState(call.payment_ref ?? "")
+  const [error, setError] = useState("")
+  const [pending, startTransition] = useTransition()
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault()
+    setError("")
+    startTransition(async () => {
+      const res = await declareFundingPayment({ projectId, callId: call.id, paidOn, reference: ref })
+      if (res.ok) { onClose(); router.refresh() }
+      else setError(res.error ?? "Une erreur est survenue.")
+    })
+  }
+
+  return (
+    <BaseModal open onClose={onClose} title="Déclarer le virement émis" busy={pending} maxWidth="max-w-md">
+      <form onSubmit={submit} className="space-y-4">
+        <p className="text-xs" style={{ color: "#66716B" }}>
+          Vous déclarez avoir <strong>émis</strong> le virement de {fmtEur(call.amount)}. L&apos;organisation qui
+          reçoit sera prévenue et confirmera de son côté quand la somme sera créditée.
+        </p>
+        <Field label="Date du virement">
+          {id => <input id={id} type="date" required value={paidOn} max={today()}
+            onChange={e => setPaidOn(e.target.value)} className={inputCls} style={border} />}
+        </Field>
+        <Field label={<>Référence <span style={{ color: "#66716B", fontWeight: 400 }}>(facultatif)</span></>}>
+          {id => <input id={id} type="text" value={ref} placeholder="VIR-2026-041"
+            onChange={e => setRef(e.target.value)} className={inputCls} style={border} />}
+        </Field>
+        <ErrorMessage>{error}</ErrorMessage>
+        <div className="flex justify-end gap-2">
+          <button type="button" onClick={onClose} disabled={pending}
+            className="px-4 py-2 rounded-xl border text-sm font-medium" style={{ ...border, color: "#66716B" }}>Annuler</button>
+          <button type="submit" disabled={pending}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white"
+            style={{ background: "#3B5488", opacity: pending ? 0.7 : 1 }}>
+            <Send size={14} aria-hidden="true" /> {pending ? "…" : "Virement émis"}
+          </button>
+        </div>
+      </form>
+    </BaseModal>
+  )
+}
+
+// ------------------------------------------------------------
+// C'est arrivé — côté bénéficiaire
+// ------------------------------------------------------------
+// L'avis de virement se dépose ICI, dans le même geste : demandé après
+// coup, il ne serait jamais joint. « Reçu » sans pièce n'est qu'une
+// affirmation — on ne bloque pas pour autant, on le dit.
+function ReceiptDialog({ projectId, call, onClose }: {
+  projectId: string; call: FundingCallRow; onClose: () => void
+}) {
+  const router = useRouter()
+  const supabase = createClient()
+  const [receivedOn, setReceivedOn] = useState(call.received_on ?? today())
+  const [file, setFile] = useState<File | null>(null)
+  const [error, setError] = useState("")
+  const [busy, setBusy] = useState(false)
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    setError(""); setBusy(true)
+
+    // La pièce D'ABORD : si l'envoi échoue, rien n'est confirmé et on
+    // recommence entier. L'inverse laisserait une confirmation nue,
+    // qu'il faudrait penser à compléter plus tard.
+    if (file) {
+      if (file.size > MAX_DOC_SIZE) { setError("Fichier trop lourd (10 Mo maximum)."); setBusy(false); return }
+      const path = buildStoragePath(projectId, null, file.name)
+      const { error: upErr } = await supabase.storage.from("documents").upload(path, file)
+      if (upErr) { setError(`Échec de l'envoi de la pièce : ${upErr.message}`); setBusy(false); return }
+      const saved = await saveDocument({
+        projectId, fundingCallId: call.id, type: "justificatif",
+        filename: file.name, storagePath: path, amount: String(call.amount),
+      })
+      if (!saved.ok) {
+        await supabase.storage.from("documents").remove([path])
+        setError(saved.error ?? "La pièce n'a pas pu être enregistrée."); setBusy(false); return
+      }
+    }
+
+    const res = await confirmFundingReceipt({ projectId, callId: call.id, receivedOn })
+    setBusy(false)
+    if (!res.ok) { setError(res.error ?? "Une erreur est survenue."); return }
+    onClose(); router.refresh()
+  }
+
+  return (
+    <BaseModal open onClose={() => !busy && onClose()} title="Confirmer la réception" busy={busy} maxWidth="max-w-md">
+      <form onSubmit={submit} className="space-y-4">
+        <p className="text-xs" style={{ color: "#66716B" }}>
+          Vous confirmez que {fmtEur(call.amount)} sont <strong>arrivés sur le compte</strong> de votre organisation.
+          Les responsables du budget seront prévenus, avec la liste des lignes que cette enveloppe finance.
+        </p>
+        <Field label="Date de réception sur le compte">
+          {id => <input id={id} type="date" required value={receivedOn} max={today()}
+            onChange={e => setReceivedOn(e.target.value)} className={inputCls} style={border} />}
+        </Field>
+        <Field label={<>Avis de virement ou relevé <span style={{ color: "#66716B", fontWeight: 400 }}>(fortement conseillé)</span></>}>
+          {id => <input id={id} type="file" onChange={e => setFile(e.target.files?.[0] ?? null)} className="w-full text-sm" />}
+        </Field>
+        <p className="text-xs" style={{ color: "#8A6A1F" }}>
+          Sans pièce jointe, la confirmation reste une affirmation : devant un financeur, c&apos;est l&apos;avis
+          de virement qui fait foi. Vous pourrez l&apos;ajouter plus tard, mais on l&apos;oublie souvent.
+        </p>
+        <ErrorMessage>{error}</ErrorMessage>
+        <div className="flex justify-end gap-2">
+          <button type="button" onClick={onClose} disabled={busy}
+            className="px-4 py-2 rounded-xl border text-sm font-medium" style={{ ...border, color: "#66716B" }}>Annuler</button>
+          <button type="submit" disabled={busy}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white"
+            style={{ background: "var(--brand-accent,#0E6B5C)", opacity: busy ? 0.7 : 1 }}>
+            <CheckCircle2 size={14} aria-hidden="true" /> {busy ? "…" : "Je confirme la réception"}
+          </button>
+        </div>
+      </form>
+    </BaseModal>
+  )
+}
+
 function CallRow({ projectId, call, orgs, budgetRef, canManage, onEdit }: {
   projectId: string
   call: FundingCallRow
@@ -188,6 +341,7 @@ function CallRow({ projectId, call, orgs, budgetRef, canManage, onEdit }: {
   const router = useRouter()
   const [msg, setMsg] = useState("")
   const [error, setError] = useState("")
+  const [dialog, setDialog] = useState<"none" | "payment" | "receipt">("none")
   const [pending, startTransition] = useTransition()
   const name = (oid: string | null) => orgs.find(o => o.id === oid)?.name ?? "?"
   const st = STATUS_UI[call.status] ?? STATUS_UI.promis
@@ -198,6 +352,15 @@ function CallRow({ projectId, call, orgs, budgetRef, canManage, onEdit }: {
     setError(""); setMsg("")
     startTransition(async () => {
       const res = await setFundingCallStatus({ projectId, callId: call.id, status })
+      if (res.ok) router.refresh()
+      else setError(res.error ?? "Une erreur est survenue.")
+    })
+  }
+  function revoke() {
+    if (!window.confirm("Retirer la confirmation de réception ? Le retrait sera tracé au Journal.")) return
+    setError(""); setMsg("")
+    startTransition(async () => {
+      const res = await revokeFundingReceipt({ projectId, callId: call.id })
       if (res.ok) router.refresh()
       else setError(res.error ?? "Une erreur est survenue.")
     })
@@ -225,7 +388,8 @@ function CallRow({ projectId, call, orgs, budgetRef, canManage, onEdit }: {
         <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: st.bg, color: st.fg }}>
           {st.label}
           {call.status === "demande" && call.requested_at && <> le {fmtDate(call.requested_at)}</>}
-          {call.status === "recu" && call.received_at && <> le {fmtDate(call.received_at)}</>}
+          {call.status === "verse" && call.paid_on && <> le {fmtDate(call.paid_on)}</>}
+          {call.status === "recu" && (call.received_on || call.received_at) && <> le {fmtDate(call.received_on ?? call.received_at)}</>}
         </span>
         {gap !== null && Math.abs(gap) >= 1 && (
           <span className="text-xs" style={{ color: "#8A6A1F" }}>
@@ -237,9 +401,70 @@ function CallRow({ projectId, call, orgs, budgetRef, canManage, onEdit }: {
         )}
       </div>
       {call.note && <p className="mt-1 text-xs italic" style={{ color: "#66716B" }}>{call.note}</p>}
+      {/* Le récit du versement, en une ligne : qui a constaté quoi, et
+          quand. C'est ce qu'un contrôleur lit en premier. */}
+      {(call.paid_on || call.received_on) && (
+        <p className="mt-1 text-xs" style={{ color: "#66716B" }}>
+          {call.paid_on && <>Virement émis le {fmtDate(call.paid_on)}{call.payment_ref ? ` — réf. ${call.payment_ref}` : ""}</>}
+          {call.paid_on && call.received_on && " · "}
+          {call.received_on && (
+            <>Reçu le {fmtDate(call.received_on)}, confirmé par{" "}
+              {call.received_on_behalf
+                ? <strong style={{ color: "#8A6A1F" }}>un administrateur, au nom de {name(call.beneficiary_org_id ?? call.payer_org_id)}</strong>
+                : (call.receiver?.full_name ?? name(call.beneficiary_org_id ?? call.payer_org_id))}
+            </>
+          )}
+        </p>
+      )}
+      {call.proofs.length > 0 && (
+        <ul className="mt-1 flex flex-wrap gap-2">
+          {call.proofs.map(d => <ProofLink key={d.id} doc={d} />)}
+        </ul>
+      )}
+      {call.status === "recu" && call.proofs.length === 0 && (
+        <p className="mt-1 text-xs inline-flex items-center gap-1 px-2 py-0.5 rounded-lg"
+          style={{ background: "#F7EDDD", color: "#8A6A1F" }}>
+          <Paperclip size={10} aria-hidden="true" /> reçu sans avis de virement joint
+        </p>
+      )}
+      {/* Les deux constats ne suivent PAS les droits du budget : ils
+          suivent l'APPARTENANCE à l'organisation concernée. Un chef de
+          projet n'a pas à signer la réception d'une somme qu'il n'a pas
+          vue arriver — c'est tout l'objet de la 0069. */}
+      {(call.can_declare_payment || call.can_confirm_receipt) && (
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          {call.can_declare_payment && call.status !== "recu" && (
+            <button type="button" onClick={() => setDialog("payment")}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border"
+              style={{ borderColor: "#B9C6DE", background: "#E8ECF5", color: "#3B5488" }}>
+              <Send size={12} aria-hidden="true" /> {call.paid_on ? "Corriger le virement" : "Virement émis"}
+            </button>
+          )}
+          {call.can_confirm_receipt && call.status !== "recu" && (
+            <button type="button" onClick={() => setDialog("receipt")}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-white"
+              style={{ background: "var(--brand-accent,#0E6B5C)" }}>
+              <CheckCircle2 size={12} aria-hidden="true" /> Je confirme la réception
+            </button>
+          )}
+          {call.can_confirm_receipt && call.status === "recu" && (
+            <>
+              <button type="button" onClick={() => setDialog("receipt")}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border"
+                style={{ ...border, color: "#66716B" }}>
+                <Paperclip size={12} aria-hidden="true" /> Ajouter l&apos;avis de virement
+              </button>
+              <button type="button" disabled={pending} onClick={revoke}
+                className="px-2.5 py-1 rounded-lg text-xs underline" style={{ color: "#A3342C" }}>
+                retirer la confirmation
+              </button>
+            </>
+          )}
+        </div>
+      )}
       {canManage && (
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          {(["promis", "demande", "recu"] as const).map(s => (
+          {STATUS_BUTTONS.map(s => (
             <button key={s} type="button" disabled={pending || call.status === s}
               onClick={() => setStatus(s)}
               aria-pressed={call.status === s}
@@ -267,7 +492,33 @@ function CallRow({ projectId, call, orgs, budgetRef, canManage, onEdit }: {
       )}
       {msg && <p className="mt-1.5 text-xs" style={{ color: "var(--brand-accent,#0E6B5C)" }}>{msg}</p>}
       <ErrorMessage>{error}</ErrorMessage>
+      {dialog === "payment" && <PaymentDialog projectId={projectId} call={call} onClose={() => setDialog("none")} />}
+      {dialog === "receipt" && <ReceiptDialog projectId={projectId} call={call} onClose={() => setDialog("none")} />}
     </div>
+  )
+}
+
+// Le lien vers une pièce passe par une URL signée : le bucket est privé.
+function ProofLink({ doc }: { doc: { id: string; filename: string } }) {
+  const router = useRouter()
+  const [pending, startTransition] = useTransition()
+  async function open() {
+    const res = await getDocumentUrl(doc.id)
+    if (res.ok && res.url) window.open(res.url, "_blank", "noopener")
+  }
+  function remove() {
+    if (!window.confirm(`Supprimer définitivement « ${doc.filename} » ?`)) return
+    startTransition(async () => { await deleteDocument(doc.id); router.refresh() })
+  }
+  return (
+    <li className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs" style={{ background: "#F5F6F4", color: "#66716B" }}>
+      <button type="button" onClick={open} className="inline-flex items-center gap-1 underline decoration-dotted">
+        <Download size={10} aria-hidden="true" /> {doc.filename}
+      </button>
+      <button type="button" onClick={remove} disabled={pending} aria-label={`Supprimer ${doc.filename}`}>
+        <Trash2 size={10} style={{ color: "#A3342C" }} aria-hidden="true" />
+      </button>
+    </li>
   )
 }
 
