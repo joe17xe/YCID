@@ -44,10 +44,17 @@
    parcours évoluent sans redéploiement. Modèle de données, modes de
    saisie et impacts techniques : `07-modele-de-donnees.md`.
 
+8. **Le numéro d'information du kiosque : +961 7 700 825** (donné le
+   29/08 « pour le moment ») — paramétré dans le seed, affiché en
+   Pratique et au kiosque, modifiable à tout instant dans `/admin`.
+9. **Le camping El Abo est retiré du circuit** (29/08) : son POI passe
+   en statut « brouillon » — invisible partout (Explorer, Pratique,
+   cartes), **réversible en un clic** dans `/admin` ou en une ligne de
+   contenu. C'est exactement le paramètre demandé.
+10. **L'arabe est validé** (29/08).
+
 ## Encore ouvert
 
-- Le **numéro d'information** du kiosque (à paramétrer dès qu'il est
-  attribué).
 - La **confirmation du nom** après consultation (« Visit Azour »
   pressenti).
 - L'**ordre des publics prioritaires** (diaspora estivale, clubs de

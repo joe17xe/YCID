@@ -37,7 +37,7 @@ export default async function PagePratique() {
         <h2 className="text-[16px] font-bold">{t('kiosqueTitre')}</h2>
         <p className="mt-1 text-[13.5px] leading-relaxed text-[var(--encre-2)]">{t('kiosqueTexte')}</p>
         {territoire.contact_tel ? (
-          <a href={`tel:${territoire.contact_tel}`} className="btn btn-pin mt-3">
+          <a href={`tel:${territoire.contact_tel.replace(/\s/g, '')}`} className="btn btn-pin mt-3">
             <Phone size={17} aria-hidden /> {territoire.contact_tel}
           </a>
         ) : (

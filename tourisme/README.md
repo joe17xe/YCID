@@ -92,9 +92,8 @@ values ((select id from territoires where slug = 'azour'),
   terrain »).
 - **Pas de profil altimétrique** tant que les traces n'ont pas
   d'altitude ; les D+/D− officiels de l'étude font foi.
-- **Arabe à faire relire** par des locuteurs natifs (contenus
-  `content/*.json` et `messages/ar.json`) — écrit avec soin, mais la
-  voix d'Azour appartient à Azour.
+- **Arabe validé** (29/08/2026) ; toute retouche future passe par
+  `content/*.json` / `messages/ar.json` ou le back-office.
 - **Enregistrement de trace GPS non promis** (limite PWA iOS) : le
   visiteur suit sa position, l'app n'enregistre pas — l'export GPX sert
   les apps spécialisées.

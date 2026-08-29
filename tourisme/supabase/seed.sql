@@ -6,7 +6,7 @@ insert into territoires (slug, nom, marque, slogan, actif, langues, langue_defau
   contact_tel, contact_whatsapp, contact_email, urgences, etat_acces, centre, zoom_defaut)
 values ('azour', '{"fr":"Azour","ar":"عازور","en":"Azour"}'::jsonb, 'Visit Azour', '{"fr":"Le village du Shir, entre falaises et vallée du Bisri","ar":"قرية الشير، بين الجروف ووادي بسري","en":"The village of the Shir, between cliffs and the Bisri valley"}'::jsonb, true,
   '{ar,fr,en}', 'fr', '/photos/panorama-crete.jpg',
-  null, null, null,
+  '+961 7 700 825', null, null,
   '[{"nom":{"fr":"Défense civile (secours)","ar":"الدفاع المدني","en":"Civil Defence (rescue)"},"tel":"125"},{"nom":{"fr":"Croix-Rouge libanaise","ar":"الصليب الأحمر اللبناني","en":"Lebanese Red Cross"},"tel":"140"},{"nom":{"fr":"Forces de sécurité intérieure","ar":"قوى الأمن الداخلي","en":"Internal Security Forces"},"tel":"112"}]'::jsonb, '{"niveau":"ouvert","message":{"fr":"Sentiers en cours d''aménagement (programme 2026-2027) : certains tronçons sont encore en chantier. Renseignez-vous au kiosque avant de partir.","ar":"الدروب قيد التأهيل (برنامج ٢٠٢٦–٢٠٢٧): بعض المقاطع لا تزال قيد الأشغال. استعلموا عند الكشك قبل الانطلاق.","en":"Trails under development (2026-2027 programme): some sections are still being worked on. Check at the kiosk before setting out."},"date":"2026-08-29"}'::jsonb, st_setsrid(st_makepoint(35.57, 33.53), 4326), 13.5)
 on conflict (slug) do update set nom = excluded.nom, marque = excluded.marque, slogan = excluded.slogan,
   actif = excluded.actif, langues = excluded.langues, langue_defaut = excluded.langue_defaut,
@@ -146,7 +146,7 @@ on conflict (territoire_id, slug) do update set nom = excluded.nom, type = exclu
 
 insert into pois (territoire_id, slug, nom, type, geom, panneau_no, texte, photo, audio_url, contact, statut, ordre)
 values ((select id from territoires where slug = 'azour'), 'camping-el-abo', '{"fr":"Camping El Abo - Le Cave","ar":"مخيم العبو - المغارة","en":"El Abo - Le Cave campsite"}'::jsonb, 'camping', st_setsrid(st_makepoint(35.582, 33.5215), 4326), null,
-  '{"fr":"Le site de camping aménagé par le programme à Bteddine El Lockh : sentiers, toilettes, point d''eau. Ouverture progressive en 2026-2027 — renseignez-vous au kiosque.","ar":"موقع التخييم الذي يجهّزه البرنامج في بتدين اللقش: دروب ومرافق صحية ونقطة ماء. افتتاح تدريجي في ٢٠٢٦–٢٠٢٧ — استعلموا عند الكشك.","en":"The campsite being developed by the programme at Bteddine El Lockh: trails, toilets, water point. Opening progressively in 2026-2027 — ask at the kiosk."}'::jsonb, null, null, null, 'publie', 11)
+  '{"fr":"Le site de camping aménagé par le programme à Bteddine El Lockh : sentiers, toilettes, point d''eau. Ouverture progressive en 2026-2027 — renseignez-vous au kiosque.","ar":"موقع التخييم الذي يجهّزه البرنامج في بتدين اللقش: دروب ومرافق صحية ونقطة ماء. افتتاح تدريجي في ٢٠٢٦–٢٠٢٧ — استعلموا عند الكشك.","en":"The campsite being developed by the programme at Bteddine El Lockh: trails, toilets, water point. Opening progressively in 2026-2027 — ask at the kiosk."}'::jsonb, null, null, null, 'brouillon', 11)
 on conflict (territoire_id, slug) do update set nom = excluded.nom, type = excluded.type,
   geom = excluded.geom, panneau_no = excluded.panneau_no, texte = excluded.texte,
   photo = excluded.photo, audio_url = excluded.audio_url, contact = excluded.contact,

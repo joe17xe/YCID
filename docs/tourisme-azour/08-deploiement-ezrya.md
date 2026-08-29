@@ -111,10 +111,11 @@ benchmark kiosque).
    par `/admin` (Import GPX — convertir KML→GPX via gpx.studio si
    besoin), vérifier sur la carte, passer la trace en « vérifiée
    terrain » après le relevé avec les jeunes guides.
-2. **Le numéro d'information du kiosque** : une saisie dans `/admin`,
-   il s'affiche partout.
-3. **La relecture de l'arabe** par des locuteurs natifs.
-4. **Les photos de la campagne pro** (remplacer/compléter celles de
+2. **Les photos de la campagne pro** (remplacer/compléter celles de
    l'étude).
-5. Les **comptes éditeurs** (étape 1.4) pour LEY, la municipalité et
+3. Les **comptes éditeurs** (étape 1.4) pour LEY, la municipalité et
    les jeunes guides référents.
+
+Déjà réglé le 29/08 : le numéro du kiosque (+961 7 700 825, dans le
+seed, modifiable via `/admin`), l'arabe (validé), le camping El Abo
+(retiré du circuit — POI en brouillon, réversible).
