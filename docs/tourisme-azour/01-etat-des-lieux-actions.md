@@ -46,10 +46,13 @@ s'appuyer : elle ne raconte que ce qui existe ou existera sur le terrain.
 ## Lecture pour la plateforme
 
 Le terrain livre d'ici l'été 2027 : un site emblématique aménagé (le Shir),
-un réseau d'environ 7 km de sentiers balisés sur au moins trois parcours
-(Shir el Joub → Beba / Bteddine El Lockh, extension Bisri, boucles du Shir),
-un camping (El Abo - Le Cave), des panneaux explicatifs, des tablettes, des
-jeunes guides formés, un trail annuel et une randonnée d'inauguration.
+un réseau d'environ 8,5 km sur trois parcours définis par l'étude des
+sentiers (voir `06-etude-des-sentiers.md`) — la boucle forêt d'Azour et
+falaise panoramique (3,1 km, facile), le linéaire Azour–Joubeh–vallée du
+Bisri (5 km, modéré) et l'éco-aventure verticale « Hyrax Rock » (400 m,
+accès guidé par cordes) — plus le chemin vers Beba / Bteddine El Lockh et
+un camping (El Abo - Le Cave), des panneaux explicatifs, des tablettes,
+des jeunes guides formés, un trail annuel et une randonnée d'inauguration.
 
 La plateforme numérique n'est donc pas un projet à côté : c'est la **couche
 numérique des lignes déjà budgétées** (« structuration de l'offre de

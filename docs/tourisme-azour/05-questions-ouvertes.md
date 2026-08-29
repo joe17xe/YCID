@@ -1,42 +1,56 @@
-# Plateforme touristique d'Azour — questions ouvertes
+# Plateforme touristique d'Azour — cadrage : réponses et questions restantes
 
-Les réponses à ces questions précisent le cadrage (phase 0) ; aucune ne
-bloque le travail déjà engagé (état des lieux, benchmark, méthode,
-direction design).
+## Tranché le 29/08/2026
 
-1. **« L'offre S Chehab »** — la dictée a probablement déformé le nom.
-   Que recouvre cette offre qui « peut être dupliquée et élargie » : un
-   lieu (un sérail Chehab ?), une offre montée par un partenaire, un
-   modèle vu ailleurs ? C'est la clé de l'ambition régionale évoquée.
-2. **« Aller dans un B&B »** (lu ainsi) — des hébergements sont-ils déjà
-   identifiés à Azour et Bteddine El Lockh (maisons d'hôtes, chambres chez
-   l'habitant), en plus du camping El Abo - Le Cave ? La recherche a
-   repéré deux hébergeurs privés à Azour (Blue Jay Valley, Pineview
-   Hotel) : faut-il les associer dès la V1 ? Une liste même partielle
-   lance la rubrique « Dormir ».
-3. **Le kiosque** — où sera-t-il installé (site du Shir, centre du
-   village, entrée du village ?) et qui l'anime : permanence, jeunes
-   guides à tour de rôle, libre accès ? Le mode kiosque de l'app en
-   dépend (avec ou sans médiation humaine).
-4. **Les contenus existants** — le diagnostic 2025 et les maquettes
-   contiennent-ils déjà des tracés de parcours ? La ligne « mapping,
-   topographie » a-t-elle produit des relevés GPS ? Des photos du Shir et
-   des sentiers existent-elles quelque part ?
-5. **Portage et propriété** — la plateforme s'inscrit-elle dans les
-   lignes budgétées (« structuration de l'offre de randonnée » 2 900 € +
-   « panneaux et tablettes » 3 200 €) ou cherche-t-on un financement
-   propre ? Et surtout : qui en est propriétaire et mainteneur après
-   octobre 2027 — la municipalité, LEY, un office de tourisme à créer ?
-6. **Les langues** — arabe + français + anglais dès la V1 (recommandé),
-   ou un lancement à deux langues ?
-7. **Le nom** — une marque est-elle pressentie ? Sinon, proposition à
-   mettre au vote en phase 0 (pistes : « Darb Azour » — le chemin
-   d'Azour —, « Azour Trails », « Visit Azour ») après vérification des
-   noms et domaines disponibles.
-8. **Les publics prioritaires** — diaspora de l'été, randonneurs
-   libanais du week-end (clubs), visiteurs internationaux : quel ordre ?
-   Cela oriente le ton, les canaux de lancement et la langue par défaut.
-9. **Lebanon Mountain Trail** — l'appui du LMT est déjà prévu pour le
-   trail 2027. Veut-on aller plus loin : sentier d'Azour référencé comme
-   « side trail », visibilité croisée, mutualisation des standards de
-   balisage ?
+1. **« L'offre S Chehab » = « scalable »** (dictée vocale). Aucun lieu ni
+   partenaire mystère : l'exigence est que l'offre soit **scalable** —
+   duplicable et élargissable. Conséquence produit : la plateforme est un
+   **gabarit paramétrable** (« 1 modèle de village × N villages ») — nom,
+   logo, couleurs, contacts, langues et contenus se configurent par
+   territoire, rien n'est codé en dur pour Azour.
+2. **Hébergements : associés, mais indirectement.** Blue Jay Valley,
+   Pineview et les maisons d'hôtes ne sont pas des partenaires du projet,
+   mais la rubrique « Dormir » les référence pour qui veut rester
+   plusieurs jours — un annuaire de contacts, pas un engagement.
+3. **Le kiosque : place du village d'Azour, animé par des jeunes et des
+   guides.** Vocation d'information d'abord. Un **numéro de téléphone
+   d'information** sera communiqué plus tard → le numéro, comme le reste,
+   doit être **paramétrable** dans le back-office (affiché au kiosque,
+   dans l'app, sur les panneaux).
+4. **Les contenus existent : l'étude des sentiers** (voir
+   `06-etude-des-sentiers.md`). Trois parcours définis et chiffrés
+   (boucle 3,1 km facile ; Azour–Joubeh–Bisri 5 km modéré ; Hyrax Rock
+   400 m technique guidé), cartes Google Earth avec tracés (KML à
+   récupérer), photos dont drone, matière naturaliste (géologie,
+   orchidées, cigognes).
+5. **Portage budgétaire — proposition** (voir la section « Le portage
+   budgétaire » de `03-methode.md`) : la plateforme sur la ligne
+   **« Structuration d'une offre de randonnée cohérente avec mapping,
+   topographie, renforcement des offices touristiques locaux »**
+   (1 450 € en 2026 + 1 450 € en 2027, MEAE, décaissement LEY puis
+   Azour) ; le matériel du kiosque et les QR des panneaux sur
+   **« Dotation d'équipement pour la réalisation des sensibilisations
+   (panneaux explicatifs, tablettes, etc.) »** (3 200 €, YCID, 2026) ;
+   en complément possible, la campagne photo/vidéo via la ligne
+   « Communication » du volet commun (3 000 €, YCID/MEAE) si le COPIL
+   l'accepte.
+6. **Le nom : « Visit Azour » en nom de travail** — à confirmer après
+   consultation, et de toute façon **paramétrable** (cohérent avec le
+   point 1 : le nom appartient à la configuration du territoire, pas au
+   code).
+
+## Encore ouvert
+
+- Le **numéro d'information** du kiosque (à paramétrer dès qu'il est
+  attribué).
+- La **confirmation du nom** après consultation (« Visit Azour »
+  pressenti).
+- L'**ordre des publics prioritaires** (diaspora estivale, clubs de
+  randonnée libanais, visiteurs internationaux) — oriente le ton et le
+  plan de lancement.
+- Le **side trail LMT** : élargir l'appui déjà prévu au trail 2027 vers
+  un raccordement officiel aux sections 21-22 ?
+- La **récupération du KML** des tracés auprès de l'auteur de l'étude
+  (raccourci n°1 de la phase 1).
+- Les **points d'eau** sur les parcours : l'étude n'en mentionne pas —
+  à confirmer sur le terrain (information de sécurité à afficher).

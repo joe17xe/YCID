@@ -48,11 +48,15 @@ promesse pour plus tard.**
 
 ### Phase 1 — Collecte terrain et contenus (septembre → novembre 2026)
 C'est la phase la plus importante et la plus sous-estimée : une
-application vide est pire que pas d'application.
+application vide est pire que pas d'application. Elle ne part pas de
+zéro : **l'étude des sentiers** (`06-etude-des-sentiers.md`) définit
+déjà les trois parcours, leurs chiffres et leur récit naturaliste.
 
-- **Relevés GPS** de chaque parcours (traces GPX propres, aller-retour,
-  variantes) — à faire avec la ligne « mapping, topographie » du budget,
-  et avec les jeunes guides : le relevé est aussi une formation.
+- **Récupérer les tracés existants** : les cartes de l'étude sont des
+  captures Google Earth avec tracés dessinés — demander le KML/KMZ à
+  l'auteur, convertir en GPX/GeoJSON, puis **vérifier sur le terrain**
+  avec les jeunes guides (le relevé est aussi une formation) — la ligne
+  « mapping, topographie » du budget est là pour ça.
 - **Fiche type par parcours** (protocole unique) : distance, dénivelé,
   durée, difficulté, saison conseillée, points d'eau, ombre, dangers,
   accès et stationnement, point de départ précis.
@@ -94,7 +98,17 @@ Périmètre V1 (« must ») :
   partenaires — l'axe Saïda–Jezzine reste déconseillé par la fiche
   France Diplomatie du 13/03/2026.
 - Trois langues, dont l'arabe en droite-à-gauche natif.
-- Back-office simple pour l'équipe locale (textes, photos, horaires).
+- Back-office simple pour l'équipe locale (textes, photos, horaires) —
+  et **tout ce qui identifie le territoire y est paramétrable** (arbitrage
+  du 29/08, exigence « scalable ») : nom et logo (« Visit Azour » en nom
+  de travail), couleurs, langues actives, contacts et **numéro
+  d'information du kiosque** (communiqué plus tard — il s'affichera
+  partout dès sa saisie), liste des hébergements. Rien de propre à Azour
+  n'est codé en dur : dupliquer un territoire = créer une configuration,
+  pas un logiciel.
+- La fiche du sentier « Hyrax Rock » (accès guidé par cordes uniquement)
+  inaugure le gabarit « expérience encadrée » : pas de bouton
+  « télécharger le GPX » mais « réserver avec un guide » (WhatsApp).
 
 Hors V1 (« later ») : avis et notes, réservation en ligne, audio-guides,
 compte utilisateur, gamification, agenda avancé, application vitrine des
@@ -145,6 +159,23 @@ une saison réussie à Azour :
    numérotation, données) porté avec la LMTA et le ministère plutôt
    qu'une plateforme de plus. Le produit devient un bien commun, sa
    gouvernance doit suivre.
+
+## Le portage budgétaire proposé (arbitrage demandé le 29/08)
+
+La plateforme doit être portée par une ligne existante. Lecture du
+budget transposé (`web/docs/donnees-cem-liban/budget-cem-azour.csv`) :
+
+| Quoi | Ligne | Montant | Pourquoi elle |
+|---|---|---|---|
+| **La plateforme elle-même** (développement, cartes, hébergement, back-office) | « **Structuration d'une offre de randonnée cohérente avec mapping, topographie, renforcement des offices touristiques locaux** » — MEAE, 1 450 € (2026) + 1 450 € (2027), décaissement LEY puis Azour | 2 900 € | L'intitulé dit exactement ce que fait la plateforme : structurer l'offre (fiches normalisées), mapping/topographie (les tracés), outil de l'office touristique local (le kiosque). Justificatifs attendus « devis + facture prestation/étude » : une prestation de développement s'y range naturellement. À répartir avec les relevés terrain qui émargent sur la même ligne (ex. 2026 : relevés + MVP ; 2027 : finitions + amorce de duplication) |
+| **Le matériel du kiosque et le lien terrain** (tablettes, supports, impression des QR sur les panneaux) | « **Dotation d'équipement pour la réalisation des sensibilisations (panneaux explicatifs, tablettes, etc.)** » — YCID, 2026 | 3 200 € | C'est la ligne des panneaux et des tablettes ; le QR s'imprime avec le panneau, la tablette porte le mode kiosque |
+| **La campagne photo/vidéo** (en complément, si le COPIL l'accepte) | « **Communication (photo, vidéo, documentaire)** » — volet Coordination, YCID porteur, 2026 | 3 000 € | Les images produites pour la communication du programme sont exactement celles dont l'app a besoin — une seule campagne, deux usages. Ligne du volet commun : à proposer au COPIL |
+| **La page trail et ses QR dossards** | « Trail annuel à Azour » — MEAE, 2026 et 2027 | 2 000 €/an | La communication du trail inclut naturellement sa page dans l'app et la billetterie |
+
+Toutes ces lignes sont au statut « prévue » : la première dépense passe
+par un devis validé dans le circuit LEY → Azour, comme le veut le
+programme. Concrètement : établir le devis de la prestation plateforme
+sur la ligne « Structuration » est l'acte qui lance la phase 0.
 
 ## Les indicateurs de réussite
 
