@@ -16,6 +16,12 @@ Dossier ouvert le 29/08/2026.
 | `05-questions-ouvertes.md` | Le cadrage : réponses du 29/08 (scalable, kiosque place du village, « Visit Azour » en nom de travail, portage budgétaire) et questions restantes |
 | `06-etude-des-sentiers.md` | Note de lecture de l'étude des sentiers : les trois parcours officiels (boucle 3,1 km, Azour–Joubeh–Bisri 5 km, Hyrax Rock), ce que l'étude donne à la plateforme, ce qui reste à collecter |
 | `07-modele-de-donnees.md` | Le modèle de données « tout est paramètre » : saisie des coordonnées GPS (points et traces), fiche de paramètres par objet, impacts techniques |
+| `08-deploiement-ezrya.md` | Le guide de mise en ligne sur azour.ezrya.fr : Supabase, VPS (PM2 port 5002, nginx, certbot), recette de mise en ligne, verrouillage de la tablette kiosque, ce qui reste à l'équipe |
+
+**Le produit est construit** : l'application vit dans `tourisme/`
+(V1 complète — PWA trilingue hors-ligne, carte, mode sentier, kiosque,
+back-office). Son README documente l'architecture ; le 08 dit comment
+la mettre en ligne.
 
 La synthèse illustrée (avec maquettes des écrans clés) est publiée en
 artefact partageable — lien dans la conversation du 29/08/2026.
