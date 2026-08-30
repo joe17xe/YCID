@@ -1,8 +1,10 @@
+import type { Metadata } from 'next'
 import { getLocale, getTranslations } from 'next-intl/server'
 import { getParcours, getTerritoire } from '@/lib/content'
 import ParcoursCard from '@/components/ParcoursCard'
 import MapView from '@/components/carte/MapView'
-import type { Metadata } from 'next'
+import MapPanel from '@/components/ui/MapPanel'
+import SectionHeading from '@/components/ui/SectionHeading'
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('parcours')
@@ -23,21 +25,23 @@ export default async function PageParcours() {
     .filter((p) => p.depart)
     .map((p) => ({ id: p.slug, position: p.depart!, kind: 'depart' as const }))
   return (
-    <div className="space-y-5">
+    <div className="space-y-[var(--s5)]">
       <header>
-        <h1 className="text-[26px] font-extrabold">{t('titre')}</h1>
-        <p className="mt-1 text-[14.5px] text-[var(--encre-2)]">{t('sousTitre')}</p>
+        <SectionHeading titre={t('titre')} niveau={1} />
+        <p className="max-w-prose text-[var(--t-small)] leading-relaxed text-[var(--encre-2)]">
+          {t('sousTitre')}
+        </p>
       </header>
-      <div className="card overflow-hidden">
+      <MapPanel>
         <MapView
           center={territoire.centre}
           zoom={territoire.zoom_defaut}
           traces={traces}
           markers={departs}
-          className="h-64 w-full"
+          className="h-full w-full"
         />
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2">
+      </MapPanel>
+      <div className="grid gap-[var(--s5)] sm:grid-cols-2">
         {parcours.map((p) => (
           <ParcoursCard key={p.slug} parcours={p} locale={locale} />
         ))}

@@ -126,25 +126,25 @@ export default function SentierMode({
         <div className="mx-auto flex max-w-3xl items-center gap-2">
           <Link
             href={`/parcours/${slug}`}
-            className="pointer-events-auto grid h-11 w-11 shrink-0 place-items-center rounded-full border border-[var(--ligne)] bg-[var(--surface)] shadow"
+            className="pointer-events-auto grid h-11 w-11 shrink-0 place-items-center rounded-full border border-[var(--ligne)] bg-[var(--surface)] shadow-[var(--ombre-flottante)]"
             aria-label={tc('retour')}
           >
             <ArrowLeft size={19} className="rtl:-scale-x-100" aria-hidden />
           </Link>
-          <div className="pointer-events-auto flex min-w-0 flex-1 items-center justify-between gap-2 rounded-full border border-[var(--ligne)] bg-[var(--surface)] px-4 py-2.5 shadow">
+          <div className="pointer-events-auto flex min-w-0 flex-1 items-center justify-between gap-2 rounded-full border border-[var(--ligne)] bg-[var(--surface)] px-4 py-2.5 shadow-[var(--ombre-flottante)]">
             <span className="truncate text-[13.5px] font-bold">{nom}</span>
             <span className="mono shrink-0 text-[12.5px] text-[var(--encre-2)]">
               {restant != null ? `${fmt(restant)} ${t('restants')}` : ''}
             </span>
           </div>
           {!enLigne ? (
-            <span className="pointer-events-auto shrink-0 rounded-full border border-[var(--ligne)] bg-[var(--surface)] px-3 py-2 text-[11.5px] font-bold text-[var(--pin)] shadow">
+            <span className="pointer-events-auto shrink-0 rounded-full border border-[var(--ligne)] bg-[var(--surface)] px-3 py-2 text-[11.5px] font-bold text-[var(--pin)] shadow-[var(--ombre-flottante)]">
               ● {tc('horsLigne')}
             </span>
           ) : null}
         </div>
         {horsTrace ? (
-          <p className="pointer-events-auto mx-auto mt-2 max-w-3xl rounded-xl border border-[var(--ocre-bord)] bg-[var(--ocre-pale)] px-3.5 py-2 text-[13px] font-semibold text-[var(--ocre)] shadow">
+          <p className="pointer-events-auto mx-auto mt-2 max-w-3xl rounded-[var(--r-media)] border-s-[3px] border-[var(--ocre)] bg-[var(--ocre-pale)] px-3.5 py-2 text-[13px] font-semibold text-[var(--ocre)] shadow-[var(--ombre-flottante)]">
             {t('horsTrace', { distance: SEUIL_HORS_TRACE_M })}
           </p>
         ) : null}
@@ -152,7 +152,7 @@ export default function SentierMode({
 
       {/* Carte du bas */}
       <div className="absolute inset-x-0 bottom-0 p-3.5" style={{ paddingBottom: 'max(14px, env(safe-area-inset-bottom))' }}>
-        <div className="card mx-auto max-w-3xl p-4">
+        <div className="card mx-auto max-w-3xl p-[var(--s3)] shadow-[var(--ombre-flottante)]">
           {gpsErreur ? (
             <p className="text-[13px] leading-snug text-[var(--encre-2)]">{t('gpsRefuse')}</p>
           ) : !position ? (
@@ -161,7 +161,7 @@ export default function SentierMode({
             <>
               <p className="eyebrow">{t('prochainPoint')}</p>
               <div className="mt-0.5 flex items-baseline justify-between gap-3">
-                <p className="min-w-0 truncate text-[16.5px] font-bold">{prochaine.nom}</p>
+                <p className="titres min-w-0 truncate text-[17px] font-semibold">{prochaine.nom}</p>
                 {distProchaine != null ? (
                   <p className="mono shrink-0 text-[15px] font-bold text-[var(--pin)]">
                     {fmt(distProchaine)}
@@ -189,7 +189,7 @@ export default function SentierMode({
         <Feuille titre={tc('etapes')} onClose={() => setVoirEtapes(false)}>
           <ol className="space-y-2">
             {etapeIndexes.map((e) => (
-              <li key={e.slug} className="flex items-center gap-3 rounded-xl border border-[var(--ligne)] bg-[var(--surface)] p-3">
+              <li key={e.slug} className="flex items-center gap-3 ligne-liste">
                 <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[var(--pin)] text-[13px] font-bold text-[var(--sur-pin)]">
                   {e.panneau}
                 </span>
@@ -213,7 +213,7 @@ export default function SentierMode({
               <a
                 key={u.tel}
                 href={`tel:${u.tel}`}
-                className="flex items-center justify-between rounded-xl border border-[var(--danger)] bg-[var(--danger-pale)] px-4 py-3.5"
+                className="flex items-center justify-between rounded-[var(--r-media)] border border-[var(--danger)] bg-[var(--danger-pale)] px-4 py-3.5"
               >
                 <span className="text-[15px] font-bold text-[var(--encre)]">{tx(u.nom, locale)}</span>
                 <span className="mono text-[17px] font-bold text-[var(--danger)]">{u.tel}</span>
@@ -238,7 +238,7 @@ function Feuille({
   return (
     <div className="absolute inset-0 z-10 flex items-end bg-black/45" onClick={onClose}>
       <div
-        className="max-h-[75%] w-full overflow-y-auto rounded-t-3xl bg-[var(--fond)] p-4 pb-8"
+        className="max-h-[75%] w-full overflow-y-auto rounded-t-[20px] bg-[var(--fond)] p-4 pb-8"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">

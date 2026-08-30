@@ -1,17 +1,32 @@
 @import "tailwindcss";
 
-/* ————————————————————————————————————————————————————————————————
-   Les tokens Visit Azour — la palette vient du paysage (04-design).
-   Sémantiques : ils changent en mode sombre, les composants ne
-   connaissent que les noms. Un territoire peut les surcharger.
-———————————————————————————————————————————————————————————————— */
+/* ═══════════════════════════════════════════════════════════════
+   VISIT AZOUR — SYSTÈME VISUEL « GUIDE DE TERRAIN »
+
+   Trois principes, tenus partout :
+   1. La carte (surface + filet + ombre) est l'EXCEPTION, réservée
+      à ce qui appelle une action. Le secondaire vit en lignes à
+      filets, sans caisson.
+   2. Trois rayons seulement — pill, card, media. Rien d'autre.
+   3. Les mesures se lisent en chiffres d'instrument (mono tabulaire),
+      les titres en serif éditorial : le carnet de terrain, pas le
+      tableau de bord.
+
+   Clair par défaut (lisibilité plein soleil sur le sentier), sombre
+   soigné pour le soir et la batterie.
+   ═══════════════════════════════════════════════════════════════ */
+
 :root {
+  /* ——— surfaces & encres (clair : le calcaire du Shir) ——— */
   --fond: #f4f2e8;
+  --fond-2: #eae7d9;
   --surface: #fdfcf6;
   --surface-2: #efecdf;
   --encre: #1d2a21;
   --encre-2: #59635a;
-  --encre-3: #7e877d;
+  --encre-3: #687168;          /* AA corrigé : 4,92 sur surface */
+
+  /* ——— la palette du paysage ——— */
   --pin: #1e5741;
   --pin-fort: #174735;
   --sur-pin: #f6f4ea;
@@ -22,168 +37,279 @@
   --vert-pale: #dce9df;
   --danger: #a43e2c;
   --danger-pale: #f4ded8;
-  --ligne: #e4e1d2;
-  --ombre: 0 1px 2px rgb(29 42 33 / 0.06), 0 8px 24px rgb(29 42 33 / 0.07);
+
+  /* ——— filets : structurent, ne cernent pas ——— */
+  --ligne: rgb(29 42 33 / 0.10);
+  --ligne-forte: rgb(29 42 33 / 0.16);
+
+  /* ——— ombres : deux niveaux, discrets ——— */
+  --ombre-pose: 0 1px 2px rgb(29 42 33 / 0.05);
+  --ombre-flottante: 0 2px 6px rgb(29 42 33 / 0.09), 0 10px 24px rgb(29 42 33 / 0.07);
+
+  /* ——— trois rayons, pas un de plus ——— */
+  --r-pill: 999px;   /* étiquettes, langues, boutons ronds */
+  --r-card: 14px;    /* cartes fonctionnelles */
+  --r-media: 6px;    /* images, carte, blocs éditoriaux */
+
+  /* ——— espacement : 8 · 12 · 16 · 24 · 32 · 48 ——— */
+  --s1: 8px;  --s2: 12px; --s3: 16px;
+  --s4: 24px; --s5: 32px; --s6: 48px;
+
+  /* ——— échelle typographique fluide ——— */
+  --t-display: clamp(32px, 8.5vw, 46px);
+  --t-h1: clamp(25px, 6vw, 32px);
+  --t-h2: clamp(19px, 4.2vw, 22px);
+  --t-h3: 17px;
+  --t-body: 16px;
+  --t-small: 14px;
+  --t-micro: 12.5px;
+
+  --nav-h: 58px;
   color-scheme: light dark;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --fond: #0f1d16;
+    --fond-2: #0b1712;
     --surface: #16241c;
     --surface-2: #1d2e24;
     --encre: #e8ece2;
     --encre-2: #a7b1a4;
-    --encre-3: #7c877b;
+    --encre-3: #889287;        /* AA corrigé : 4,99 sur surface */
     --pin: #5fbe93;
     --pin-fort: #7acfa8;
-    --sur-pin: #0f1d16;
+    --sur-pin: #0b1712;
     --bisri: #6fb3d6;
     --ocre: #d69c52;
-    --ocre-pale: #3a2f1c;
-    --ocre-bord: #55452a;
-    --vert-pale: #1f3128;
+    --ocre-pale: #33291a;
+    --ocre-bord: #4d3f26;
+    --vert-pale: #1c2f25;
     --danger: #e07b62;
-    --danger-pale: #3b1e16;
-    --ligne: #2a3c30;
-    --ombre: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px rgb(0 0 0 / 0.35);
+    --danger-pale: #351913;
+    --ligne: rgb(232 236 226 / 0.12);
+    --ligne-forte: rgb(232 236 226 / 0.20);
+    --ombre-pose: 0 1px 2px rgb(0 0 0 / 0.28);
+    --ombre-flottante: 0 2px 6px rgb(0 0 0 / 0.34), 0 10px 24px rgb(0 0 0 / 0.30);
   }
 }
 
-/* Le kiosque reste clair et très contrasté quel que soit le thème :
-   il vit en extérieur, à la lumière du jour. */
+/* Le kiosque vit dehors, en plein jour : toujours clair, très contrasté. */
 [data-kiosque] {
   --fond: #f4f2e8;
+  --fond-2: #eae7d9;
   --surface: #fdfcf6;
   --surface-2: #efecdf;
   --encre: #1d2a21;
   --encre-2: #59635a;
-  --encre-3: #7e877d;
+  --encre-3: #687168;
   --pin: #1e5741;
   --pin-fort: #174735;
   --sur-pin: #f6f4ea;
-  --ligne: #e4e1d2;
+  --ligne: rgb(29 42 33 / 0.10);
+  --ligne-forte: rgb(29 42 33 / 0.16);
   color-scheme: light;
 }
+
+/* ═══ FONDATIONS ═══ */
 
 body {
   background: var(--fond);
   color: var(--encre);
   font-family: "IBM Plex Sans", "IBM Plex Sans Arabic", "Segoe UI", system-ui, sans-serif;
+  font-size: var(--t-body);
+  line-height: 1.62;
   -webkit-font-smoothing: antialiased;
-  font-size: 16px;
-  line-height: 1.6;
+  text-rendering: optimizeLegibility;
 }
 
-/* L'arabe se lit plus grand, jamais espacé (les ligatures cassent). */
-[dir="rtl"] body,
-[dir="rtl"] {
-  letter-spacing: 0;
-}
-[dir="rtl"] body {
-  font-size: 17.5px;
-  line-height: 1.75;
-}
-[dir="rtl"] .eyebrow {
-  letter-spacing: 0;
-  font-family: "IBM Plex Sans Arabic", "IBM Plex Sans", system-ui, sans-serif;
-  font-weight: 600;
-}
+/* L'arabe se lit plus grand, jamais espacé (l'interlettrage casse les ligatures). */
+[dir="rtl"] body { font-size: 17.5px; line-height: 1.8; letter-spacing: 0; }
+[dir="rtl"] .eyebrow { letter-spacing: 0; font-family: "IBM Plex Sans Arabic", "IBM Plex Sans", sans-serif; font-weight: 600; }
 
+/* Titres : serif éditorial — le registre du guide imprimé. */
 h1, h2, h3, .titres {
-  font-family: "Bricolage Grotesque", "IBM Plex Sans", "IBM Plex Sans Arabic", system-ui, sans-serif;
+  font-family: "Fraunces", "IBM Plex Sans Arabic", Georgia, serif;
+  font-optical-sizing: auto;
+  font-variation-settings: "SOFT" 0, "WONK" 0;
+  font-weight: 600;
+  line-height: 1.14;
+  letter-spacing: -0.012em;
   text-wrap: balance;
-  line-height: 1.15;
 }
 [dir="rtl"] h1, [dir="rtl"] h2, [dir="rtl"] h3, [dir="rtl"] .titres {
-  font-family: "IBM Plex Sans Arabic", "Bricolage Grotesque", system-ui, sans-serif;
+  font-family: "IBM Plex Sans Arabic", system-ui, sans-serif;
   font-weight: 700;
+  letter-spacing: 0;
 }
 
+.t-display { font-size: var(--t-display); font-weight: 600; }
+.t-h1 { font-size: var(--t-h1); }
+.t-h2 { font-size: var(--t-h2); }
+.t-h3 { font-size: var(--t-h3); }
+
+/* Chiffres d'instrument : toutes les mesures passent par là. */
 .mono {
   font-family: "IBM Plex Mono", ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
 }
 
 .eyebrow {
   font-family: "IBM Plex Mono", ui-monospace, monospace;
-  font-size: 12px;
-  letter-spacing: 0.12em;
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--encre-2);
 }
 
-/* ————— composants récurrents ————— */
+/* ═══ LE MOTIF : LA BALISE DE SENTIER ═══
+   Deux traits, pin sur ocre — le balisage posé sur les chemins d'Azour.
+   Marqueur de section, état actif, repère d'alerte. */
+.balise {
+  display: inline-flex; flex-direction: column; gap: 3px;
+  width: 26px; flex: none;
+}
+.balise::before, .balise::after { content: ""; display: block; height: 5px; border-radius: 1.5px; }
+.balise::before { background: var(--pin); }
+.balise::after { background: var(--ocre); }
+.balise-sm { width: 18px; gap: 2px; }
+.balise-sm::before, .balise-sm::after { height: 3.5px; }
+
+/* ═══ SURFACES ═══
+   Une seule règle : jamais fond + filet + ombre + grand rayon ensemble. */
+
+/* La carte fonctionnelle — réservée à ce qui appelle une action. */
 .card {
   background: var(--surface);
   border: 1px solid var(--ligne);
-  border-radius: 16px;
-  box-shadow: var(--ombre);
+  border-radius: var(--r-card);
+  box-shadow: var(--ombre-pose);
 }
 
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border-radius: 999px;
-  padding: 3px 11px;
-  font-size: 12.5px;
-  font-weight: 600;
+/* Le bloc éditorial — sans filet ni ombre, il se distingue par sa teinte. */
+.bloc {
   background: var(--surface-2);
-  color: var(--encre-2);
+  border-radius: var(--r-media);
 }
 
-.badge-facile { background: var(--vert-pale); color: var(--pin); }
-.badge-modere { background: var(--ocre-pale); color: var(--ocre); }
-.badge-difficile { background: var(--danger-pale); color: var(--danger); }
+/* La ligne de liste — le secondaire. Filet, pas caisson. */
+.ligne-liste {
+  display: flex; align-items: center; gap: var(--s2);
+  padding: var(--s2) 2px;
+  border-bottom: 1px solid var(--ligne);
+  min-height: 56px;
+}
+.ligne-liste:last-child { border-bottom: 0; }
 
+/* Le média — rayon faible, jamais d'ombre : l'image porte son propre poids. */
+.media { border-radius: var(--r-media); overflow: hidden; background: var(--surface-2); }
+
+/* ═══ ÉTIQUETTES ═══ */
+.chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  border-radius: var(--r-pill);
+  padding: 3px 10px;
+  font-size: 12px; font-weight: 600; letter-spacing: 0.01em;
+  background: var(--surface-2); color: var(--encre-2);
+}
+.chip-facile { background: var(--vert-pale); color: var(--pin); }
+.chip-modere { background: var(--ocre-pale); color: var(--ocre); }
+.chip-difficile { background: var(--danger-pale); color: var(--danger); }
+/* Sur une photo : verre dépoli, lisible sur n'importe quel fond. */
+.chip-photo {
+  background: rgb(11 23 18 / 0.55); color: #f6f4ea;
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+}
+
+/* ═══ BOUTONS ═══ */
 .btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border-radius: 14px;
-  padding: 13px 18px;
-  font-weight: 700;
-  font-size: 15px;
-  min-height: 48px; /* cible tactile en marche, au soleil */
-  transition: opacity 0.15s;
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--s1);
+  border-radius: var(--r-card);
+  padding: 12px 18px;
+  min-height: 48px;              /* cible en marche, au soleil */
+  font-weight: 600; font-size: 15px;
+  transition: opacity 0.15s, background-color 0.15s;
 }
-.btn:active { opacity: 0.85; }
+.btn:active { opacity: 0.86; }
 .btn-pin { background: var(--pin); color: var(--sur-pin); }
 .btn-ocre { background: var(--ocre-pale); color: var(--ocre); border: 1px solid var(--ocre-bord); }
-.btn-surface { background: var(--surface); color: var(--encre); border: 1px solid var(--ligne); }
+.btn-surface { background: var(--surface); color: var(--encre); border: 1px solid var(--ligne-forte); }
 .btn-danger { background: var(--danger-pale); color: var(--danger); border: 1px solid var(--danger); }
+.btn-sm { min-height: 40px; padding: 8px 14px; font-size: 13.5px; }
 
-.prose-app p { margin: 0 0 12px; }
-.prose-app { color: var(--encre); }
+/* ═══ LISIBILITÉ ═══ */
+/* Une règle de troncature unique : deux lignes, jamais un mot coupé net. */
+.clamp-2 {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.clamp-1 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; overflow: hidden; }
 
-/* Carte MapLibre : attribution lisible dans les deux thèmes */
-.maplibregl-ctrl-attrib {
-  font-size: 10px;
+.prose-app p { margin: 0 0 var(--s2); }
+.prose-app p:last-child { margin-bottom: 0; }
+
+/* ═══ ACCESSIBILITÉ ═══ */
+:focus-visible {
+  outline: 2px solid var(--bisri);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
-/* Marqueurs de carte */
+/* ═══ TEXTURE : LES COURBES DE NIVEAU ═══
+   L'étude des sentiers est topographique. Le motif l'est aussi —
+   en CSS pur, sans image ni requête. */
+.courbes {
+  position: relative;
+  isolation: isolate;
+}
+.courbes::before {
+  content: "";
+  position: absolute; inset: 0; z-index: -1;
+  border-radius: inherit;
+  opacity: 0.5;
+  background-image:
+    repeating-radial-gradient(ellipse 120% 70% at 18% 108%,
+      transparent 0 13px, var(--ligne) 13px 14px);
+  -webkit-mask-image: linear-gradient(to bottom, #000, transparent 82%);
+  mask-image: linear-gradient(to bottom, #000, transparent 82%);
+}
+
+/* ═══ CARTE MAPLIBRE ═══ */
+.maplibregl-ctrl-attrib { font-size: 10px; }
+.maplibregl-ctrl-attrib,
+.maplibregl-ctrl-attrib a { color: #33403a; }
+
+.maplibregl-ctrl-group {
+  border-radius: var(--r-media) !important;
+  box-shadow: var(--ombre-pose) !important;
+}
+
+/* Marqueurs : le vocabulaire de la carte du guide. */
 .va-marker-depart, .va-marker-poi {
-  width: 14px; height: 14px; border-radius: 50%;
+  width: 15px; height: 15px; border-radius: 50%;
   background: #1e5741; border: 2.5px solid #f6f4ea;
-  box-shadow: 0 1px 4px rgb(0 0 0 / 0.35);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.4);
 }
-.va-marker-poi { background: #2b6b8c; width: 12px; height: 12px; }
+.va-marker-poi { background: #2b6b8c; width: 12px; height: 12px; border-width: 2px; }
 .va-marker-etape {
-  min-width: 22px; height: 22px; border-radius: 50%;
-  background: #1e5741; color: #f6f4ea;
-  border: 2px solid #f6f4ea;
+  min-width: 24px; height: 24px; border-radius: 50%;
+  background: #1e5741; color: #f6f4ea; border: 2px solid #f6f4ea;
   display: flex; align-items: center; justify-content: center;
-  font: 700 11px/1 "IBM Plex Sans", sans-serif;
-  box-shadow: 0 1px 4px rgb(0 0 0 / 0.35);
+  font: 700 11.5px/1 "IBM Plex Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.4);
 }
 .va-marker-position {
   width: 16px; height: 16px; border-radius: 50%;
   background: #2b6b8c; border: 3px solid #fff;
-  box-shadow: 0 0 0 6px rgb(43 107 140 / 0.25), 0 1px 4px rgb(0 0 0 / 0.4);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  box-shadow: 0 0 0 7px rgb(43 107 140 / 0.22), 0 1px 4px rgb(0 0 0 / 0.4);
 }

@@ -1,9 +1,10 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
 import { getLocale, getTranslations } from 'next-intl/server'
 import { Bed, MessageCircle, Phone, Tent, Users, UtensilsCrossed } from 'lucide-react'
 import { getPois, getTerritoire } from '@/lib/content'
 import { tx } from '@/lib/i18n-text'
+import ListRow from '@/components/ui/ListRow'
+import SectionHeading from '@/components/ui/SectionHeading'
 import type { Poi } from '@/lib/types'
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -27,105 +28,119 @@ export default async function PagePratique() {
     { titre: t('guides'), icone: Users, items: par('guide') },
   ]
   return (
-    <div className="space-y-7">
-      <header>
-        <h1 className="text-[26px] font-extrabold">{t('titre')}</h1>
-      </header>
+    <div className="space-y-[var(--s5)]">
+      <SectionHeading titre={t('titre')} niveau={1} />
 
-      {/* Le kiosque et son numéro — paramétrables */}
-      <section className="card p-4">
-        <h2 className="text-[16px] font-bold">{t('kiosqueTitre')}</h2>
-        <p className="mt-1 text-[13.5px] leading-relaxed text-[var(--encre-2)]">{t('kiosqueTexte')}</p>
-        {territoire.contact_tel ? (
-          <a href={`tel:${territoire.contact_tel.replace(/\s/g, '')}`} className="btn btn-pin mt-3">
-            <Phone size={17} aria-hidden /> {territoire.contact_tel}
-          </a>
-        ) : (
-          <p className="mt-2 text-[13px] italic text-[var(--encre-3)]">{t('aucunContact')}</p>
-        )}
-        {territoire.contact_whatsapp ? (
-          <a
-            href={`https://wa.me/${territoire.contact_whatsapp.replace(/[^0-9]/g, '')}`}
-            target="_blank"
-            rel="noopener"
-            className="btn btn-surface ms-2 mt-3"
-          >
-            <MessageCircle size={17} aria-hidden /> {t('whatsapp')}
-          </a>
-        ) : null}
+      {/* Le kiosque et son numéro : la seule carte d'action de la page. */}
+      <section className="card p-[var(--s4)]">
+        <h2 className="t-h3">{t('kiosqueTitre')}</h2>
+        <p className="mt-1.5 text-[var(--t-small)] leading-relaxed text-[var(--encre-2)]">
+          {t('kiosqueTexte')}
+        </p>
+        <div className="mt-[var(--s3)] flex flex-wrap gap-[var(--s2)]">
+          {territoire.contact_tel ? (
+            <a href={`tel:${territoire.contact_tel.replace(/\s/g, '')}`} className="btn btn-pin">
+              <Phone size={17} aria-hidden />
+              <span className="mono">{territoire.contact_tel}</span>
+            </a>
+          ) : (
+            <p className="text-[13px] italic text-[var(--encre-3)]">{t('aucunContact')}</p>
+          )}
+          {territoire.contact_whatsapp ? (
+            <a
+              href={`https://wa.me/${territoire.contact_whatsapp.replace(/[^0-9]/g, '')}`}
+              target="_blank"
+              rel="noopener"
+              className="btn btn-surface"
+            >
+              <MessageCircle size={17} aria-hidden /> {t('whatsapp')}
+            </a>
+          ) : null}
+        </div>
       </section>
 
       {sections
         .filter((s) => s.items.length)
         .map((s) => (
           <section key={s.titre}>
-            <h2 className="mb-2.5 flex items-center gap-2 text-[19px] font-bold">
-              <s.icone size={19} className="text-[var(--pin)]" aria-hidden /> {s.titre}
-            </h2>
-            <ul className="space-y-2">
+            <SectionHeading titre={s.titre} />
+            <div>
               {s.items.map((p) => (
-                <li key={p.slug} className="card p-3.5">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <Link href={`/explorer/${p.slug}`} className="text-[15px] font-bold">
-                        {tx(p.nom, locale)}
-                      </Link>
-                      <p className="mt-0.5 text-[13px] leading-snug text-[var(--encre-2)]">
-                        {tx(p.texte, locale)}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 gap-1.5">
-                      {p.contact?.tel ? (
-                        <a
-                          href={`tel:${p.contact.tel}`}
-                          aria-label={t('appeler')}
-                          className="grid h-10 w-10 place-items-center rounded-full bg-[var(--vert-pale)] text-[var(--pin)]"
-                        >
-                          <Phone size={17} aria-hidden />
-                        </a>
-                      ) : null}
-                      {p.contact?.whatsapp ? (
-                        <a
-                          href={`https://wa.me/${p.contact.whatsapp.replace(/[^0-9]/g, '')}`}
-                          target="_blank"
-                          rel="noopener"
-                          aria-label={t('whatsapp')}
-                          className="grid h-10 w-10 place-items-center rounded-full bg-[var(--pin)] text-[var(--sur-pin)]"
-                        >
-                          <MessageCircle size={17} aria-hidden />
-                        </a>
-                      ) : null}
-                    </div>
-                  </div>
-                  {['hebergement', 'restaurant'].includes(p.type) ? (
-                    <p className="mt-1.5 text-[11.5px] italic text-[var(--encre-3)]">{t('independant')}</p>
-                  ) : null}
-                </li>
+                <ListRow
+                  key={p.slug}
+                  href={`/explorer/${p.slug}`}
+                  icone={<s.icone size={18} aria-hidden />}
+                  titre={tx(p.nom, locale)}
+                  detail={tx(p.texte, locale)}
+                  meta={['hebergement', 'restaurant'].includes(p.type) ? t('independant') : null}
+                  aside={
+                    p.contact?.whatsapp || p.contact?.tel ? (
+                      <span className="flex shrink-0 gap-1.5">
+                        {p.contact?.tel ? (
+                          <a
+                            href={`tel:${p.contact.tel}`}
+                            aria-label={t('appeler')}
+                            className="grid h-10 w-10 place-items-center rounded-full bg-[var(--vert-pale)] text-[var(--pin)]"
+                          >
+                            <Phone size={16} aria-hidden />
+                          </a>
+                        ) : null}
+                        {p.contact?.whatsapp ? (
+                          <a
+                            href={`https://wa.me/${p.contact.whatsapp.replace(/[^0-9]/g, '')}`}
+                            target="_blank"
+                            rel="noopener"
+                            aria-label={t('whatsapp')}
+                            className="grid h-10 w-10 place-items-center rounded-full bg-[var(--pin)] text-[var(--sur-pin)]"
+                          >
+                            <MessageCircle size={16} aria-hidden />
+                          </a>
+                        ) : null}
+                      </span>
+                    ) : undefined
+                  }
+                />
               ))}
-            </ul>
+            </div>
           </section>
         ))}
 
-      <section className="card p-4">
-        <h2 className="text-[16px] font-bold">{t('venir')}</h2>
-        <p className="mt-1 text-[13.5px] leading-relaxed text-[var(--encre-2)]">{t('venirTexte')}</p>
+      <section className="bloc courbes p-[var(--s4)]">
+        <h2 className="t-h3">{t('venir')}</h2>
+        <p className="mt-1.5 text-[var(--t-small)] leading-relaxed text-[var(--encre-2)]">
+          {t('venirTexte')}
+        </p>
       </section>
 
+      {/* Les urgences : sobres mais impossibles à manquer. */}
       <section>
-        <h2 className="mb-2.5 text-[19px] font-bold">{t('urgencesTitre')}</h2>
-        <div className="space-y-2">
-          {territoire.urgences.map((u) => (
+        <SectionHeading titre={t('urgencesTitre')} />
+        <div className="overflow-hidden rounded-[var(--r-media)] border border-[var(--danger)]">
+          {territoire.urgences.map((u, i) => (
             <a
               key={u.tel}
               href={`tel:${u.tel}`}
-              className="flex items-center justify-between rounded-2xl border border-[var(--danger)] bg-[var(--danger-pale)] px-4 py-3.5"
+              className={
+                'flex items-center justify-between gap-[var(--s2)] bg-[var(--danger-pale)] px-[var(--s3)] py-[var(--s3)] ' +
+                (i > 0 ? 'border-t border-[var(--danger)]/30' : '')
+              }
             >
-              <span className="text-[15px] font-bold">{tx(u.nom, locale)}</span>
+              <span className="text-[15px] font-semibold">{tx(u.nom, locale)}</span>
               <span className="mono text-[18px] font-bold text-[var(--danger)]">{u.tel}</span>
             </a>
           ))}
         </div>
-        <p className="mt-2 text-[12.5px] text-[var(--encre-3)]">{tc('urgences')} — {tx({ fr: 'dites à quelqu’un où vous allez avant de partir.', ar: 'أخبروا أحدًا إلى أين أنتم ذاهبون قبل الانطلاق.', en: 'tell someone where you are going before you set out.' }, locale)}</p>
+        <p className="mt-[var(--s2)] text-[var(--t-micro)] text-[var(--encre-3)]">
+          {tc('urgences')} —{' '}
+          {tx(
+            {
+              fr: 'dites à quelqu’un où vous allez avant de partir.',
+              ar: 'أخبروا أحدًا إلى أين أنتم ذاهبون قبل الانطلاق.',
+              en: 'tell someone where you are going before you set out.',
+            },
+            locale,
+          )}
+        </p>
       </section>
     </div>
   )

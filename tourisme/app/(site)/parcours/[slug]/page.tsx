@@ -9,7 +9,12 @@ import { tx } from '@/lib/i18n-text'
 import MapView from '@/components/carte/MapView'
 import PackHorsLigne from '@/components/PackHorsLigne'
 import ParcoursCard from '@/components/ParcoursCard'
-import { BadgeDifficulte, BadgeType, StatsRow } from '@/components/ParcoursMeta'
+import { BadgeDifficulte, BadgeType } from '@/components/ParcoursMeta'
+import InfoNotice from '@/components/ui/InfoNotice'
+import MapPanel from '@/components/ui/MapPanel'
+import SectionHeading from '@/components/ui/SectionHeading'
+import StatBand from '@/components/ui/StatBand'
+import Waypoints from '@/components/ui/Waypoints'
 
 export async function generateMetadata(props: PageProps<'/parcours/[slug]'>): Promise<Metadata> {
   const { slug } = await props.params
@@ -62,10 +67,10 @@ export default async function FicheParcours(props: PageProps<'/parcours/[slug]'>
   ]
 
   return (
-    <article className="space-y-6">
-      {/* En-tête photo */}
-      <header className="relative -mx-4 md:mx-0 md:overflow-hidden md:rounded-3xl">
-        <div className="relative h-56 w-full">
+    <article className="space-y-[var(--s5)]">
+      {/* L'image porte l'en-tête ; le titre s'y pose, sans caisson. */}
+      <header className="-mx-[var(--s3)] -mt-[var(--s4)]">
+        <div className="relative h-60 w-full md:overflow-hidden md:rounded-[var(--r-media)]">
           {parcours.photo ? (
             <Image
               src={parcours.photo}
@@ -78,15 +83,15 @@ export default async function FicheParcours(props: PageProps<'/parcours/[slug]'>
           ) : (
             <div className="h-full bg-[var(--surface-2)]" />
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/10 to-transparent" />
-          <div className="absolute inset-x-0 bottom-0 p-4 text-white">
-            <div className="mb-1.5 flex gap-1.5">
+          <div className="absolute inset-0 bg-gradient-to-t from-[rgb(11_23_18/0.85)] via-[rgb(11_23_18/0.2)] to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 p-[var(--s3)] text-[#f6f4ea]">
+            <div className="mb-[var(--s2)] flex flex-wrap gap-1.5">
               <BadgeDifficulte difficulte={parcours.difficulte} />
               <BadgeType type={parcours.type} />
             </div>
-            <h1 className="text-[26px] font-extrabold leading-tight">{tx(parcours.nom, locale)}</h1>
+            <h1 className="t-h1 leading-tight">{tx(parcours.nom, locale)}</h1>
             {parcours.accroche ? (
-              <p className="mt-1 max-w-lg text-[13.5px] leading-snug opacity-95">
+              <p className="mt-1.5 max-w-lg text-[var(--t-small)] leading-snug opacity-95">
                 {tx(parcours.accroche, locale)}
               </p>
             ) : null}
@@ -94,36 +99,31 @@ export default async function FicheParcours(props: PageProps<'/parcours/[slug]'>
         </div>
       </header>
 
-      {/* La décision en dix secondes */}
-      <StatsRow parcours={parcours} locale={locale} />
+      {/* Les mesures, en bande d'instrument. */}
+      <StatBand parcours={parcours} locale={locale} />
 
       {parcours.trace_statut === 'provisoire' && parcours.trace ? (
-        <p className="rounded-xl border border-[var(--ocre-bord)] bg-[var(--ocre-pale)] px-3.5 py-2.5 text-[13px] leading-snug text-[var(--ocre)]">
-          {tc('traceProvisoire')}
-        </p>
+        <InfoNotice ton="vigilance">{tc('traceProvisoire')}</InfoNotice>
       ) : null}
 
-      {/* Actions */}
-      <div className="space-y-2.5">
+      <div className="space-y-[var(--s2)]">
         {parcours.acces_guide ? (
           waLink ? (
             <a href={waLink} target="_blank" rel="noopener" className="btn btn-pin w-full">
               <MessageCircle size={18} aria-hidden /> {tc('reserverGuide')}
             </a>
           ) : (
-            <p className="rounded-xl border border-[var(--ligne)] bg-[var(--surface)] px-4 py-3 text-[13.5px] text-[var(--encre-2)]">
-              {tc('accesGuide')}
-            </p>
+            <InfoNotice ton="vigilance">{tc('accesGuide')}</InfoNotice>
           )
         ) : (
           <>
             <PackHorsLigne slug={parcours.slug} version={parcours.version} urls={packUrls} />
-            <div className="flex gap-2.5">
-              <Link href={`/parcours/${parcours.slug}/sentier`} className="btn btn-surface flex-1">
+            <div className="flex gap-[var(--s2)]">
+              <Link href={`/parcours/${parcours.slug}/sentier`} className="btn btn-surface flex-[2]">
                 <Footprints size={18} aria-hidden /> {tc('ouvrirSentier')}
               </Link>
               {parcours.trace ? (
-                <a href={`/api/gpx/${parcours.slug}`} className="btn btn-surface flex-1" download>
+                <a href={`/api/gpx/${parcours.slug}`} className="btn btn-surface flex-1 shrink-0" download>
                   <Route size={18} aria-hidden /> GPX
                 </a>
               ) : null}
@@ -132,80 +132,88 @@ export default async function FicheParcours(props: PageProps<'/parcours/[slug]'>
         )}
       </div>
 
-      {/* Description */}
+      {/* Le récit : bloc éditorial, texture de courbes de niveau. */}
       {parcours.description ? (
-        <section>
-          <h2 className="mb-2 text-[19px] font-bold">{t('description')}</h2>
-          <p className="prose-app text-[15px] leading-relaxed">{tx(parcours.description, locale)}</p>
+        <section className="bloc courbes p-[var(--s4)]">
+          <h2 className="t-h3 mb-[var(--s2)]">{t('description')}</h2>
+          <p className="prose-app text-[15.5px] leading-relaxed">
+            {tx(parcours.description, locale)}
+          </p>
         </section>
       ) : null}
 
-      {/* Carte */}
       {parcours.trace ? (
-        <section className="card overflow-hidden">
+        <MapPanel hauteur="h-72">
           <MapView
             center={territoire.centre}
-            traces={[{ id: parcours.slug, line: parcours.trace, provisoire: parcours.trace_statut === 'provisoire' }]}
+            traces={[
+              {
+                id: parcours.slug,
+                line: parcours.trace,
+                provisoire: parcours.trace_statut === 'provisoire',
+              },
+            ]}
             markers={markers}
-            className="h-72 w-full"
+            className="h-full w-full"
+          />
+        </MapPanel>
+      ) : null}
+
+      {/* Les étapes : le fil du sentier, numéroté comme les panneaux. */}
+      {etapes.length ? (
+        <section>
+          <SectionHeading titre={tc('etapes')} />
+          <Waypoints
+            etapes={etapes.map((p, i) => ({
+              slug: p.slug,
+              nom: tx(p.nom, locale),
+              numero: p.panneau_no ?? i + 1,
+            }))}
           />
         </section>
       ) : null}
 
-      {/* Étapes numérotées comme les panneaux */}
-      {etapes.length ? (
-        <section>
-          <h2 className="mb-2.5 text-[19px] font-bold">{tc('etapes')}</h2>
-          <ol className="space-y-2">
-            {etapes.map((p, i) => (
-              <li key={p.slug}>
-                <Link href={`/explorer/${p.slug}`} className="card flex items-center gap-3 p-3">
-                  <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[var(--pin)] text-[13px] font-bold text-[var(--sur-pin)]">
-                    {p.panneau_no ?? i + 1}
-                  </span>
-                  <span className="min-w-0 flex-1 truncate text-[14.5px] font-semibold">
-                    {tx(p.nom, locale)}
-                  </span>
-                  <MapPin size={16} className="shrink-0 text-[var(--encre-3)]" aria-hidden />
-                </Link>
-              </li>
-            ))}
-          </ol>
-        </section>
-      ) : null}
-
-      {/* Sécurité, saison, accès */}
       {parcours.dangers ? (
-        <section className="rounded-2xl border border-[var(--danger)] bg-[var(--danger-pale)] p-4">
-          <h2 className="mb-1.5 flex items-center gap-2 text-[16px] font-bold text-[var(--danger)]">
-            <CircleAlert size={18} aria-hidden /> {t('dangers')}
-          </h2>
-          <p className="text-[14px] leading-relaxed text-[var(--encre)]">{tx(parcours.dangers, locale)}</p>
-        </section>
+        <InfoNotice
+          ton="danger"
+          titre={t('dangers')}
+          icone={<CircleAlert size={17} aria-hidden />}
+        >
+          {tx(parcours.dangers, locale)}
+        </InfoNotice>
       ) : null}
-      <div className="grid gap-3 sm:grid-cols-2">
-        {parcours.saison ? (
-          <section className="card p-4">
-            <h2 className="mb-1 flex items-center gap-2 text-[15px] font-bold">
-              <CalendarRange size={17} className="text-[var(--pin)]" aria-hidden /> {t('saison')}
-            </h2>
-            <p className="text-[13.5px] leading-relaxed text-[var(--encre-2)]">{tx(parcours.saison, locale)}</p>
-          </section>
-        ) : null}
-        {parcours.acces ? (
-          <section className="card p-4">
-            <h2 className="mb-1 flex items-center gap-2 text-[15px] font-bold">
-              <MapPin size={17} className="text-[var(--pin)]" aria-hidden /> {t('acces')}
-            </h2>
-            <p className="text-[13.5px] leading-relaxed text-[var(--encre-2)]">{tx(parcours.acces, locale)}</p>
-          </section>
-        ) : null}
-      </div>
 
-      {/* Autres parcours */}
+      {/* Saison et accès : une liste de définitions à filets, pas deux cartes. */}
+      {parcours.saison || parcours.acces ? (
+        <dl className="border-t border-[var(--ligne)]">
+          {parcours.saison ? (
+            <div className="border-b border-[var(--ligne)] py-[var(--s3)]">
+              <dt className="mb-1 flex items-center gap-2 text-[13px] font-bold">
+                <CalendarRange size={16} className="text-[var(--pin)]" aria-hidden />
+                {t('saison')}
+              </dt>
+              <dd className="text-[var(--t-small)] leading-relaxed text-[var(--encre-2)]">
+                {tx(parcours.saison, locale)}
+              </dd>
+            </div>
+          ) : null}
+          {parcours.acces ? (
+            <div className="border-b border-[var(--ligne)] py-[var(--s3)]">
+              <dt className="mb-1 flex items-center gap-2 text-[13px] font-bold">
+                <MapPin size={16} className="text-[var(--pin)]" aria-hidden />
+                {t('acces')}
+              </dt>
+              <dd className="text-[var(--t-small)] leading-relaxed text-[var(--encre-2)]">
+                {tx(parcours.acces, locale)}
+              </dd>
+            </div>
+          ) : null}
+        </dl>
+      ) : null}
+
       <section>
-        <h2 className="mb-3 text-[19px] font-bold">{t('aussi')}</h2>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <SectionHeading titre={t('aussi')} />
+        <div className="grid gap-[var(--s5)] sm:grid-cols-2">
           {tous
             .filter((p) => p.slug !== parcours.slug)
             .slice(0, 2)

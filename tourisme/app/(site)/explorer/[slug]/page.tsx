@@ -7,6 +7,7 @@ import { ExternalLink, MessageCircle, Phone, Signpost } from 'lucide-react'
 import { getParcours, getPoiBySlug, getTerritoire } from '@/lib/content'
 import { tx } from '@/lib/i18n-text'
 import MapView from '@/components/carte/MapView'
+import MapPanel from '@/components/ui/MapPanel'
 
 export async function generateMetadata(props: PageProps<'/explorer/[slug]'>): Promise<Metadata> {
   const { slug } = await props.params
@@ -29,27 +30,32 @@ export default async function FichePoi(props: PageProps<'/explorer/[slug]'>) {
   if (!poi) notFound()
   const lies = parcours.filter((p) => p.etapes.includes(poi.slug))
   return (
-    <article className="space-y-5">
+    <article className="space-y-[var(--s4)]">
       {poi.photo ? (
-        <div className="relative -mx-4 h-52 md:mx-0 md:overflow-hidden md:rounded-3xl">
+        <div className="-mx-[var(--s3)] -mt-[var(--s4)] relative h-56 md:overflow-hidden md:rounded-[var(--r-media)]">
           <Image src={poi.photo} alt="" fill priority sizes="(max-width:768px) 100vw, 768px" className="object-cover" />
         </div>
       ) : null}
       <header>
-        <h1 className="text-[24px] font-extrabold leading-tight">{tx(poi.nom, locale)}</h1>
-        {poi.panneau_no != null ? (
-          <p className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-[var(--vert-pale)] px-3 py-1 text-[12.5px] font-bold text-[var(--pin)]">
-            <Signpost size={14} aria-hidden /> {tc('panneau')} {poi.panneau_no}
-          </p>
-        ) : null}
+        <div className="mb-[var(--s2)] flex items-center gap-[var(--s1)]">
+          <span className="balise balise-sm" aria-hidden />
+          {poi.panneau_no != null ? (
+            <span className="eyebrow">
+              {tc('panneau')} {poi.panneau_no}
+            </span>
+          ) : null}
+        </div>
+        <h1 className="t-h1 leading-tight">{tx(poi.nom, locale)}</h1>
       </header>
-      {poi.texte ? <p className="text-[15px] leading-relaxed">{tx(poi.texte, locale)}</p> : null}
+      {poi.texte ? (
+        <p className="prose-app max-w-prose text-[15.5px] leading-relaxed">{tx(poi.texte, locale)}</p>
+      ) : null}
 
       {poi.contact ? (
-        <div className="flex flex-wrap gap-2.5">
+        <div className="flex flex-wrap gap-[var(--s2)]">
           {poi.contact.tel ? (
-            <a href={`tel:${poi.contact.tel}`} className="btn btn-surface">
-              <Phone size={17} aria-hidden /> {tp('appeler')}
+            <a href={`tel:${poi.contact.tel}`} className="btn btn-surface btn-sm">
+              <Phone size={16} aria-hidden /> {tp('appeler')}
             </a>
           ) : null}
           {poi.contact.whatsapp ? (
@@ -57,45 +63,50 @@ export default async function FichePoi(props: PageProps<'/explorer/[slug]'>) {
               href={`https://wa.me/${poi.contact.whatsapp.replace(/[^0-9]/g, '')}`}
               target="_blank"
               rel="noopener"
-              className="btn btn-pin"
+              className="btn btn-pin btn-sm"
             >
-              <MessageCircle size={17} aria-hidden /> {tp('whatsapp')}
+              <MessageCircle size={16} aria-hidden /> {tp('whatsapp')}
             </a>
           ) : null}
           {poi.contact.site ? (
-            <a href={poi.contact.site} target="_blank" rel="noopener" className="btn btn-surface">
-              <ExternalLink size={17} aria-hidden /> {tp('siteWeb')}
+            <a href={poi.contact.site} target="_blank" rel="noopener" className="btn btn-surface btn-sm">
+              <ExternalLink size={16} aria-hidden /> {tp('siteWeb')}
             </a>
           ) : null}
         </div>
       ) : null}
 
-      <div className="card overflow-hidden">
+      <MapPanel hauteur="h-56">
         <MapView
           center={poi.geom}
           zoom={15}
           markers={[{ id: poi.slug, position: poi.geom, kind: 'poi', label: tx(poi.nom, locale) }]}
           fit={false}
-          className="h-56 w-full"
+          className="h-full w-full"
         />
-      </div>
+      </MapPanel>
 
       {lies.length ? (
         <section>
-          <h2 className="mb-2 text-[17px] font-bold">{tx({ fr: 'Sur les parcours', ar: 'على المسارات', en: 'On the trails' }, locale)}</h2>
-          <ul className="space-y-2">
+          <h2 className="eyebrow mb-[var(--s2)] flex items-center gap-2">
+            <Signpost size={14} aria-hidden />
+            {tx({ fr: 'Sur les parcours', ar: 'على المسارات', en: 'On the trails' }, locale)}
+          </h2>
+          <div>
             {lies.map((p) => (
-              <li key={p.slug}>
-                <Link href={`/parcours/${p.slug}`} className="card block px-4 py-3 text-[14.5px] font-semibold text-[var(--pin)]">
-                  {tx(p.nom, locale)}
-                </Link>
-              </li>
+              <Link
+                key={p.slug}
+                href={`/parcours/${p.slug}`}
+                className="ligne-liste text-[15px] font-semibold text-[var(--pin)]"
+              >
+                {tx(p.nom, locale)}
+              </Link>
             ))}
-          </ul>
+          </div>
         </section>
       ) : null}
       {territoire.contact_tel == null && poi.type === 'guide' ? (
-        <p className="text-[13px] text-[var(--encre-2)]">{tp('aucunContact')}</p>
+        <p className="text-[var(--t-micro)] text-[var(--encre-3)]">{tp('aucunContact')}</p>
       ) : null}
     </article>
   )

@@ -96,7 +96,7 @@ export default function KiosqueClient({
                 lang={l}
                 onClick={() => poserLangueEtRecharger(l)}
                 className={
-                  'min-h-[64px] flex-1 rounded-2xl px-4 text-[19px] font-bold transition-opacity active:opacity-80 ' +
+                  'min-h-[64px] flex-1 rounded-[var(--r-card)] px-4 text-[19px] font-bold transition-opacity active:opacity-80 ' +
                   (l === locale
                     ? 'bg-[#f6f4ea] text-[var(--pin-fort)]'
                     : 'border border-[#f6f4ea]/40 bg-[#f6f4ea]/12 text-[#f6f4ea]')
@@ -111,13 +111,13 @@ export default function KiosqueClient({
 
       {/* Colonne pratique : parcours du jour, QR, numéro */}
       <section className="flex w-full flex-col justify-center gap-4 p-6 lg:w-[440px] lg:p-8">
-        <div className="card p-5">
+        <div className="card p-[var(--s4)]">
           <p className="eyebrow">{t('parcoursDuJour')}</p>
           <p className="mt-1 text-[19px] font-bold leading-snug">{parcoursDuJour.nom}</p>
           <p className="mono mt-1.5 text-[13px] text-[var(--encre-2)]">{parcoursDuJour.meta}</p>
         </div>
-        <div className="card flex items-center gap-4 p-5">
-          <div className="grid h-[132px] w-[132px] shrink-0 place-items-center overflow-hidden rounded-xl bg-white">
+        <div className="card flex items-center gap-4 p-[var(--s4)]">
+          <div className="grid h-[132px] w-[132px] shrink-0 place-items-center overflow-hidden rounded-[var(--r-media)] bg-white">
             {qr ? (
               // eslint-disable-next-line @next/next/no-img-element -- data URL générée localement
               <img src={qr} alt="QR code" width={124} height={124} />
@@ -128,7 +128,7 @@ export default function KiosqueClient({
             <p className="mt-1 text-[12.5px] leading-snug text-[var(--encre-2)]">{t('scannez')}</p>
           </div>
         </div>
-        <div className="card flex items-center justify-between gap-3 p-4">
+        <div className="card flex items-center justify-between gap-3 p-[var(--s3)]">
           <p className="text-[13px] leading-snug text-[var(--encre-2)]">
             {contactTel ? t('renseignement') : t('renseignementSansTel')}
           </p>

@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react'
 import maplibregl, { LngLatBounds, type Map as MlMap } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import type { LineString, Position } from '@/lib/types'
+import { harmoniserFond } from './harmoniser'
 
 // Fond de carte : OpenFreeMap (vectoriel, sans clé, sans limite déclarée)
 // par défaut — surchargeable par territoire/déploiement via env.
@@ -57,43 +58,51 @@ export default function MapView({
     map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }))
 
     // Connectivité de montagne : si le style ne charge pas (tuiles
-    // inaccessibles), on retombe sur un fond uni — la trace et les
+    // inaccessibles), on retombe sur un fond calcaire — la trace et les
     // étapes restent dessinées, l'essentiel survit.
     const secours = window.setTimeout(() => {
       if (!map.isStyleLoaded()) {
         map.setStyle({
           version: 8,
           sources: {},
-          layers: [{ id: 'fond', type: 'background', paint: { 'background-color': '#e9e6da' } }],
+          layers: [{ id: 'fond', type: 'background', paint: { 'background-color': '#eae7d9' } }],
         })
       }
     }, 3500)
 
-    map.on('load', () => {
+    const dessiner = () => {
+      // Le fond d'abord : on le reteinte avant de poser la trace dessus,
+      // pour qu'elle garde toute sa vivacité.
+      harmoniserFond(map)
+
       for (const t of traces) {
-        map.addSource(`trace-${t.id}`, {
+        const src = `va-trace-${t.id}`
+        if (map.getSource(src)) continue
+        map.addSource(src, {
           type: 'geojson',
           data: { type: 'Feature', properties: {}, geometry: t.line },
         })
+        // Gaine claire : la trace se détache de n'importe quel fond.
         map.addLayer({
-          id: `trace-halo-${t.id}`,
+          id: `va-gaine-${t.id}`,
           type: 'line',
-          source: `trace-${t.id}`,
-          paint: { 'line-color': '#f6f4ea', 'line-width': 7, 'line-opacity': 0.85 },
+          source: src,
+          paint: { 'line-color': '#f6f4ea', 'line-width': 8, 'line-opacity': 0.9 },
           layout: { 'line-cap': 'round', 'line-join': 'round' },
         })
         map.addLayer({
-          id: `trace-${t.id}`,
+          id: `va-trace-l-${t.id}`,
           type: 'line',
-          source: `trace-${t.id}`,
+          source: src,
           paint: {
-            'line-color': '#1e5741',
-            'line-width': 3.5,
-            ...(t.provisoire ? { 'line-dasharray': [2.2, 1.6] } : {}),
+            'line-color': '#14503a',
+            'line-width': 4,
+            ...(t.provisoire ? { 'line-dasharray': [2.2, 1.5] } : {}),
           },
           layout: { 'line-cap': 'round', 'line-join': 'round' },
         })
       }
+
       if (fit && (traces.length || markers.length)) {
         const bounds = new LngLatBounds()
         traces.forEach((t) => t.line.coordinates.forEach((c) => bounds.extend(c)))
@@ -101,6 +110,12 @@ export default function MapView({
         if (!bounds.isEmpty()) map.fitBounds(bounds, { padding: 48, maxZoom: 15.5, duration: 0 })
       }
       onMapReady?.(map)
+    }
+
+    map.on('load', dessiner)
+    // Le repli de secours change le style : on redessine par-dessus.
+    map.on('styledata', () => {
+      if (map.isStyleLoaded() && !map.getSource(`va-trace-${traces[0]?.id}`)) dessiner()
     })
 
     for (const m of markers) {
