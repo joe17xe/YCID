@@ -39,8 +39,16 @@ html,body{height:100%}
 body{margin:0;background:#0A0F0D;font-family:var(--font-body);color:var(--ink);overflow:hidden}
 
 /* ---------- scène 16:9 mise à l'échelle ---------- */
-#deck{position:fixed;inset:0;display:grid;place-items:center}
-#stage{width:1280px;height:720px;position:relative;transform:scale(var(--k,1));transform-origin:center center;
+/* La scène garde toujours ses 1280×720 : une transformation ne change pas
+   la TAILLE DE MISE EN PAGE, seulement le rendu. Un centrage par grille
+   plaçait donc une boîte de 1280 px dans un viewport parfois plus étroit
+   (téléphone, cadre réduit) et résolvait le débordement en la poussant
+   vers la droite — la diapositive sortait de l'écran et la page semblait
+   vide. Ancrée au centre puis rappelée de sa propre moitié, elle est
+   centrée quelle que soit la largeur. */
+#deck{position:fixed;inset:0;overflow:hidden}
+#stage{position:absolute;left:50%;top:50%;width:1280px;height:720px;
+  transform:translate(-50%,-50%) scale(var(--k,1));transform-origin:center center;
   box-shadow:0 24px 80px rgba(0,0,0,.5);border-radius:6px;overflow:hidden;background:var(--white)}
 .slide{position:absolute;inset:0;display:none;flex-direction:column;padding:52px 64px 56px;background:var(--white)}
 .slide.on{display:flex}
@@ -213,7 +221,7 @@ table.g tr.grp td{background:#F1F4F2;font-weight:600;color:var(--ink);font-size:
   body{background:#fff;overflow:visible}
   .pagenum{display:block}
   #deck{position:static;display:block}
-  #stage{width:1280px;height:auto;transform:none;box-shadow:none;border-radius:0}
+  #stage{position:static;width:1280px;height:auto;transform:none;box-shadow:none;border-radius:0}
   .slide{position:relative;display:flex!important;width:1280px;height:720px;page-break-after:always;break-after:page}
   #bar,#hud,#toc{display:none!important}
   .notes{display:none!important}
