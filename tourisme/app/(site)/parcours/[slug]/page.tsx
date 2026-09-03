@@ -12,6 +12,7 @@ import ActionCard from '@/components/ui/ActionCard'
 import ParcoursCard from '@/components/ParcoursCard'
 import { BadgeDifficulte, BadgeType } from '@/components/ParcoursMeta'
 import InfoNotice from '@/components/ui/InfoNotice'
+import Itineraire from '@/components/ui/Itineraire'
 import MapPanel from '@/components/ui/MapPanel'
 import SectionHeading from '@/components/ui/SectionHeading'
 import StatBand from '@/components/ui/StatBand'
@@ -164,6 +165,11 @@ export default async function FicheParcours(props: PageProps<'/parcours/[slug]'>
             className="h-full w-full"
           />
         </MapPanel>
+      ) : null}
+
+      {/* Le départ : c'est LUI qu'on met dans le GPS, pas le tracé. */}
+      {parcours.depart ? (
+        <Itineraire geom={parcours.depart} nom={tx(parcours.nom, locale)} />
       ) : null}
 
       {/* Les étapes : le fil du sentier, numéroté comme les panneaux. */}

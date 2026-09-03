@@ -43,6 +43,10 @@
     "kiosque": "Kiosk",
     "appareilPhoto": "Open your camera and point it at the QR"
   },
+  "itineraire": {
+    "titre": "Getting there",
+    "plans": "Apple Maps"
+  },
   "accueil": {
     "bienvenue": "Welcome to",
     "siteEmblematique": "Landmark site",
@@ -111,6 +115,24 @@
       "epicerie": "Grocery",
       "eau": "Water point"
     }
+  },
+  "venir": {
+    "titre": "Plan your visit",
+    "sousTitre": "Where it is, how you get up there, and what you come for.",
+    "pourquoi": "Why come",
+    "commentSyRendre": "How to get there",
+    "depuis": "From {ville}",
+    "stationnement": "Parking",
+    "transports": "Without a car",
+    "laRegion": "The region",
+    "pointArrivee": "Where you arrive",
+    "tempsIndicatifs": "Distances and driving times are indicative — the mountain road goes at the pace of the traffic.",
+    "quandVenir": "When to come",
+    "surPlace": "Once you are there",
+    "surPlaceTexte": "The kiosk on the square answers questions and takes bookings. Where to sleep and eat is on the Info page.",
+    "voirPratique": "Sleep, eat, emergencies",
+    "voirReserver": "Book an outing",
+    "voirParcours": "The trails"
   },
   "reserver": {
     "titre": "Book",

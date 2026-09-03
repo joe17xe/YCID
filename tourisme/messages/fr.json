@@ -43,6 +43,10 @@
     "kiosque": "Kiosque",
     "appareilPhoto": "Ouvrez l'appareil photo et visez le QR"
   },
+  "itineraire": {
+    "titre": "S'y rendre",
+    "plans": "Plans"
+  },
   "accueil": {
     "bienvenue": "Bienvenue à",
     "siteEmblematique": "Site emblématique",
@@ -111,6 +115,24 @@
       "epicerie": "Épicerie",
       "eau": "Point d'eau"
     }
+  },
+  "venir": {
+    "titre": "Préparer sa venue",
+    "sousTitre": "Où c'est, comment on y monte, et ce qu'on vient y chercher.",
+    "pourquoi": "Pourquoi venir",
+    "commentSyRendre": "Comment s'y rendre",
+    "depuis": "Depuis {ville}",
+    "stationnement": "Se garer",
+    "transports": "Sans voiture",
+    "laRegion": "La région",
+    "pointArrivee": "Le point d'arrivée",
+    "tempsIndicatifs": "Distances et temps de trajet indicatifs — la route de montagne se fait au rythme du trafic.",
+    "quandVenir": "Quand venir",
+    "surPlace": "Une fois sur place",
+    "surPlaceTexte": "Le kiosque de la place répond aux questions et prend les réservations. Les adresses où dormir et manger sont dans la page Pratique.",
+    "voirPratique": "Dormir, manger, urgences",
+    "voirReserver": "Réserver une sortie",
+    "voirParcours": "Les parcours"
   },
   "reserver": {
     "titre": "Réserver",

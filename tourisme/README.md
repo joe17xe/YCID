@@ -24,6 +24,12 @@ Le dossier de conception complet vit dans `../docs/tourisme-azour/`
 - **Mode sentier** : position GPS suivie, distance restante le long de
   la trace, prochaine étape, alerte hors-trace (150 m), urgences à un
   geste.
+- **Préparer sa venue** (`/venir`) : pourquoi monter, comment y monter
+  (distance et durée depuis Beyrouth, Saida, Jezzine — des paramètres),
+  le point d'arrivée avec ses coordonnées et des liens **Google Maps /
+  Waze / Plans**, le stationnement, la région, les saisons. Les mêmes
+  liens de navigation figurent sur chaque POI et sur le départ de chaque
+  parcours.
 - **Réservation** (`/reserver`) : catalogue de **formules paramétrables**
   (visite guidée, randonnée accompagnée, journée, groupes…), fiche par
   formule, formulaire de demande. Avec base, la demande s'inscrit au
@@ -73,7 +79,7 @@ Variables (voir `.env.example`) : `NEXT_PUBLIC_SUPABASE_URL`,
 `supabase/migrations/` dans l'ordre (0001 schéma + RLS, 0002 vues
 publiques GeoJSON, 0003 fonctions et vues d'admin, 0004 services rendus
 sur place, 0005 formules et demandes de réservation, 0006 « sur
-réservation »), puis
+réservation », 0007 accès et présentation du territoire), puis
 `supabase/seed.sql`. Vérifiées rejouables sur un PostGIS 16 nu avec
 `supabase/dev/shim-auth-local.sql` (local uniquement — jamais sur un
 vrai projet Supabase). Les droits d'écriture s'attribuent en SQL :

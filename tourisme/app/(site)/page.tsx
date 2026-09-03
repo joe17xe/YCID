@@ -143,7 +143,7 @@ export default async function Accueil() {
       ) : null}
 
       <ActionCard
-        href="/pratique"
+        href="/venir"
         titre={t('pratiqueTitre')}
         detail={t('meteo')}
         icone={<Info size={19} aria-hidden />}

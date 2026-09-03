@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { getLocale, getTranslations } from 'next-intl/server'
 import {
   Bed,
+  ChevronRight,
   Coffee,
   ExternalLink,
   MessageCircle,
@@ -33,6 +34,7 @@ export default async function PagePratique() {
     getTranslations('commun'),
   ])
   const tr = await getTranslations('reserver')
+  const tv = await getTranslations('venir')
   const ts = await getTranslations('pratique.sert')
   const par = (type: Poi['type']) => pois.filter((p) => p.type === type)
   const sections: { titre: string; icone: typeof Bed; items: Poi[] }[] = [
@@ -238,12 +240,17 @@ export default async function PagePratique() {
         </section>
       ) : null}
 
-      <section className="bloc courbes p-[var(--s4)]">
+      {/* Le trajet a sa propre page : ici on garde le résumé, et on y mène. */}
+      <Link href="/venir" className="bloc courbes block p-[var(--s4)]">
         <h2 className="t-h3">{t('venir')}</h2>
         <p className="mt-1.5 text-[var(--t-small)] leading-relaxed text-[var(--encre-2)]">
           {t('venirTexte')}
         </p>
-      </section>
+        <span className="mt-[var(--s2)] flex items-center gap-1 text-[13px] font-semibold text-[var(--bisri)]">
+          {tv('titre')}
+          <ChevronRight size={15} className="rtl:-scale-x-100" aria-hidden />
+        </span>
+      </Link>
 
       {/* Les urgences : sobres mais impossibles à manquer. */}
       <section>

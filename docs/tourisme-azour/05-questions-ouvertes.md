@@ -89,6 +89,14 @@
     qu'on sert, c'est la condition pour l'obtenir — et arriver sans avoir
     prévenu, c'est trouver porte close. Le **bar est confirmé** dans la
     foulée : Blue Jay est un bar-restaurant.
+16. **« Préparer sa venue » devient une page** (03/09) : `/venir` —
+    pourquoi monter, comment y monter, où l'on arrive, où se garer, la
+    région, les saisons. Les trajets sont des **paramètres** (ville,
+    distance, durée, note), pas des phrases figées. Et partout où l'app
+    connaît des coordonnées — chaque POI, chaque départ de parcours, la
+    place du village — elle les affiche et propose de les ouvrir dans
+    **Google Maps, Waze ou Plans** : trois URL universelles, aucune clé,
+    aucun SDK.
 
 ## Encore ouvert
 
@@ -119,6 +127,15 @@
   demande vers WhatsApp, l'e-mail ou le téléphone du kiosque. Aucun des
   trois n'est renseigné aujourd'hui à part le fixe — un **numéro
   WhatsApp** rendrait le circuit immédiat.
+- Les **distances et durées de trajet** (Beyrouth 63 km / 1 h 45,
+  Saida 35 km / 1 h, Jezzine 20 min) sont pré-remplies depuis des
+  sources publiques : Wikipédia donne 63 km depuis Beyrouth et 830 m
+  d'altitude pour Aazour, 22 km entre Jezzine et Saida. Les chiffres
+  intermédiaires sont des estimations. **À corriger par la municipalité**
+  — ce sont des paramètres, et la page prévient déjà qu'ils sont
+  indicatifs.
+- Les **coordonnées de la place du village** (35.5714, 33.5301) sont
+  approchées, comme les autres : à relever sur place.
 - Les **coordonnées exactes** de Beit Mrad, Blue Jay Valley et
   Pineview : les points actuels sont approchés (± quelques centaines de
   mètres) et se corrigent dans `/admin` en collant les coordonnées

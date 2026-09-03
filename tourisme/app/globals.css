@@ -315,6 +315,9 @@ textarea.champ { min-height: 96px; resize: vertical; line-height: 1.5; }
 }
 
 /* ═══ CARTE MAPLIBRE ═══ */
+/* L'échelle de MapLibre est une mesure : « 200 m » se lisait « m 200 »
+   en arabe, comme tout le reste avant l'isolation. */
+.maplibregl-ctrl-scale { direction: ltr; unicode-bidi: isolate; }
 .maplibregl-ctrl-attrib { font-size: 10px; }
 .maplibregl-ctrl-attrib,
 .maplibregl-ctrl-attrib a { color: #33403a; }

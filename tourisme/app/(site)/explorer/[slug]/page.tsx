@@ -8,6 +8,7 @@ import { getParcours, getPoiBySlug, getTerritoire } from '@/lib/content'
 import { tx } from '@/lib/i18n-text'
 import MapView from '@/components/carte/MapView'
 import MapPanel from '@/components/ui/MapPanel'
+import Itineraire from '@/components/ui/Itineraire'
 
 export async function generateMetadata(props: PageProps<'/explorer/[slug]'>): Promise<Metadata> {
   const { slug } = await props.params
@@ -85,6 +86,8 @@ export default async function FichePoi(props: PageProps<'/explorer/[slug]'>) {
           className="h-full w-full"
         />
       </MapPanel>
+
+      <Itineraire geom={poi.geom} nom={tx(poi.nom, locale)} />
 
       {lies.length ? (
         <section>

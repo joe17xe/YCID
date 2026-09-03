@@ -23,6 +23,29 @@ export interface Urgence {
   tel: string
 }
 
+/** Une porte d'entrée vers le village : d'où l'on vient, et ce que ça
+ *  coûte en kilomètres et en minutes. Les deux sont des paramètres —
+ *  la route change, le code non. */
+export interface AccesDepuis {
+  ville: I18nText
+  distance_km?: number | null
+  duree_minutes?: number | null
+  note?: I18nText | null
+}
+
+export interface Acces {
+  /** Où l'on arrive vraiment : la place du village, pas le centroïde. */
+  arrivee?: { nom: I18nText; geom: Position } | null
+  depuis: AccesDepuis[]
+  stationnement?: I18nText | null
+  transports?: I18nText | null
+}
+
+export interface Presentation {
+  pourquoi?: I18nText | null
+  region?: I18nText | null
+}
+
 export interface Territoire {
   /** Renseigné en mode Supabase seulement — le dépôt d'une demande en
    *  a besoin. Absent en mode fichiers, où il n'y a rien à insérer. */
@@ -43,6 +66,8 @@ export interface Territoire {
   etat_acces?: EtatAcces | null
   centre: Position
   zoom_defaut: number
+  presentation?: Presentation | null
+  acces?: Acces | null
 }
 
 export type ParcoursType = 'boucle' | 'lineaire' | 'guide'

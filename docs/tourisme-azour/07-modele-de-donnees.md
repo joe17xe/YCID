@@ -30,7 +30,10 @@ Ce qui se renseigne au back-office — rien d'autre ne définit la carte :
 
 - **Territoire** : nom (×3 langues), logo, couleurs, langues actives,
   contacts, numéro d'information du kiosque, bandeau « état d'accès »
-  daté. Dupliquer un village = créer une ligne ici.
+  daté, **présentation** (pourquoi venir, la région) et **accès** (point
+  d'arrivée géolocalisé, distances et durées depuis chaque porte
+  d'entrée, stationnement, transports). Dupliquer un village = créer une
+  ligne ici.
 - **Parcours** : nom ×3, type (boucle / linéaire / accès guidé), trace
   (import GPX), distance et D+/D− (**auto-calculés depuis la trace**,
   avec valeur officielle forçable — celles de l'étude), durée min-max,

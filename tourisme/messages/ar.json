@@ -43,6 +43,10 @@
     "kiosque": "الكشك",
     "appareilPhoto": "افتحوا الكاميرا ووجّهوها نحو رمز QR"
   },
+  "itineraire": {
+    "titre": "الوصول",
+    "plans": "خرائط أبل"
+  },
   "accueil": {
     "bienvenue": "أهلاً بكم في",
     "siteEmblematique": "الموقع الأبرز",
@@ -111,6 +115,24 @@
       "epicerie": "بقالة",
       "eau": "نقطة ماء"
     }
+  },
+  "venir": {
+    "titre": "حضّروا زيارتكم",
+    "sousTitre": "أين تقع، وكيف يُصعد إليها، وما الذي يُقصد من أجله.",
+    "pourquoi": "لماذا الزيارة",
+    "commentSyRendre": "كيفية الوصول",
+    "depuis": "من {ville}",
+    "stationnement": "الوقوف",
+    "transports": "من دون سيارة",
+    "laRegion": "المنطقة",
+    "pointArrivee": "نقطة الوصول",
+    "tempsIndicatifs": "المسافات وأوقات الطريق تقريبية — طريق الجبل تُقطع على إيقاع السير.",
+    "quandVenir": "متى الزيارة",
+    "surPlace": "عند الوصول",
+    "surPlaceTexte": "كشك الساحة يجيب على الأسئلة ويستقبل الحجوزات. عناوين النوم والأكل في صفحة المعلومات.",
+    "voirPratique": "النوم والأكل والطوارئ",
+    "voirReserver": "احجزوا جولة",
+    "voirParcours": "المسارات"
   },
   "reserver": {
     "titre": "الحجز",
