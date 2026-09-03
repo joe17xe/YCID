@@ -1,9 +1,16 @@
 [
   {
     "slug": "place-du-village",
-    "nom": { "fr": "Place du village — départ des sentiers", "ar": "ساحة القرية — نقطة انطلاق الدروب", "en": "Village square — trailhead" },
+    "nom": {
+      "fr": "Place du village — départ des sentiers",
+      "ar": "ساحة القرية — نقطة انطلاق الدروب",
+      "en": "Village square — trailhead"
+    },
     "type": "depart",
-    "geom": [35.5715, 33.5295],
+    "geom": [
+      35.5715,
+      33.5295
+    ],
     "panneau_no": 1,
     "texte": {
       "fr": "Le point de départ de tous les parcours. Le kiosque touristique, animé par les jeunes et les guides d'Azour, vous renseigne, vous équipe et vous met en route. Stationnement sur la place.",
@@ -12,13 +19,21 @@
     },
     "photo": null,
     "statut": "publie",
-    "ordre": 1
+    "ordre": 1,
+    "services": []
   },
   {
     "slug": "kiosque",
-    "nom": { "fr": "Kiosque touristique d'Azour", "ar": "كشك عازور السياحي", "en": "Azour tourist kiosk" },
+    "nom": {
+      "fr": "Kiosque touristique d'Azour",
+      "ar": "كشك عازور السياحي",
+      "en": "Azour tourist kiosk"
+    },
     "type": "patrimoine",
-    "geom": [35.5716, 33.5296],
+    "geom": [
+      35.5716,
+      33.5296
+    ],
     "panneau_no": null,
     "texte": {
       "fr": "Informations, conseils, réservation des guides et des sorties encadrées. Animé par les jeunes du village.",
@@ -27,13 +42,21 @@
     },
     "photo": null,
     "statut": "publie",
-    "ordre": 2
+    "ordre": 2,
+    "services": []
   },
   {
     "slug": "eglise-saint-joseph",
-    "nom": { "fr": "Église Saint-Joseph", "ar": "كنيسة مار يوسف", "en": "Saint Joseph church" },
+    "nom": {
+      "fr": "Église Saint-Joseph",
+      "ar": "كنيسة مار يوسف",
+      "en": "Saint Joseph church"
+    },
     "type": "patrimoine",
-    "geom": [35.572, 33.53],
+    "geom": [
+      35.572,
+      33.53
+    ],
     "panneau_no": null,
     "texte": {
       "fr": "L'église du village, repère du départ des sentiers.",
@@ -42,13 +65,21 @@
     },
     "photo": null,
     "statut": "publie",
-    "ordre": 3
+    "ordre": 3,
+    "services": []
   },
   {
     "slug": "foret-des-pins",
-    "nom": { "fr": "Forêt de pins et d'orchidées", "ar": "غابة الصنوبر والسحلبيات", "en": "Pine and orchid forest" },
+    "nom": {
+      "fr": "Forêt de pins et d'orchidées",
+      "ar": "غابة الصنوبر والسحلبيات",
+      "en": "Pine and orchid forest"
+    },
     "type": "nature",
-    "geom": [35.5678, 33.5322],
+    "geom": [
+      35.5678,
+      33.5322
+    ],
     "panneau_no": 2,
     "texte": {
       "fr": "Pins, chênes et pistachier de Palestine. Au printemps, trois orchidées remarquables fleurissent ici : Limodorum abortivum, Ophrys fuciflora et Anacamptis sancta. En sous-bois, les champignons Mycena travaillent à l'équilibre de la forêt.",
@@ -57,13 +88,21 @@
     },
     "photo": "/photos/mycena.jpg",
     "statut": "publie",
-    "ordre": 4
+    "ordre": 4,
+    "services": []
   },
   {
     "slug": "falaise-panoramique",
-    "nom": { "fr": "Falaise panoramique du Shir", "ar": "جرف الشير البانورامي", "en": "Shir panoramic cliff" },
+    "nom": {
+      "fr": "Falaise panoramique du Shir",
+      "ar": "جرف الشير البانورامي",
+      "en": "Shir panoramic cliff"
+    },
     "type": "belvedere",
-    "geom": [35.5648, 33.5342],
+    "geom": [
+      35.5648,
+      33.5342
+    ],
     "panneau_no": 3,
     "texte": {
       "fr": "Le grand balcon d'Azour : des falaises calcaires du Cénomanien, épaisses de 500 à 600 mètres, sculptées par le karst et piquetées de silex. En contrebas, la vallée du Bisri et le corridor de la rivière Awali. Levez les yeux en saison : les cigognes migrent au-dessus de la vallée.",
@@ -72,13 +111,21 @@
     },
     "photo": "/photos/shir-falaise.jpg",
     "statut": "publie",
-    "ordre": 5
+    "ordre": 5,
+    "services": []
   },
   {
     "slug": "rocher-hyrax",
-    "nom": { "fr": "Hyrax Rock — le rocher du daman", "ar": "صخرة الوبر", "en": "Hyrax Rock" },
+    "nom": {
+      "fr": "Hyrax Rock — le rocher du daman",
+      "ar": "صخرة الوبر",
+      "en": "Hyrax Rock"
+    },
     "type": "belvedere",
-    "geom": [35.563, 33.535],
+    "geom": [
+      35.563,
+      33.535
+    ],
     "panneau_no": 4,
     "texte": {
       "fr": "Un bloc calcaire suspendu au-dessus de la vallée, accessible uniquement en sortie encadrée (cordes fixes). Le daman des rochers — petit cousin lointain de l'éléphant — vit dans ces falaises et a donné son nom au site.",
@@ -87,13 +134,21 @@
     },
     "photo": "/photos/hyrax-rock.jpg",
     "statut": "publie",
-    "ordre": 6
+    "ordre": 6,
+    "services": []
   },
   {
     "slug": "chir-el-joube",
-    "nom": { "fr": "Chir el Joube", "ar": "شير الجوبة", "en": "Chir el Joube" },
+    "nom": {
+      "fr": "Chir el Joube",
+      "ar": "شير الجوبة",
+      "en": "Chir el Joube"
+    },
     "type": "belvedere",
-    "geom": [35.5615, 33.539],
+    "geom": [
+      35.5615,
+      33.539
+    ],
     "panneau_no": 5,
     "texte": {
       "fr": "Second système de falaises sur l'itinéraire vers le Bisri, au-dessus des terrasses de Joubeh.",
@@ -102,13 +157,21 @@
     },
     "photo": null,
     "statut": "publie",
-    "ordre": 7
+    "ordre": 7,
+    "services": []
   },
   {
     "slug": "belvedere-bisri",
-    "nom": { "fr": "Belvédère de la vallée du Bisri", "ar": "مطل وادي بسري", "en": "Bisri valley viewpoint" },
+    "nom": {
+      "fr": "Belvédère de la vallée du Bisri",
+      "ar": "مطل وادي بسري",
+      "en": "Bisri valley viewpoint"
+    },
     "type": "belvedere",
-    "geom": [35.5625, 33.5403],
+    "geom": [
+      35.5625,
+      33.5403
+    ],
     "panneau_no": 6,
     "texte": {
       "fr": "Vue ouverte sur la vallée préservée du Bisri et la rivière Awali, avant la grande descente.",
@@ -117,13 +180,21 @@
     },
     "photo": "/photos/vallee-bisri.jpg",
     "statut": "publie",
-    "ordre": 8
+    "ordre": 8,
+    "services": []
   },
   {
     "slug": "chemin-agricole",
-    "nom": { "fr": "Chemins agricoles du retour", "ar": "الطرق الزراعية في طريق العودة", "en": "Farm tracks on the way back" },
+    "nom": {
+      "fr": "Chemins agricoles du retour",
+      "ar": "الطرق الزراعية في طريق العودة",
+      "en": "Farm tracks on the way back"
+    },
     "type": "nature",
-    "geom": [35.5691, 33.5297],
+    "geom": [
+      35.5691,
+      33.5297
+    ],
     "panneau_no": 7,
     "texte": {
       "fr": "Le retour de la boucle emprunte les chemins agricoles du village — oliviers, terrasses et murets de pierre sèche.",
@@ -132,13 +203,21 @@
     },
     "photo": "/photos/chemin-agricole.jpg",
     "statut": "publie",
-    "ordre": 9
+    "ordre": 9,
+    "services": []
   },
   {
     "slug": "village-bisri",
-    "nom": { "fr": "Village du Bisri (arrivée)", "ar": "قرية بسري (الوصول)", "en": "Bisri village (finish)" },
+    "nom": {
+      "fr": "Village du Bisri (arrivée)",
+      "ar": "قرية بسري (الوصول)",
+      "en": "Bisri village (finish)"
+    },
     "type": "depart",
-    "geom": [35.553, 33.556],
+    "geom": [
+      35.553,
+      33.556
+    ],
     "panneau_no": 8,
     "texte": {
       "fr": "Point d'arrivée de l'itinéraire linéaire, au fond de la vallée. Prévoyez votre retour (voiture déposée ou navette avec un guide).",
@@ -147,13 +226,21 @@
     },
     "photo": null,
     "statut": "publie",
-    "ordre": 10
+    "ordre": 10,
+    "services": []
   },
   {
     "slug": "camping-el-abo",
-    "nom": { "fr": "Camping El Abo - Le Cave", "ar": "مخيم العبو - المغارة", "en": "El Abo - Le Cave campsite" },
+    "nom": {
+      "fr": "Camping El Abo - Le Cave",
+      "ar": "مخيم العبو - المغارة",
+      "en": "El Abo - Le Cave campsite"
+    },
     "type": "camping",
-    "geom": [35.582, 33.5215],
+    "geom": [
+      35.582,
+      33.5215
+    ],
     "panneau_no": null,
     "texte": {
       "fr": "Le site de camping aménagé par le programme à Bteddine El Lockh : sentiers, toilettes, point d'eau. Ouverture progressive en 2026-2027 — renseignez-vous au kiosque.",
@@ -162,44 +249,104 @@
     },
     "photo": null,
     "statut": "brouillon",
-    "ordre": 11
+    "ordre": 11,
+    "services": []
   },
   {
     "slug": "blue-jay-valley",
-    "nom": { "fr": "Blue Jay Valley (hébergement)", "ar": "بلو جاي فالي (إقامة)", "en": "Blue Jay Valley (stay)" },
+    "nom": {
+      "fr": "Blue Jay Valley — bungalows et tentes",
+      "ar": "بلو جاي فالي — بنغالوهات وخيم",
+      "en": "Blue Jay Valley — bungalows and tents"
+    },
     "type": "hebergement",
-    "geom": [35.576, 33.532],
+    "geom": [
+      35.576,
+      33.532
+    ],
     "panneau_no": null,
     "texte": {
-      "fr": "Bungalows et tentes aménagées à Azour. Établissement indépendant du projet — contact direct.",
-      "ar": "أكواخ وخيام مجهزة في عازور. منشأة مستقلة عن المشروع — تواصل مباشر.",
-      "en": "Bungalows and furnished tents in Azour. Independent from the project — contact directly."
+      "fr": "Bungalows et tentes aménagées au creux d'une vallée de pins et de chênes, avec une table qui sert midi et soir. Établissement indépendant du projet — contact direct.",
+      "ar": "أكواخ وخيام مجهزة في وادٍ من الصنوبر والسنديان، مع مطعم يقدّم الغداء والعشاء. منشأة مستقلة عن المشروع — تواصل مباشر.",
+      "en": "Bungalows and furnished tents in a valley of pines and oaks, with a restaurant serving lunch and dinner. Independent from the project — contact directly."
     },
     "photo": null,
-    "contact": { "site": "https://bluejayvalley.com" },
+    "contact": {
+      "site": "https://bluejayvalley.com"
+    },
     "statut": "publie",
-    "ordre": 12
+    "ordre": 12,
+    "services": [
+      "restaurant",
+      "bar"
+    ]
   },
   {
     "slug": "pineview-hotel",
-    "nom": { "fr": "Pineview Hotel (hébergement)", "ar": "فندق باين فيو (إقامة)", "en": "Pineview Hotel (stay)" },
+    "nom": {
+      "fr": "Pineview Hotel",
+      "ar": "فندق باين فيو",
+      "en": "Pineview Hotel"
+    },
     "type": "hebergement",
-    "geom": [35.57, 33.528],
+    "geom": [
+      35.57,
+      33.528
+    ],
     "panneau_no": null,
     "texte": {
-      "fr": "Hôtel du village, sous les pins. Établissement indépendant du projet — contact direct.",
-      "ar": "فندق القرية تحت الصنوبر. منشأة مستقلة عن المشروع — تواصل مباشر.",
-      "en": "The village hotel, under the pines. Independent from the project — contact directly."
+      "fr": "L'hôtel du village, sur la route de Jezzine, à 950 mètres d'altitude sous les pins : sa table sert une cuisine libanaise de produits frais. Établissement indépendant du projet — contact direct.",
+      "ar": "فندق القرية على طريق جزين، على ارتفاع ٩٥٠ مترًا تحت الصنوبر: مطعمه يقدّم مطبخًا لبنانيًا من منتجات طازجة. منشأة مستقلة عن المشروع — تواصل مباشر.",
+      "en": "The village hotel, on the Jezzine road at 950 m under the pines: its kitchen serves Lebanese cooking from fresh produce. Independent from the project — contact directly."
     },
     "photo": null,
     "statut": "publie",
-    "ordre": 13
+    "ordre": 13,
+    "services": [
+      "restaurant"
+    ]
+  },
+  {
+    "slug": "beit-mrad",
+    "nom": {
+      "fr": "Beit Mrad — maison d'hôtes",
+      "ar": "بيت مراد — بيت ضيافة",
+      "en": "Beit Mrad — guesthouse"
+    },
+    "type": "hebergement",
+    "services": [
+      "petit_dejeuner"
+    ],
+    "geom": [
+      35.5722,
+      33.5288
+    ],
+    "panneau_no": null,
+    "texte": {
+      "fr": "Une maison de village restaurée, dont les murs remontent à 1750 : chambres meublées d'ancien, boiseries travaillées, et une cour où l'on sert le petit-déjeuner libanais au saj, au bord de la ferme. Établissement indépendant du projet — contact direct.",
+      "ar": "بيت قروي مرمَّم تعود جدرانه إلى العام ١٧٥٠: غرف بأثاث عتيق وأشغال خشبية دقيقة، وساحة يُقدَّم فيها الفطور اللبناني على الصاج عند طرف المزرعة. منشأة مستقلة عن المشروع — تواصل مباشر.",
+      "en": "A restored village house whose walls date back to 1750: rooms furnished with antiques, worked woodwork, and a courtyard where the Lebanese breakfast is served on the saj, beside the farm. Independent from the project — contact directly."
+    },
+    "photo": null,
+    "contact": {
+      "tel": "+961 3 553 343",
+      "site": "https://www.instagram.com/beitmrad/"
+    },
+    "statut": "publie",
+    "ordre": 14
   },
   {
     "slug": "guides-azour",
-    "nom": { "fr": "Les jeunes guides d'Azour", "ar": "أدلّاء عازور الشباب", "en": "Azour's young guides" },
+    "nom": {
+      "fr": "Les jeunes guides d'Azour",
+      "ar": "أدلّاء عازور الشباب",
+      "en": "Azour's young guides"
+    },
     "type": "guide",
-    "geom": [35.5716, 33.5296],
+    "geom": [
+      35.5716,
+      33.5296
+    ],
     "panneau_no": null,
     "texte": {
       "fr": "Formés en 2026-2027 dans le cadre du programme, les jeunes guides accompagnent les randonnées, encadrent Hyrax Rock et animent le kiosque. Réservation au kiosque ou par téléphone/WhatsApp.",
@@ -208,6 +355,7 @@
     },
     "photo": null,
     "statut": "publie",
-    "ordre": 14
+    "ordre": 15,
+    "services": []
   }
 ]

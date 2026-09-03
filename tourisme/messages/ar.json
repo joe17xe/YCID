@@ -7,8 +7,16 @@
     "pratique": "معلومات"
   },
   "commun": {
-    "difficulte": { "facile": "سهل", "modere": "متوسط", "difficile": "صعب" },
-    "type": { "boucle": "دائري", "lineaire": "خطي", "guide": "بمرافقة دليل" },
+    "difficulte": {
+      "facile": "سهل",
+      "modere": "متوسط",
+      "difficile": "صعب"
+    },
+    "type": {
+      "boucle": "دائري",
+      "lineaire": "خطي",
+      "guide": "بمرافقة دليل"
+    },
     "distance": "المسافة",
     "denivelePos": "الصعود",
     "deniveleNeg": "النزول",
@@ -86,7 +94,19 @@
     "independant": "منشأة مستقلة عن المشروع",
     "kiosqueTitre": "الكشك السياحي",
     "kiosqueTexte": "في ساحة القرية، بإشراف شباب وأدلّاء عازور: معلومات ونصائح وحجوزات.",
-    "aucunContact": "سيُعلن رقم الاستعلامات هنا قريبًا."
+    "aucunContact": "سيُعلن رقم الاستعلامات هنا قريبًا.",
+    "restauration": "أين تأكلون",
+    "petitDejeuner": "الفطور",
+    "tablesAzour": "موائد عازور",
+    "alentours": "أبعد قليلًا",
+    "alentoursTexte": "جزين، على نحو عشرين دقيقة بالسيارة، تجمع مطاعم المنطقة. اسألوا عند الكشك: الأدلّاء يعرفون أيّها مفتوح يوم زيارتكم.",
+    "sert": {
+      "petit_dejeuner": "فطور",
+      "restaurant": "مطعم",
+      "bar": "بار",
+      "epicerie": "بقالة",
+      "eau": "نقطة ماء"
+    }
   },
   "agenda": {
     "titre": "المواعيد",

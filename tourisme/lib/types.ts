@@ -77,10 +77,16 @@ export type PoiType =
   | 'depart' | 'belvedere' | 'patrimoine' | 'panneau' | 'eau' | 'ombre'
   | 'hebergement' | 'restaurant' | 'guide' | 'camping' | 'urgence' | 'nature' | 'autre'
 
+/** Ce qu'on trouve sur place, indépendamment du type du lieu :
+ *  une maison d'hôtes peut servir le petit-déjeuner, un hôtel avoir
+ *  une table. C'est cette liste qui construit la section restauration. */
+export type Service = 'petit_dejeuner' | 'restaurant' | 'bar' | 'epicerie' | 'eau'
+
 export interface Poi {
   slug: string
   nom: I18nText
   type: PoiType
+  services?: Service[]
   geom: Position
   panneau_no?: number | null
   texte?: I18nText | null

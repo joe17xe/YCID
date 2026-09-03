@@ -65,7 +65,8 @@ Variables (voir `.env.example`) : `NEXT_PUBLIC_SUPABASE_URL`,
 ## Base de données
 
 `supabase/migrations/` dans l'ordre (0001 schéma + RLS, 0002 vues
-publiques GeoJSON, 0003 fonctions et vues d'admin), puis
+publiques GeoJSON, 0003 fonctions et vues d'admin, 0004 services rendus
+sur place), puis
 `supabase/seed.sql`. Vérifiées rejouables sur un PostGIS 16 nu avec
 `supabase/dev/shim-auth-local.sql` (local uniquement — jamais sur un
 vrai projet Supabase). Les droits d'écriture s'attribuent en SQL :

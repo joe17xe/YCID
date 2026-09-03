@@ -1,6 +1,6 @@
 # Plateforme touristique d'Azour — cadrage : réponses et questions restantes
 
-## Tranché le 29/08/2026
+## Tranché — 29/08 puis 03/09/2026
 
 1. **« L'offre S Chehab » = « scalable »** (dictée vocale). Aucun lieu ni
    partenaire mystère : l'exigence est que l'offre soit **scalable** —
@@ -52,6 +52,16 @@
    cartes), **réversible en un clic** dans `/admin` ou en une ligne de
    contenu. C'est exactement le paramètre demandé.
 10. **L'arabe est validé** (29/08).
+11. **Beit Mrad entre à l'annuaire, et « Se restaurer » naît** (03/09) :
+    maison de village restaurée (murs de 1750), chambres, petit-déjeuner
+    libanais au saj servi dans la cour — établissement indépendant du
+    projet, comme Blue Jay Valley et Pineview. La page Pratique gagne
+    une rubrique **« Se restaurer »** en trois temps : le
+    petit-déjeuner, les tables d'Azour, puis « un peu plus loin » —
+    volontairement en retrait, sans vignette ni contact, parce qu'on ne
+    met pas en avant ce qu'on ne peut pas garantir ouvert. Elle se
+    nourrit du champ **services** (voir dossier 07), pas d'une liste
+    codée en dur.
 
 ## Encore ouvert
 
@@ -66,3 +76,17 @@
   (raccourci n°1 de la phase 1).
 - Les **points d'eau** sur les parcours : l'étude n'en mentionne pas —
   à confirmer sur le terrain (information de sécurité à afficher).
+- Les **photos des établissements** (Beit Mrad, Blue Jay Valley,
+  Pineview) et de plusieurs lieux du village : la place, le kiosque,
+  l'église Saint-Joseph, le Chir el-Joube, le village de Bisri. Le
+  champ `photo` les attend, POI par POI ; tant qu'il est vide la fiche
+  affiche une icône. **Rien ne sera illustré par une image de synthèse
+  ou empruntée** : il faut des clichés réels, avec leur crédit.
+- Les **tables de Jezzine** à nommer, si l'on veut remplacer la mention
+  générique « un peu plus loin » par de vraies adresses (le code les
+  affiche dès qu'elles existent — il suffit de les créer avec le
+  service « restaurant » ; leur distance au village fait le reste).
+- Les **coordonnées exactes** de Beit Mrad, Blue Jay Valley et
+  Pineview : les points actuels sont approchés (± quelques centaines de
+  mètres) et se corrigent dans `/admin` en collant les coordonnées
+  Google Maps.

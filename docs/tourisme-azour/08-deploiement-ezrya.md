@@ -26,7 +26,7 @@ Le sous-domaine EST le modèle de duplication : demain,
 2. SQL Editor ▸ exécuter **dans l'ordre** :
    `tourisme/supabase/migrations/0001_schema.sql` →
    `0002_vues_publiques.sql` → `0003_admin.sql` →
-   `tourisme/supabase/seed.sql`.
+   `0004_services.sql` → `tourisme/supabase/seed.sql`.
    (Ne jamais exécuter `supabase/dev/shim-auth-local.sql` ici — il ne
    sert qu'à la vérification sur un PostgreSQL local nu.)
 3. Authentication ▸ Providers : e-mail avec **lien magique** activé ;

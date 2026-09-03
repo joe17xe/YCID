@@ -63,13 +63,13 @@ on conflict (territoire_id, slug) do update set nom = excluded.nom, accroche = e
 
 for (const o of pois) {
   sql += `
-insert into pois (territoire_id, slug, nom, type, geom, panneau_no, texte, photo, audio_url, contact, statut, ordre)
+insert into pois (territoire_id, slug, nom, type, geom, panneau_no, texte, photo, audio_url, contact, statut, ordre, services)
 values (${T}, ${q(o.slug)}, ${j(o.nom)}, ${q(o.type)}, ${pt(o.geom)}, ${n(o.panneau_no)},
-  ${j(o.texte)}, ${t(o.photo)}, ${t(o.audio_url)}, ${j(o.contact)}, ${q(o.statut)}, ${n(o.ordre)})
+  ${j(o.texte)}, ${t(o.photo)}, ${t(o.audio_url)}, ${j(o.contact)}, ${q(o.statut)}, ${n(o.ordre)}, ${arr(o.services ?? [])})
 on conflict (territoire_id, slug) do update set nom = excluded.nom, type = excluded.type,
   geom = excluded.geom, panneau_no = excluded.panneau_no, texte = excluded.texte,
   photo = excluded.photo, audio_url = excluded.audio_url, contact = excluded.contact,
-  statut = excluded.statut, ordre = excluded.ordre;
+  statut = excluded.statut, ordre = excluded.ordre, services = excluded.services;
 `
 }
 

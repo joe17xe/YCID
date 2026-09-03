@@ -134,7 +134,7 @@ export default function KiosqueClient({
           </p>
           {contactTel ? (
             <p className="mono flex items-center gap-2 text-[16px] font-bold text-[var(--pin)]">
-              <Phone size={17} aria-hidden /> {contactTel}
+              <Phone size={17} aria-hidden /> <span dir="ltr">{contactTel}</span>
             </p>
           ) : null}
         </div>

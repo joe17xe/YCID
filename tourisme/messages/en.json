@@ -7,8 +7,16 @@
     "pratique": "Info"
   },
   "commun": {
-    "difficulte": { "facile": "Easy", "modere": "Moderate", "difficile": "Hard" },
-    "type": { "boucle": "Loop", "lineaire": "One-way", "guide": "Guided access" },
+    "difficulte": {
+      "facile": "Easy",
+      "modere": "Moderate",
+      "difficile": "Hard"
+    },
+    "type": {
+      "boucle": "Loop",
+      "lineaire": "One-way",
+      "guide": "Guided access"
+    },
     "distance": "Distance",
     "denivelePos": "Ascent",
     "deniveleNeg": "Descent",
@@ -86,7 +94,19 @@
     "independant": "Independent from the project",
     "kiosqueTitre": "The tourist kiosk",
     "kiosqueTexte": "On the village square, run by Azour's young people and guides: information, advice, bookings.",
-    "aucunContact": "The information number will be announced here soon."
+    "aucunContact": "The information number will be announced here soon.",
+    "restauration": "Where to eat",
+    "petitDejeuner": "Breakfast",
+    "tablesAzour": "Azour's tables",
+    "alentours": "A little further",
+    "alentoursTexte": "Jezzine, about twenty minutes away by road, gathers the region's restaurants. Ask at the kiosk: the guides know which ones are open on the day you visit.",
+    "sert": {
+      "petit_dejeuner": "Breakfast",
+      "restaurant": "Restaurant",
+      "bar": "Bar",
+      "epicerie": "Grocery",
+      "eau": "Water point"
+    }
   },
   "agenda": {
     "titre": "What's on",

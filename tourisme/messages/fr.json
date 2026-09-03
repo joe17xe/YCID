@@ -7,8 +7,16 @@
     "pratique": "Pratique"
   },
   "commun": {
-    "difficulte": { "facile": "Facile", "modere": "Modéré", "difficile": "Difficile" },
-    "type": { "boucle": "Boucle", "lineaire": "Linéaire", "guide": "Accès guidé" },
+    "difficulte": {
+      "facile": "Facile",
+      "modere": "Modéré",
+      "difficile": "Difficile"
+    },
+    "type": {
+      "boucle": "Boucle",
+      "lineaire": "Linéaire",
+      "guide": "Accès guidé"
+    },
     "distance": "Distance",
     "denivelePos": "Dénivelé +",
     "deniveleNeg": "Dénivelé −",
@@ -86,7 +94,19 @@
     "independant": "Établissement indépendant du projet",
     "kiosqueTitre": "Le kiosque touristique",
     "kiosqueTexte": "Sur la place du village, animé par les jeunes et les guides d'Azour : informations, conseils, réservations.",
-    "aucunContact": "Le numéro d'information sera annoncé ici prochainement."
+    "aucunContact": "Le numéro d'information sera annoncé ici prochainement.",
+    "restauration": "Se restaurer",
+    "petitDejeuner": "Le petit-déjeuner",
+    "tablesAzour": "Les tables d'Azour",
+    "alentours": "Un peu plus loin",
+    "alentoursTexte": "Jezzine, à une vingtaine de minutes de route, concentre les tables de la région. Demandez au kiosque : les guides savent lesquelles sont ouvertes le jour de votre passage.",
+    "sert": {
+      "petit_dejeuner": "Petit-déjeuner",
+      "restaurant": "Restaurant",
+      "bar": "Bar",
+      "epicerie": "Épicerie",
+      "eau": "Point d'eau"
+    }
   },
   "agenda": {
     "titre": "Agenda",

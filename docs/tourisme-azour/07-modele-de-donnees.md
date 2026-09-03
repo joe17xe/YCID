@@ -39,7 +39,16 @@ Ce qui se renseigne au back-office — rien d'autre ne définit la carte :
 - **POI** : nom ×3, type (belvédère, patrimoine, panneau, départ,
   hébergement, restaurant, guide, urgence, point d'eau…), coordonnées,
   numéro de panneau (le lien terrain ↔ app), texte court ×3, photos,
-  lien audio, rattachement à 0..n parcours.
+  lien audio, **services rendus sur place** (petit-déjeuner, restaurant,
+  bar, épicerie, point d'eau), rattachement à 0..n parcours.
+
+  Le **type** dit ce qu'est le lieu, les **services** disent ce qu'on y
+  trouve : une maison d'hôtes sert le petit-déjeuner sans être un
+  restaurant, un hôtel a une table sans cesser d'être un hébergement.
+  C'est ce champ, et non le type, qui alimente la rubrique « Se
+  restaurer » — et la distance au centre du territoire y sépare seule
+  les tables du village de celles qu'on va chercher plus loin. Aucune
+  liste n'est écrite dans le code.
 - **Événement** : trail, randonnée d'inauguration, saison des cigognes…
 
 ## Les impacts techniques — honnêtement

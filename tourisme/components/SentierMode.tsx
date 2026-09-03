@@ -216,7 +216,7 @@ export default function SentierMode({
                 className="flex items-center justify-between rounded-[var(--r-media)] border border-[var(--danger)] bg-[var(--danger-pale)] px-4 py-3.5"
               >
                 <span className="text-[15px] font-bold text-[var(--encre)]">{tx(u.nom, locale)}</span>
-                <span className="mono text-[17px] font-bold text-[var(--danger)]">{u.tel}</span>
+                <span dir="ltr" className="mono text-[17px] font-bold text-[var(--danger)]">{u.tel}</span>
               </a>
             ))}
           </div>
