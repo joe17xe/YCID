@@ -133,7 +133,7 @@ export default function SentierMode({
           </Link>
           <div className="pointer-events-auto flex min-w-0 flex-1 items-center justify-between gap-2 rounded-full border border-[var(--ligne)] bg-[var(--surface)] px-4 py-2.5 shadow-[var(--ombre-flottante)]">
             <span className="truncate text-[13.5px] font-bold">{nom}</span>
-            <span className="mono shrink-0 text-[12.5px] text-[var(--encre-2)]">
+            <span className="mono mesure shrink-0 text-[12.5px] text-[var(--encre-2)]">
               {restant != null ? `${fmt(restant)} ${t('restants')}` : ''}
             </span>
           </div>
@@ -163,7 +163,7 @@ export default function SentierMode({
               <div className="mt-0.5 flex items-baseline justify-between gap-3">
                 <p className="titres min-w-0 truncate text-[17px] font-semibold">{prochaine.nom}</p>
                 {distProchaine != null ? (
-                  <p className="mono shrink-0 text-[15px] font-bold text-[var(--pin)]">
+                  <p className="mono mesure shrink-0 text-[15px] font-bold text-[var(--pin)]">
                     {fmt(distProchaine)}
                   </p>
                 ) : null}
@@ -195,7 +195,7 @@ export default function SentierMode({
                 </span>
                 <span className="flex-1 text-[14px] font-semibold">{e.nom}</span>
                 {position ? (
-                  <span className="mono text-[12px] text-[var(--encre-2)]">
+                  <span className="mono mesure text-[12px] text-[var(--encre-2)]">
                     {fmt(Math.round(distanceM(position, e.position)))}
                   </span>
                 ) : null}

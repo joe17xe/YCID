@@ -12,6 +12,7 @@ const territoire = read('territoire.json')
 const parcours = read('parcours.json')
 const pois = read('pois.json')
 const evenements = read('evenements.json')
+const formules = read('formules.json')
 
 const q = (s) => `'${String(s).replace(/'/g, "''")}'`
 const j = (v) => (v == null ? 'null' : `${q(JSON.stringify(v))}::jsonb`)
@@ -86,6 +87,36 @@ on conflict do nothing;`
   sql += '\n'
 }
 
+for (const f of formules) {
+  sql += `
+insert into formules (territoire_id, slug, nom, accroche, description, categorie,
+  duree_minutes, participants_min, participants_max, prix_montant, prix_devise, prix_unite,
+  inclus, niveau, saison, langues, photo, statut, ordre)
+values (${T}, ${q(f.slug)}, ${j(f.nom)}, ${j(f.accroche)}, ${j(f.description)}, ${q(f.categorie)},
+  ${n(f.duree_minutes)}, ${n(f.participants_min)}, ${n(f.participants_max)},
+  ${n(f.prix_montant)}, ${q(f.prix_devise)}, ${q(f.prix_unite)},
+  ${j(f.inclus)}, ${t(f.niveau)}, ${j(f.saison)}, ${arr(f.langues)}, ${t(f.photo)},
+  ${q(f.statut)}, ${n(f.ordre)})
+on conflict (territoire_id, slug) do update set nom = excluded.nom, accroche = excluded.accroche,
+  description = excluded.description, categorie = excluded.categorie,
+  duree_minutes = excluded.duree_minutes, participants_min = excluded.participants_min,
+  participants_max = excluded.participants_max, prix_montant = excluded.prix_montant,
+  prix_devise = excluded.prix_devise, prix_unite = excluded.prix_unite,
+  inclus = excluded.inclus, niveau = excluded.niveau, saison = excluded.saison,
+  langues = excluded.langues, photo = excluded.photo, statut = excluded.statut,
+  ordre = excluded.ordre;
+`
+  sql += `\ndelete from formules_parcours where formule_id = (select id from formules where slug = ${q(f.slug)} and territoire_id = ${T});`
+  for (const slug of f.parcours_slugs ?? []) {
+    sql += `
+insert into formules_parcours (formule_id, parcours_id)
+select (select id from formules where slug = ${q(f.slug)} and territoire_id = ${T}),
+       (select id from parcours where slug = ${q(slug)} and territoire_id = ${T})
+on conflict do nothing;`
+  }
+  sql += '\n'
+}
+
 for (const e of evenements) {
   sql += `
 insert into evenements (territoire_id, slug, nom, description, date_debut, date_fin, recurrent, lien, photo, statut)
@@ -98,4 +129,7 @@ on conflict (territoire_id, slug) do update set nom = excluded.nom, description 
 }
 
 writeFileSync(join(root, 'supabase', 'seed.sql'), sql)
-console.log(`seed.sql généré : 1 territoire, ${parcours.length} parcours, ${pois.length} POI, ${evenements.length} événements`)
+console.log(
+  `seed.sql généré : 1 territoire, ${parcours.length} parcours, ${pois.length} POI, ` +
+    `${formules.length} formules, ${evenements.length} événements`,
+)

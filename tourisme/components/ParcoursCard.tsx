@@ -19,12 +19,15 @@ export default function ParcoursCard({ parcours, locale }: { parcours: Parcours;
       image={parcours.photo}
       titre={tx(parcours.nom, locale)}
       accroche={parcours.accroche ? tx(parcours.accroche, locale) : null}
+      // Ligne entièrement chiffrée à unités latines : isolée en LTR,
+      // sans quoi l'arabe la retourne bloc par bloc.
       meta={
         formatKm(parcours.distance_m, locale) +
         (parcours.denivele_pos_m != null ? ` · +${parcours.denivele_pos_m} m` : '') +
         ' · ' +
         formatDuree(parcours.duree_min_minutes, parcours.duree_max_minutes, locale)
       }
+      metaMesure
       chips={
         <>
           <span className={`chip ${cls}`}>{td(parcours.difficulte)}</span>

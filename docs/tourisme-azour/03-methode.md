@@ -39,12 +39,12 @@ promesse pour plus tard.**
 - Arbitrer : socle sur mesure (PWA Next.js + Supabase, stack déjà
   maîtrisée sur Solid'Pilot) ou solution existante type Geotrek —
   arbitrage documenté dans `02-benchmark.md`.
-- Prendre trois contacts qui éclairent tout le reste : **Ehmej** (le
-  précédent « village de randonnée », 12 éco-sentiers, side trail LMT),
+- Prendre deux contacts qui éclairent tout le reste : **Ehmej** (le
+  précédent « village de randonnée », 12 éco-sentiers cartographiés) et
   **jezzinetourism.com / Union des municipalités** (le portail du caza
-  n'a pas de page Azour : s'y adosser plutôt que le doublonner), et la
-  **LMTA** (l'appui au trail 2027 est déjà prévu — élargir la discussion
-  au side trail officiel « Azour »).
+  n'a pas de page Azour : s'y adosser plutôt que le doublonner).
+  La piste d'un rattachement au Lebanon Mountain Trail est **abandonnée**
+  (03/09/2026) : l'offre est montée et tenue au village.
 
 ### Phase 1 — Collecte terrain et contenus (septembre → novembre 2026)
 C'est la phase la plus importante et la plus sous-estimée : une
@@ -162,8 +162,8 @@ une saison réussie à Azour :
 3. L'échelle **régionale puis nationale** : une marque + un agrégateur
    au-dessus des instances locales (modèle MaRando/Geotrek-Agrégateur),
    gouvernance type SuisseMobile — un standard commun (balisage,
-   numérotation, données) porté avec la LMTA et le ministère plutôt
-   qu'une plateforme de plus. Le produit devient un bien commun, sa
+   numérotation, données) porté avec le ministère et les collectivités
+   plutôt qu'une plateforme de plus. Le produit devient un bien commun, sa
    gouvernance doit suivre.
 
 ## Le portage budgétaire proposé (arbitrage demandé le 29/08)

@@ -239,6 +239,37 @@ h1, h2, h3, .titres {
 .btn-danger { background: var(--danger-pale); color: var(--danger); border: 1px solid var(--danger); }
 .btn-sm { min-height: 40px; padding: 8px 14px; font-size: 13.5px; }
 
+/* Une mesure est une suite « chiffres + unité latine ». Dans un
+   paragraphe arabe, l'algorithme bidi la retourne : « 3,1 km » se lit
+   « km 3,1 » et « 1 h 30 – 2 h » devient « h 30–2 h 1 ». L'isolation
+   la remet d'aplomb sans toucher au texte ni à la mise en page. */
+.mesure { direction: ltr; unicode-bidi: isolate; }
+
+/* ═══ CHAMPS ═══
+   Un formulaire se remplit debout, sur la place du village : la cible
+   est haute, le texte à 16 px — en dessous, iOS zoome au focus. */
+.champ-label {
+  display: block;
+  font-size: 12.5px; font-weight: 600; color: var(--encre-2);
+  margin-bottom: 5px;
+}
+.champ {
+  width: 100%;
+  min-height: 48px;
+  padding: 11px 13px;
+  font-size: 16px;
+  color: var(--encre);
+  background: var(--surface);
+  border: 1px solid var(--ligne-forte);
+  border-radius: var(--r-media);
+  transition: border-color 0.15s;
+}
+.champ::placeholder { color: var(--encre-3); }
+.champ:hover { border-color: var(--encre-3); }
+textarea.champ { min-height: 96px; resize: vertical; line-height: 1.5; }
+.champ[aria-invalid='true'] { border-color: var(--danger); }
+.champ-erreur { margin-top: 4px; font-size: 12px; font-weight: 600; color: var(--danger); }
+
 /* ═══ LISIBILITÉ ═══ */
 /* Une règle de troncature unique : deux lignes, jamais un mot coupé net. */
 .clamp-2 {

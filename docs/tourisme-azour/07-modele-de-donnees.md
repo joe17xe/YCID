@@ -49,6 +49,18 @@ Ce qui se renseigne au back-office — rien d'autre ne définit la carte :
   restaurer » — et la distance au centre du territoire y sépare seule
   les tables du village de celles qu'on va chercher plus loin. Aucune
   liste n'est écrite dans le code.
+- **Formule** (réservation) : nom ×3, accroche ×3, description ×3,
+  catégorie (visite / randonnée / aventure / journée / groupe), durée,
+  participants min-max, **tarif** (montant + devise + par personne ou par
+  groupe — vide = « communiqué au kiosque »), ce qui est compris ×3,
+  niveau, saison ×3, langues proposées, rattachement à 0..n parcours,
+  photo, statut, ordre. Une formule retirée du catalogue passe en
+  brouillon : elle disparaît de l'app sans être perdue.
+- **Demande** : ce qu'un visiteur envoie — nom, téléphone, e-mail, date
+  souhaitée, nombre de personnes, langue, message, et le nom de la
+  formule **recopié** (une formule supprimée n'efface pas la trace de ce
+  qui avait été demandé). Dépôt public, lecture réservée aux éditeurs du
+  territoire : le registre du kiosque n'est visible que du kiosque.
 - **Événement** : trail, randonnée d'inauguration, saison des cigognes…
 
 ## Les impacts techniques — honnêtement

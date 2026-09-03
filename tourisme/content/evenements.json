@@ -1,11 +1,15 @@
 [
   {
     "slug": "trail-azour-2027",
-    "nom": { "fr": "Trail d'Azour 2027", "ar": "سباق عازور الجبلي ٢٠٢٧", "en": "Azour Trail 2027" },
+    "nom": {
+      "fr": "Trail d'Azour 2027",
+      "ar": "سباق عازور الجبلي ٢٠٢٧",
+      "en": "Azour Trail 2027"
+    },
     "description": {
-      "fr": "Le premier trail annuel d'Azour, préparé avec l'appui du Lebanon Mountain Trail : parcours sur les sentiers du Shir, ravitaillements au village, 250 coureurs attendus. Date et inscriptions annoncées ici et au kiosque.",
-      "ar": "أول سباق جبلي سنوي في عازور، بدعم من درب الجبل اللبناني: مسارات على دروب الشير وتموين في القرية و٢٥٠ عدّاءً متوقعًا. الموعد والتسجيل يُعلنان هنا وعند الكشك.",
-      "en": "Azour's first annual trail race, prepared with the support of the Lebanon Mountain Trail: routes on the Shir trails, refreshments in the village, 250 runners expected. Date and registration announced here and at the kiosk."
+      "fr": "Le premier trail annuel d'Azour, organisé par la municipalité et les jeunes du village : parcours sur les sentiers du Shir, ravitaillements au village, 250 coureurs attendus. Date et inscriptions annoncées ici et au kiosque.",
+      "ar": "أول سباق جبلي سنوي في عازور، تنظّمه البلدية وشباب القرية: مسارات على دروب الشير وتموين في القرية و٢٥٠ عدّاءً متوقعًا. الموعد والتسجيل يُعلنان هنا وعند الكشك.",
+      "en": "Azour's first annual trail race, organised by the municipality and the village's young people: routes on the Shir trails, refreshments in the village, 250 runners expected. Date and registration announced here and at the kiosk."
     },
     "date_debut": "2027-05-01",
     "date_fin": null,
@@ -16,7 +20,11 @@
   },
   {
     "slug": "randonnee-inauguration",
-    "nom": { "fr": "Randonnée d'inauguration des sentiers", "ar": "مسيرة افتتاح الدروب", "en": "Trail inauguration hike" },
+    "nom": {
+      "fr": "Randonnée d'inauguration des sentiers",
+      "ar": "مسيرة افتتاح الدروب",
+      "en": "Trail inauguration hike"
+    },
     "description": {
       "fr": "La grande randonnée d'ouverture officielle des sentiers d'Azour, avec les partenaires du programme, les jeunes du village et la diaspora. Date annoncée à l'achèvement des aménagements.",
       "ar": "المسيرة الكبرى للافتتاح الرسمي لدروب عازور، مع شركاء البرنامج وشباب القرية والمغتربين. يُعلن الموعد عند اكتمال الأشغال.",
@@ -31,7 +39,11 @@
   },
   {
     "slug": "migration-cigognes",
-    "nom": { "fr": "La migration des cigognes", "ar": "هجرة اللقلق", "en": "The stork migration" },
+    "nom": {
+      "fr": "La migration des cigognes",
+      "ar": "هجرة اللقلق",
+      "en": "The stork migration"
+    },
     "description": {
       "fr": "Deux fois par an, les cigognes traversent le ciel de la vallée du Bisri — un spectacle à observer depuis la falaise panoramique, jumelles en main. Passages principaux : mars-avril vers le nord, septembre-octobre vers le sud.",
       "ar": "مرتين في السنة تعبر طيور اللقلق سماء وادي بسري — مشهد يُراقب من الجرف البانورامي بالمناظير. العبور الرئيسي: آذار-نيسان شمالًا، وأيلول-تشرين الأول جنوبًا.",

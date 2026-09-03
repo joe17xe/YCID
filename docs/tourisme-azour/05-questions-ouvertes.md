@@ -62,6 +62,17 @@
     met pas en avant ce qu'on ne peut pas garantir ouvert. Elle se
     nourrit du champ **services** (voir dossier 07), pas d'une liste
     codée en dur.
+12. **Plus de lien avec le Lebanon Mountain Trail** (03/09) : ni side
+    trail, ni appui au trail 2027, ni annuaire. **Tout est géré
+    localement** — parcours, guides, kiosque, réservation. Le LMT reste
+    dans le benchmark comme référence de marché, jamais comme partenaire.
+13. **Le kiosque prend les réservations** (03/09) : au-delà du numéro de
+    téléphone, le kiosque devient le guichet des sorties accompagnées.
+    Six **formules paramétrables** sont proposées au catalogue (visite du
+    village, boucle du Shir accompagnée, grande randonnée du Bisri,
+    Hyrax Rock, journée complète, groupes et scolaires) ; la demande se
+    dépose depuis l'app et se confirme au village. **L'entrée est sur la
+    page d'accueil**, à côté du numéro.
 
 ## Encore ouvert
 
@@ -70,8 +81,6 @@
 - L'**ordre des publics prioritaires** (diaspora estivale, clubs de
   randonnée libanais, visiteurs internationaux) — oriente le ton et le
   plan de lancement.
-- Le **side trail LMT** : élargir l'appui déjà prévu au trail 2027 vers
-  un raccordement officiel aux sections 21-22 ?
 - La **récupération du KML** des tracés auprès de l'auteur de l'étude
   (raccourci n°1 de la phase 1).
 - Les **points d'eau** sur les parcours : l'étude n'en mentionne pas —
@@ -86,6 +95,14 @@
   générique « un peu plus loin » par de vraies adresses (le code les
   affiche dès qu'elles existent — il suffit de les créer avec le
   service « restaurant » ; leur distance au village fait le reste).
+- Les **durées, capacités et tarifs des six formules** : ce sont des
+  propositions, à valider par la municipalité avant la prochaine mise en
+  ligne. Les tarifs sont volontairement vides — l'app affiche alors
+  « communiqué au kiosque », et rien n'est promis à la place des guides.
+- Le **canal de réception des demandes** : sans base, l'app pousse la
+  demande vers WhatsApp, l'e-mail ou le téléphone du kiosque. Aucun des
+  trois n'est renseigné aujourd'hui à part le fixe — un **numéro
+  WhatsApp** rendrait le circuit immédiat.
 - Les **coordonnées exactes** de Beit Mrad, Blue Jay Valley et
   Pineview : les points actuels sont approchés (± quelques centaines de
   mètres) et se corrigent dans `/admin` en collant les coordonnées

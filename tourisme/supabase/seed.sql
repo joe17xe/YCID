@@ -234,8 +234,138 @@ select (select id from parcours where slug = 'hyrax-rock' and territoire_id = (s
        (select id from pois where slug = 'rocher-hyrax' and territoire_id = (select id from territoires where slug = 'azour')), 2
 on conflict do nothing;
 
+insert into formules (territoire_id, slug, nom, accroche, description, categorie,
+  duree_minutes, participants_min, participants_max, prix_montant, prix_devise, prix_unite,
+  inclus, niveau, saison, langues, photo, statut, ordre)
+values ((select id from territoires where slug = 'azour'), 'visite-du-village', '{"fr":"Visite guidée du village","ar":"جولة في القرية مع دليل","en":"Guided village walk"}'::jsonb, '{"fr":"La place, l''église Saint-Joseph, les maisons anciennes — Azour raconté par ceux qui y vivent.","ar":"الساحة وكنيسة مار يوسف والبيوت القديمة — عازور يرويها أهلها.","en":"The square, Saint Joseph''s church, the old houses — Azour told by those who live there."}'::jsonb, '{"fr":"Une heure et demie à pied dans le village, au rythme de la marche. On part du kiosque, on traverse la place, on s''arrête à l''église Saint-Joseph, on lit les panneaux du sentier, et on écoute ce que les anciens racontent des terrasses et des sources. Presque sans dénivelé.","ar":"ساعة ونصف مشيًا في القرية، على مهل. الانطلاق من الكشك، عبورٌ للساحة، وقفة عند كنيسة مار يوسف، قراءةٌ للوحات الدرب، وإصغاءٌ لما يرويه الكبار عن الجلول والينابيع. من دون ارتفاعات تُذكر.","en":"An hour and a half on foot through the village, at walking pace. You set off from the kiosk, cross the square, stop at Saint Joseph''s church, read the trail signs, and listen to what the elders tell of the terraces and the springs. Almost no climbing."}'::jsonb, 'visite',
+  90, 2, 15,
+  null, 'USD', 'personne',
+  '{"fr":"L''accompagnement d''un jeune guide d''Azour, dans la langue de votre choix.","ar":"مرافقة أحد أدلّاء عازور الشباب، باللغة التي تختارونها.","en":"A young Azour guide with you, in the language of your choice."}'::jsonb, 'facile', '{"fr":"Toute l''année.","ar":"طوال السنة.","en":"All year round."}'::jsonb, '{ar,fr,en}', null,
+  'publie', 1)
+on conflict (territoire_id, slug) do update set nom = excluded.nom, accroche = excluded.accroche,
+  description = excluded.description, categorie = excluded.categorie,
+  duree_minutes = excluded.duree_minutes, participants_min = excluded.participants_min,
+  participants_max = excluded.participants_max, prix_montant = excluded.prix_montant,
+  prix_devise = excluded.prix_devise, prix_unite = excluded.prix_unite,
+  inclus = excluded.inclus, niveau = excluded.niveau, saison = excluded.saison,
+  langues = excluded.langues, photo = excluded.photo, statut = excluded.statut,
+  ordre = excluded.ordre;
+
+delete from formules_parcours where formule_id = (select id from formules where slug = 'visite-du-village' and territoire_id = (select id from territoires where slug = 'azour'));
+
+insert into formules (territoire_id, slug, nom, accroche, description, categorie,
+  duree_minutes, participants_min, participants_max, prix_montant, prix_devise, prix_unite,
+  inclus, niveau, saison, langues, photo, statut, ordre)
+values ((select id from territoires where slug = 'azour'), 'boucle-du-shir-accompagnee', '{"fr":"Randonnée accompagnée — la boucle du Shir","ar":"مشية مع دليل — حلقة الشير","en":"Guided hike — the Shir loop"}'::jsonb, '{"fr":"La forêt d''Azour et la falaise panoramique, avec un guide qui connaît chaque pierre.","ar":"حرج عازور والمطلّ على الجرف، مع دليل يعرف كل حجر.","en":"The Azour pine wood and the panoramic cliff, with a guide who knows every stone."}'::jsonb, '{"fr":"La boucle classique : la pinède, la crête, puis le belvédère du Shir au-dessus de la vallée du Bisri. Le guide règle l''allure sur le groupe et s''arrête où il faut — c''est ce qui la distingue de la trace téléchargée.","ar":"الحلقة المعروفة: غابة الصنوبر، فالقمّة، فمطلّ الشير فوق وادي بسري. الدليل يضبط الإيقاع على الجماعة ويقف حيث يجب — وهنا الفارق عن المسار المُحمَّل.","en":"The classic loop: the pine wood, the ridge, then the Shir viewpoint above the Bisri valley. The guide sets the pace by the group and stops where it matters — that is what a downloaded track cannot do."}'::jsonb, 'randonnee',
+  120, 2, 15,
+  null, 'USD', 'personne',
+  '{"fr":"L''accompagnement d''un guide d''Azour. Prévoyez de l''eau et des chaussures fermées.","ar":"مرافقة دليل من عازور. احملوا الماء وانتعلوا حذاءً مغلقًا.","en":"An Azour guide with you. Bring water and closed shoes."}'::jsonb, 'facile', '{"fr":"D''octobre à juin. L''été, partez tôt le matin.","ar":"من تشرين الأول إلى حزيران. في الصيف، انطلقوا باكرًا.","en":"October to June. In summer, set off early."}'::jsonb, '{ar,fr,en}', null,
+  'publie', 2)
+on conflict (territoire_id, slug) do update set nom = excluded.nom, accroche = excluded.accroche,
+  description = excluded.description, categorie = excluded.categorie,
+  duree_minutes = excluded.duree_minutes, participants_min = excluded.participants_min,
+  participants_max = excluded.participants_max, prix_montant = excluded.prix_montant,
+  prix_devise = excluded.prix_devise, prix_unite = excluded.prix_unite,
+  inclus = excluded.inclus, niveau = excluded.niveau, saison = excluded.saison,
+  langues = excluded.langues, photo = excluded.photo, statut = excluded.statut,
+  ordre = excluded.ordre;
+
+delete from formules_parcours where formule_id = (select id from formules where slug = 'boucle-du-shir-accompagnee' and territoire_id = (select id from territoires where slug = 'azour'));
+insert into formules_parcours (formule_id, parcours_id)
+select (select id from formules where slug = 'boucle-du-shir-accompagnee' and territoire_id = (select id from territoires where slug = 'azour')),
+       (select id from parcours where slug = 'boucle-foret-falaise' and territoire_id = (select id from territoires where slug = 'azour'))
+on conflict do nothing;
+
+insert into formules (territoire_id, slug, nom, accroche, description, categorie,
+  duree_minutes, participants_min, participants_max, prix_montant, prix_devise, prix_unite,
+  inclus, niveau, saison, langues, photo, statut, ordre)
+values ((select id from territoires where slug = 'azour'), 'bisri-accompagnee', '{"fr":"Grande randonnée — Azour, Joubeh, vallée du Bisri","ar":"مشية طويلة — عازور، جوبة، وادي بسري","en":"Long hike — Azour, Joubeh, Bisri valley"}'::jsonb, '{"fr":"Trois heures de descente et de traversée, de la falaise jusqu''au fond de la vallée.","ar":"ثلاث ساعات نزولًا وعبورًا، من الجرف إلى قعر الوادي.","en":"Three hours down and across, from the cliff to the valley floor."}'::jsonb, '{"fr":"Le parcours linéaire, celui qui demande des jambes : la falaise d''Azour, le passage par Joubeh, puis la descente vers le Bisri. Le retour ne se fait pas à pied — le kiosque l''organise au moment de la réservation.","ar":"المسار الخطّي، الذي يطلب ساقين صلبتين: جرف عازور، فالمرور بجوبة، فالنزول إلى بسري. العودة لا تكون سيرًا — الكشك يرتّبها عند الحجز.","en":"The one-way route, the one that asks something of your legs: the Azour cliff, through Joubeh, then down towards the Bisri. You do not walk back — the kiosk arranges the return when you book."}'::jsonb, 'randonnee',
+  180, 2, 12,
+  null, 'USD', 'personne',
+  '{"fr":"L''accompagnement d''un guide et l''organisation du retour. Eau, chapeau et chaussures de marche indispensables.","ar":"مرافقة دليل وتنظيم العودة. الماء والقبّعة وحذاء المشي ضرورية.","en":"A guide with you and the return arranged. Water, a hat and walking shoes are essential."}'::jsonb, 'modere', '{"fr":"D''octobre à mai. Déconseillée en plein été.","ar":"من تشرين الأول إلى أيار. لا يُنصح بها في عزّ الصيف.","en":"October to May. Not advised in high summer."}'::jsonb, '{ar,fr,en}', null,
+  'publie', 3)
+on conflict (territoire_id, slug) do update set nom = excluded.nom, accroche = excluded.accroche,
+  description = excluded.description, categorie = excluded.categorie,
+  duree_minutes = excluded.duree_minutes, participants_min = excluded.participants_min,
+  participants_max = excluded.participants_max, prix_montant = excluded.prix_montant,
+  prix_devise = excluded.prix_devise, prix_unite = excluded.prix_unite,
+  inclus = excluded.inclus, niveau = excluded.niveau, saison = excluded.saison,
+  langues = excluded.langues, photo = excluded.photo, statut = excluded.statut,
+  ordre = excluded.ordre;
+
+delete from formules_parcours where formule_id = (select id from formules where slug = 'bisri-accompagnee' and territoire_id = (select id from territoires where slug = 'azour'));
+insert into formules_parcours (formule_id, parcours_id)
+select (select id from formules where slug = 'bisri-accompagnee' and territoire_id = (select id from territoires where slug = 'azour')),
+       (select id from parcours where slug = 'azour-joubeh-bisri' and territoire_id = (select id from territoires where slug = 'azour'))
+on conflict do nothing;
+
+insert into formules (territoire_id, slug, nom, accroche, description, categorie,
+  duree_minutes, participants_min, participants_max, prix_montant, prix_devise, prix_unite,
+  inclus, niveau, saison, langues, photo, statut, ordre)
+values ((select id from territoires where slug = 'azour'), 'hyrax-rock', '{"fr":"Hyrax Rock — éco-aventure verticale","ar":"صخرة الوبر — مغامرة عمودية","en":"Hyrax Rock — vertical eco-adventure"}'::jsonb, '{"fr":"La paroi, le matériel, les consignes — encadrement obligatoire.","ar":"الصخر والمعدّات والتعليمات — بإشراف إلزامي.","en":"The rock face, the gear, the briefing — supervised access only."}'::jsonb, '{"fr":"Le seul parcours d''Azour qui ne se fait pas seul. Un guide formé vous accompagne du départ au retour, fournit le matériel et donne les consignes avant la paroi. Le nombre de places dépend de l''équipement disponible ce jour-là : le kiosque confirme.","ar":"المسار الوحيد في عازور الذي لا يُسلك وحيدًا. دليل مدرَّب يرافقكم من الانطلاق إلى العودة، يؤمّن المعدّات ويشرح التعليمات قبل الصخر. عدد الأماكن تابعٌ للمعدّات المتوفّرة في ذلك اليوم: الكشك يؤكّد.","en":"The only route at Azour you cannot do alone. A trained guide is with you from start to finish, provides the gear and gives the briefing before the face. How many places there are depends on the equipment available that day: the kiosk confirms."}'::jsonb, 'aventure',
+  60, 1, null,
+  null, 'USD', 'personne',
+  '{"fr":"L''encadrement et le matériel de sécurité. Chaussures fermées obligatoires.","ar":"الإشراف ومعدّات السلامة. الحذاء المغلق إلزامي.","en":"Supervision and safety equipment. Closed shoes required."}'::jsonb, 'difficile', '{"fr":"Par temps sec uniquement.","ar":"في الطقس الجافّ حصرًا.","en":"Dry weather only."}'::jsonb, '{ar,fr,en}', null,
+  'publie', 4)
+on conflict (territoire_id, slug) do update set nom = excluded.nom, accroche = excluded.accroche,
+  description = excluded.description, categorie = excluded.categorie,
+  duree_minutes = excluded.duree_minutes, participants_min = excluded.participants_min,
+  participants_max = excluded.participants_max, prix_montant = excluded.prix_montant,
+  prix_devise = excluded.prix_devise, prix_unite = excluded.prix_unite,
+  inclus = excluded.inclus, niveau = excluded.niveau, saison = excluded.saison,
+  langues = excluded.langues, photo = excluded.photo, statut = excluded.statut,
+  ordre = excluded.ordre;
+
+delete from formules_parcours where formule_id = (select id from formules where slug = 'hyrax-rock' and territoire_id = (select id from territoires where slug = 'azour'));
+insert into formules_parcours (formule_id, parcours_id)
+select (select id from formules where slug = 'hyrax-rock' and territoire_id = (select id from territoires where slug = 'azour')),
+       (select id from parcours where slug = 'hyrax-rock' and territoire_id = (select id from territoires where slug = 'azour'))
+on conflict do nothing;
+
+insert into formules (territoire_id, slug, nom, accroche, description, categorie,
+  duree_minutes, participants_min, participants_max, prix_montant, prix_devise, prix_unite,
+  inclus, niveau, saison, langues, photo, statut, ordre)
+values ((select id from territoires where slug = 'azour'), 'journee-a-azour', '{"fr":"La journée à Azour","ar":"يوم في عازور","en":"A day at Azour"}'::jsonb, '{"fr":"Le village le matin, la randonnée l''après-midi, et une table entre les deux.","ar":"القرية صباحًا، والمشية بعد الظهر، ومائدة بينهما.","en":"The village in the morning, the hike in the afternoon, a table in between."}'::jsonb, '{"fr":"Une journée complète, montée avec vous : la visite du village, une randonnée choisie selon vos jambes, et le déjeuner dans une des tables d''Azour. Les établissements sont indépendants du projet — le kiosque fait le lien, vous réglez sur place.","ar":"يوم كامل يُرتَّب معكم: جولة في القرية، ومشية تُختار على قدر ساقيكم، وغداء على إحدى موائد عازور. المنشآت مستقلّة عن المشروع — الكشك يصل بينكم، والدفع يتمّ هناك.","en":"A full day, put together with you: the village walk, a hike chosen to suit you, and lunch at one of Azour''s tables. The establishments are independent from the project — the kiosk makes the introduction, you settle up on the spot."}'::jsonb, 'journee',
+  360, 2, 20,
+  null, 'USD', 'personne',
+  '{"fr":"L''accompagnement sur la journée et la réservation de la table. Le repas se règle à l''établissement.","ar":"المرافقة طوال اليوم وحجز المائدة. ثمن الطعام يُدفع في المنشأة.","en":"A guide for the day and the table booked for you. The meal is paid at the establishment."}'::jsonb, 'facile', '{"fr":"Toute l''année, selon la météo.","ar":"طوال السنة، بحسب الطقس.","en":"All year round, weather permitting."}'::jsonb, '{ar,fr,en}', null,
+  'publie', 5)
+on conflict (territoire_id, slug) do update set nom = excluded.nom, accroche = excluded.accroche,
+  description = excluded.description, categorie = excluded.categorie,
+  duree_minutes = excluded.duree_minutes, participants_min = excluded.participants_min,
+  participants_max = excluded.participants_max, prix_montant = excluded.prix_montant,
+  prix_devise = excluded.prix_devise, prix_unite = excluded.prix_unite,
+  inclus = excluded.inclus, niveau = excluded.niveau, saison = excluded.saison,
+  langues = excluded.langues, photo = excluded.photo, statut = excluded.statut,
+  ordre = excluded.ordre;
+
+delete from formules_parcours where formule_id = (select id from formules where slug = 'journee-a-azour' and territoire_id = (select id from territoires where slug = 'azour'));
+insert into formules_parcours (formule_id, parcours_id)
+select (select id from formules where slug = 'journee-a-azour' and territoire_id = (select id from territoires where slug = 'azour')),
+       (select id from parcours where slug = 'boucle-foret-falaise' and territoire_id = (select id from territoires where slug = 'azour'))
+on conflict do nothing;
+
+insert into formules (territoire_id, slug, nom, accroche, description, categorie,
+  duree_minutes, participants_min, participants_max, prix_montant, prix_devise, prix_unite,
+  inclus, niveau, saison, langues, photo, statut, ordre)
+values ((select id from territoires where slug = 'azour'), 'groupes-et-scolaires', '{"fr":"Groupes, scolaires et associations","ar":"المجموعات والمدارس والجمعيات","en":"Groups, schools and associations"}'::jsonb, '{"fr":"Classes, clubs de randonnée, groupes de la diaspora : le programme se construit avec vous.","ar":"صفوف مدرسية، أندية مشي، مجموعات من المغتربين: البرنامج يُبنى معكم.","en":"School classes, hiking clubs, diaspora groups: the programme is built with you."}'::jsonb, '{"fr":"Durée, niveau, repas et transport se calent au cas par cas. Indiquez le nombre de personnes, la date envisagée et ce que vous cherchez : le kiosque revient vers vous avec une proposition.","ar":"المدّة والمستوى والطعام والنقل تُضبط حالةً بحالة. اذكروا عدد الأشخاص والموعد المرتقب وما تبحثون عنه: الكشك يعود إليكم باقتراح.","en":"Length, level, meals and transport are set case by case. Tell us how many you are, the date you have in mind and what you are after: the kiosk comes back to you with a proposal."}'::jsonb, 'groupe',
+  null, 8, 60,
+  null, 'USD', 'groupe',
+  '{"fr":"Un programme sur mesure et un ou plusieurs guides selon la taille du groupe.","ar":"برنامج على القياس ودليل أو أكثر بحسب حجم المجموعة.","en":"A tailored programme and one or more guides depending on the size of the group."}'::jsonb, null, '{"fr":"Toute l''année, sur rendez-vous.","ar":"طوال السنة، بموعد مسبق.","en":"All year round, by arrangement."}'::jsonb, '{ar,fr,en}', null,
+  'publie', 6)
+on conflict (territoire_id, slug) do update set nom = excluded.nom, accroche = excluded.accroche,
+  description = excluded.description, categorie = excluded.categorie,
+  duree_minutes = excluded.duree_minutes, participants_min = excluded.participants_min,
+  participants_max = excluded.participants_max, prix_montant = excluded.prix_montant,
+  prix_devise = excluded.prix_devise, prix_unite = excluded.prix_unite,
+  inclus = excluded.inclus, niveau = excluded.niveau, saison = excluded.saison,
+  langues = excluded.langues, photo = excluded.photo, statut = excluded.statut,
+  ordre = excluded.ordre;
+
+delete from formules_parcours where formule_id = (select id from formules where slug = 'groupes-et-scolaires' and territoire_id = (select id from territoires where slug = 'azour'));
+
 insert into evenements (territoire_id, slug, nom, description, date_debut, date_fin, recurrent, lien, photo, statut)
-values ((select id from territoires where slug = 'azour'), 'trail-azour-2027', '{"fr":"Trail d''Azour 2027","ar":"سباق عازور الجبلي ٢٠٢٧","en":"Azour Trail 2027"}'::jsonb, '{"fr":"Le premier trail annuel d''Azour, préparé avec l''appui du Lebanon Mountain Trail : parcours sur les sentiers du Shir, ravitaillements au village, 250 coureurs attendus. Date et inscriptions annoncées ici et au kiosque.","ar":"أول سباق جبلي سنوي في عازور، بدعم من درب الجبل اللبناني: مسارات على دروب الشير وتموين في القرية و٢٥٠ عدّاءً متوقعًا. الموعد والتسجيل يُعلنان هنا وعند الكشك.","en":"Azour''s first annual trail race, prepared with the support of the Lebanon Mountain Trail: routes on the Shir trails, refreshments in the village, 250 runners expected. Date and registration announced here and at the kiosk."}'::jsonb, '2027-05-01', null,
+values ((select id from territoires where slug = 'azour'), 'trail-azour-2027', '{"fr":"Trail d''Azour 2027","ar":"سباق عازور الجبلي ٢٠٢٧","en":"Azour Trail 2027"}'::jsonb, '{"fr":"Le premier trail annuel d''Azour, organisé par la municipalité et les jeunes du village : parcours sur les sentiers du Shir, ravitaillements au village, 250 coureurs attendus. Date et inscriptions annoncées ici et au kiosque.","ar":"أول سباق جبلي سنوي في عازور، تنظّمه البلدية وشباب القرية: مسارات على دروب الشير وتموين في القرية و٢٥٠ عدّاءً متوقعًا. الموعد والتسجيل يُعلنان هنا وعند الكشك.","en":"Azour''s first annual trail race, organised by the municipality and the village''s young people: routes on the Shir trails, refreshments in the village, 250 runners expected. Date and registration announced here and at the kiosk."}'::jsonb, '2027-05-01', null,
   true, null, '/photos/panorama-crete.jpg', 'publie')
 on conflict (territoire_id, slug) do update set nom = excluded.nom, description = excluded.description,
   date_debut = excluded.date_debut, date_fin = excluded.date_fin, recurrent = excluded.recurrent,

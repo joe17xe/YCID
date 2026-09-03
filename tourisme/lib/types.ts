@@ -24,6 +24,9 @@ export interface Urgence {
 }
 
 export interface Territoire {
+  /** Renseigné en mode Supabase seulement — le dépôt d'une demande en
+   *  a besoin. Absent en mode fichiers, où il n'y a rien à insérer. */
+  id?: string | null
   slug: string
   nom: I18nText
   /** Le nom commercial, paramétrable (« Visit Azour » en nom de travail) */
@@ -107,4 +110,48 @@ export interface Evenement {
   lien?: string | null
   photo?: string | null
   statut: 'brouillon' | 'publie'
+}
+/** Ce que le kiosque propose de faire faire — décidé au village, jamais
+ *  écrit dans le code. Une formule peut s'appuyer sur des parcours
+ *  existants (« parcours_slugs ») ou sur aucun (visite, groupes). */
+export type FormuleCategorie = 'visite' | 'randonnee' | 'aventure' | 'journee' | 'groupe'
+
+export interface Formule {
+  /** Renseigné en mode Supabase seulement : il relie une demande à la
+   *  formule demandée dans le registre du kiosque. */
+  id?: string | null
+  slug: string
+  nom: I18nText
+  accroche?: I18nText | null
+  description?: I18nText | null
+  categorie: FormuleCategorie
+  duree_minutes?: number | null
+  participants_min?: number | null
+  participants_max?: number | null
+  /** null = tarif à confirmer au kiosque : l'état de départ assumé */
+  prix_montant?: number | null
+  prix_devise: string
+  prix_unite: 'personne' | 'groupe'
+  inclus?: I18nText | null
+  niveau?: Difficulte | null
+  saison?: I18nText | null
+  langues: Locale[]
+  photo?: string | null
+  statut: 'brouillon' | 'publie'
+  ordre: number
+  parcours_slugs: string[]
+}
+
+/** Une demande déposée depuis l'app. Elle part au kiosque : c'est là
+ *  qu'un guide la confirme — l'app ne promet rien toute seule. */
+export interface Demande {
+  formule_slug?: string | null
+  formule_nom?: string | null
+  nom: string
+  telephone: string
+  email?: string | null
+  date_souhaitee?: string | null
+  participants?: number | null
+  langue: Locale
+  message?: string | null
 }

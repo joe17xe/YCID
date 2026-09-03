@@ -24,6 +24,12 @@ Le dossier de conception complet vit dans `../docs/tourisme-azour/`
 - **Mode sentier** : position GPS suivie, distance restante le long de
   la trace, prochaine étape, alerte hors-trace (150 m), urgences à un
   geste.
+- **Réservation** (`/reserver`) : catalogue de **formules paramétrables**
+  (visite guidée, randonnée accompagnée, journée, groupes…), fiche par
+  formule, formulaire de demande. Avec base, la demande s'inscrit au
+  registre du kiosque (RLS : dépôt public, lecture éditeurs seuls) ;
+  sans base, elle est rédigée à l'écran et part par WhatsApp, e-mail ou
+  téléphone. L'entrée est en haut de la page d'accueil, à côté du numéro.
 - **Kiosque** (`/kiosque`) : plein écran clair verrouillé, trois langues
   chacune dans son écriture, parcours du jour, QR vers la fiche dans la
   langue choisie, numéro d'information paramétrable, retour accueil
@@ -66,7 +72,7 @@ Variables (voir `.env.example`) : `NEXT_PUBLIC_SUPABASE_URL`,
 
 `supabase/migrations/` dans l'ordre (0001 schéma + RLS, 0002 vues
 publiques GeoJSON, 0003 fonctions et vues d'admin, 0004 services rendus
-sur place), puis
+sur place, 0005 formules et demandes de réservation), puis
 `supabase/seed.sql`. Vérifiées rejouables sur un PostGIS 16 nu avec
 `supabase/dev/shim-auth-local.sql` (local uniquement — jamais sur un
 vrai projet Supabase). Les droits d'écriture s'attribuent en SQL :
@@ -98,5 +104,12 @@ values ((select id from territoires where slug = 'azour'),
 - **Enregistrement de trace GPS non promis** (limite PWA iOS) : le
   visiteur suit sa position, l'app n'enregistre pas — l'export GPX sert
   les apps spécialisées.
+- **Formules à valider** : durées, capacités et tarifs des six formules
+  livrées sont des *propositions*. Les tarifs sont volontairement vides —
+  l'app affiche alors « communiqué au kiosque » plutôt qu'un chiffre
+  inventé. Tout se règle dans `/admin` ou `content/formules.json`.
+- **Aucun WhatsApp ni e-mail de kiosque renseigné** : sans base, la
+  demande ne peut donc partir que par téléphone ou copier-coller. Un
+  numéro WhatsApp dans le back-office rend le circuit immédiat.
 - Tuiles OpenFreeMap à confirmer en production (bloquées par le proxy du
   bac à sable de développement) ; repli en une ligne d'env.

@@ -1,7 +1,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { getLocale, getTranslations } from 'next-intl/server'
-import { ArrowRight, CalendarDays, Info, Repeat } from 'lucide-react'
+import { ArrowRight, CalendarDays, Info, Phone, Repeat, Ticket } from 'lucide-react'
 import { getEvenements, getParcours, getPoiBySlug, getTerritoire } from '@/lib/content'
 import { tx } from '@/lib/i18n-text'
 import ParcoursCard from '@/components/ParcoursCard'
@@ -10,16 +10,20 @@ import ListRow from '@/components/ui/ListRow'
 import SectionHeading from '@/components/ui/SectionHeading'
 
 export default async function Accueil() {
-  const [territoire, parcours, evenements, shir, locale, t] = await Promise.all([
+  const [territoire, parcours, evenements, shir, locale, t, tr] = await Promise.all([
     getTerritoire(),
     getParcours(),
     getEvenements(),
     getPoiBySlug('falaise-panoramique'),
     getLocale(),
     getTranslations('accueil'),
+    getTranslations('reserver'),
   ])
   const lien = (label: string, href: string) => (
-    <Link href={href} className="flex items-center gap-1 text-[13px] font-semibold text-[var(--bisri)]">
+    <Link
+      href={href}
+      className="flex items-center gap-1 text-[13px] font-semibold text-[var(--bisri)]"
+    >
       {label}
       <ArrowRight size={15} className="rtl:-scale-x-100" aria-hidden />
     </Link>
@@ -44,7 +48,11 @@ export default async function Accueil() {
             <h1 className="t-display mt-1.5 leading-[0.95]">
               {tx(territoire.nom, locale)}
               {locale !== 'ar' && territoire.nom.ar ? (
-                <span lang="ar" dir="rtl" className="ms-[0.35em] align-middle text-[0.5em] font-semibold opacity-75">
+                <span
+                  lang="ar"
+                  dir="rtl"
+                  className="ms-[0.35em] align-middle text-[0.5em] font-semibold opacity-75"
+                >
                   {territoire.nom.ar}
                 </span>
               ) : null}
@@ -53,6 +61,34 @@ export default async function Accueil() {
               {tx(territoire.slogan, locale)}
             </p>
           </div>
+        </div>
+      </section>
+
+      {/* Le kiosque : la porte d'entrée humaine du village. Il informe
+          au téléphone ET prend les demandes de sortie — c'est ici, en
+          haut de l'accueil, qu'on le trouve. */}
+      <section className="card p-[var(--s4)]">
+        <p className="eyebrow">{t('kiosqueTitre')}</p>
+        <h2 className="t-h2 mt-1 leading-tight">{t('reserverTitre')}</h2>
+        <p className="mt-1.5 max-w-prose text-[var(--t-small)] leading-relaxed text-[var(--encre-2)]">
+          {t('reserverTexte')}
+        </p>
+        <div className="mt-[var(--s3)] flex flex-wrap gap-[var(--s2)]">
+          <Link href="/reserver" className="btn btn-pin">
+            <Ticket size={17} aria-hidden />
+            {tr('titre')}
+          </Link>
+          {territoire.contact_tel ? (
+            <a
+              href={`tel:${territoire.contact_tel.replace(/\s/g, '')}`}
+              className="btn btn-surface"
+            >
+              <Phone size={17} aria-hidden />
+              <span dir="ltr" className="mono">
+                {territoire.contact_tel}
+              </span>
+            </a>
+          ) : null}
         </div>
       </section>
 
@@ -91,7 +127,13 @@ export default async function Accueil() {
               <ListRow
                 key={e.slug}
                 href="/agenda"
-                icone={e.recurrent ? <Repeat size={18} aria-hidden /> : <CalendarDays size={18} aria-hidden />}
+                icone={
+                  e.recurrent ? (
+                    <Repeat size={18} aria-hidden />
+                  ) : (
+                    <CalendarDays size={18} aria-hidden />
+                  )
+                }
                 titre={tx(e.nom, locale)}
                 detail={tx(e.description, locale)}
               />

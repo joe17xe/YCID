@@ -11,6 +11,7 @@ export default function FeaturedCard({
   titre,
   accroche,
   meta,
+  metaMesure,
   chips,
   pied,
   hauteur = 'h-52',
@@ -20,6 +21,8 @@ export default function FeaturedCard({
   titre: string
   accroche?: string | null
   meta?: string | null
+  /** Ligne chiffrée à unités latines : isolée en LTR pour l'arabe. */
+  metaMesure?: boolean
   chips?: ReactNode
   pied?: ReactNode
   hauteur?: string
@@ -40,7 +43,11 @@ export default function FeaturedCard({
         {chips ? <div className="absolute start-3 top-3 flex flex-wrap gap-1.5">{chips}</div> : null}
         <div className="absolute inset-x-0 bottom-0 p-[var(--s3)] text-[#f6f4ea]">
           <h3 className="t-h3 clamp-2 leading-tight">{titre}</h3>
-          {meta ? <p className="mono mt-1.5 text-[12px] opacity-90">{meta}</p> : null}
+          {meta ? (
+            <p className={`mono mt-1.5 text-[12px] opacity-90 ${metaMesure ? 'mesure' : ''}`}>
+              {meta}
+            </p>
+          ) : null}
         </div>
       </div>
       {accroche ? (

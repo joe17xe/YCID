@@ -70,9 +70,11 @@ fin de document.
 
 ### Les partenariats qui ne coûtent presque rien
 
-- **LMTA** : négocier un side trail officiel « Azour » raccordé aux
-  sections 21-22 (précédent : Bkassine) + inscription des hébergements
-  dans l'annuaire LMT — l'appui LMT est déjà prévu pour le trail 2027.
+- ~~**LMTA** : side trail officiel « Azour » raccordé aux sections
+  21-22~~ — **piste abandonnée le 03/09/2026.** Le programme ne s'adosse
+  à aucun réseau extérieur : parcours, guides, kiosque et réservation
+  sont tenus au village. Le LMT reste ci-dessus comme référence de
+  marché, pas comme partenaire.
 - **jezzinetourism.com + Union des municipalités** : page Azour dans le
   portail du caza, liens réciproques, mutualisation de l'accueil.
 - **App officielle du ministère** : auto-enregistrement des sites.

@@ -99,7 +99,7 @@ insert into tasks (phase_id, title, description, start_date, end_date, status, p
 ('00000000-0000-0000-0000-0000000000b1', 'Sélection et contractualisation du paysagiste', '', '2026-05-01', '2026-07-17', 'en_cours', 60, 'Devis reçu, en validation.'),
 ('00000000-0000-0000-0000-0000000000b1', 'Chantier jeunes — défrichage du Shir', 'Jeunes du Club Sportif encadrés par les employés municipaux.', '2026-07-15', '2026-08-15', 'a_faire', 0, ''),
 ('00000000-0000-0000-0000-0000000000b2', 'Programme des sessions de sensibilisation été 2026', '3 sessions à Azour, 20 jeunes locaux + 20 de Jeïta par session.', '2026-05-15', '2026-07-01', 'en_cours', 40, 'En attente des disponibilités du spéléologue.'),
-('00000000-0000-0000-0000-0000000000b3', 'Préparation du trail d''Azour 2027', 'Appui du Lebanon Mountain Trail, implication du club de basket féminin.', '2026-09-01', '2027-03-31', 'a_faire', 0, ''),
+('00000000-0000-0000-0000-0000000000b3', 'Préparation du trail d''Azour 2027', 'Organisation entièrement locale (municipalité et jeunes du village), implication du club de basket féminin.', '2026-09-01', '2027-03-31', 'a_faire', 0, ''),
 ('00000000-0000-0000-0000-0000000000b4', 'Convention d''encadrement des chantiers-jeunes', '', '2025-11-01', '2026-01-31', 'terminee', 100, ''),
 ('00000000-0000-0000-0000-0000000000b4', 'Travaux de défrichage et terrassement (Jeïta)', 'Jeunes + ouvriers municipaux, parcours vers la grotte.', '2026-04-01', '2026-09-30', 'en_cours', 45, ''),
 ('00000000-0000-0000-0000-0000000000b4', 'Diagnostic pour l''office de tourisme local', '', '2026-09-01', '2026-12-15', 'a_faire', 0, ''),

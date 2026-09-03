@@ -114,7 +114,9 @@ export default function KiosqueClient({
         <div className="card p-[var(--s4)]">
           <p className="eyebrow">{t('parcoursDuJour')}</p>
           <p className="mt-1 text-[19px] font-bold leading-snug">{parcoursDuJour.nom}</p>
-          <p className="mono mt-1.5 text-[13px] text-[var(--encre-2)]">{parcoursDuJour.meta}</p>
+          <p className="mono mesure mt-1.5 text-[13px] text-[var(--encre-2)]">
+            {parcoursDuJour.meta}
+          </p>
         </div>
         <div className="card flex items-center gap-4 p-[var(--s4)]">
           <div className="grid h-[132px] w-[132px] shrink-0 place-items-center overflow-hidden rounded-[var(--r-media)] bg-white">

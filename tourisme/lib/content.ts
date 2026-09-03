@@ -9,12 +9,21 @@
 //
 // La carte n'affiche que des données : rien ici n'est codé en dur.
 import { createClient } from '@supabase/supabase-js'
-import type { Evenement, LineString, Parcours, Poi, Position, Territoire } from './types'
+import type {
+  Evenement,
+  Formule,
+  LineString,
+  Parcours,
+  Poi,
+  Position,
+  Territoire,
+} from './types'
 
 import territoireJson from '@/content/territoire.json'
 import parcoursJson from '@/content/parcours.json'
 import poisJson from '@/content/pois.json'
 import evenementsJson from '@/content/evenements.json'
+import formulesJson from '@/content/formules.json'
 
 export type ContentMode = 'supabase' | 'fichiers'
 
@@ -43,6 +52,9 @@ const filePois = (poisJson as unknown as Poi[])
 const fileEvenements = (evenementsJson as unknown as Evenement[]).filter(
   (e) => e.statut === 'publie',
 )
+const fileFormules = (formulesJson as unknown as Formule[])
+  .filter((f) => f.statut === 'publie')
+  .sort((a, b) => a.ordre - b.ordre)
 
 // ————————————————————————————————————————————————— mode supabase
 type DbParcoursRow = {
@@ -125,6 +137,18 @@ async function dbPois(): Promise<Poi[]> {
   )
 }
 
+async function dbFormules(): Promise<Formule[]> {
+  // formules_publiques (migration 0005) agrège déjà les parcours
+  // rattachés en tableau de slugs : pas de jointure côté app.
+  const { data, error } = await db().from('formules_publiques').select('*').order('ordre')
+  if (error) throw error
+  return ((data ?? []) as unknown as Omit<Formule, 'statut'>[]).map((f) => ({
+    ...f,
+    parcours_slugs: f.parcours_slugs ?? [],
+    statut: 'publie' as const,
+  }))
+}
+
 async function dbEvenements(): Promise<Evenement[]> {
   const { data, error } = await db()
     .from('evenements')
@@ -162,6 +186,17 @@ export async function getPois(): Promise<Poi[]> {
 
 export async function getPoiBySlug(slug: string): Promise<Poi | null> {
   return (await getPois()).find((p) => p.slug === slug) ?? null
+}
+
+export async function getFormules(): Promise<Formule[]> {
+  if (contentMode() === 'supabase') {
+    try { return await dbFormules() } catch { return fileFormules }
+  }
+  return fileFormules
+}
+
+export async function getFormuleBySlug(slug: string): Promise<Formule | null> {
+  return (await getFormules()).find((f) => f.slug === slug) ?? null
 }
 
 export async function getEvenements(): Promise<Evenement[]> {

@@ -32,8 +32,10 @@ s'appuyer : elle ne raconte que ce qui existe ou existera sur le terrain.
 ## Le sport nature — Action 3 : attractivité et trail
 
 - **Trail annuel à Azour** : 2 000 €/an (2026 et 2027) — préparation du trail 2027
-  prévue de septembre 2026 à mars 2027, **avec l'appui du Lebanon Mountain
-  Trail** et l'implication du club de basket féminin
+  prévue de septembre 2026 à mars 2027, **organisée localement** par la
+  municipalité et les jeunes du village, avec l'implication du club de
+  basket féminin (décision du 03/09/2026 : plus d'appui extérieur
+  attendu — voir `05-questions-ouvertes.md`)
 - Trail annuel à Villepreux et Jouy-en-Josas (1 000 €/an, valorisé) ; délégation
   libanaise au trail yvelinois en 2027 (2 000 €)
 

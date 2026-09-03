@@ -1,0 +1,248 @@
+[
+  {
+    "slug": "visite-du-village",
+    "nom": {
+      "fr": "Visite guidée du village",
+      "ar": "جولة في القرية مع دليل",
+      "en": "Guided village walk"
+    },
+    "accroche": {
+      "fr": "La place, l'église Saint-Joseph, les maisons anciennes — Azour raconté par ceux qui y vivent.",
+      "ar": "الساحة وكنيسة مار يوسف والبيوت القديمة — عازور يرويها أهلها.",
+      "en": "The square, Saint Joseph's church, the old houses — Azour told by those who live there."
+    },
+    "description": {
+      "fr": "Une heure et demie à pied dans le village, au rythme de la marche. On part du kiosque, on traverse la place, on s'arrête à l'église Saint-Joseph, on lit les panneaux du sentier, et on écoute ce que les anciens racontent des terrasses et des sources. Presque sans dénivelé.",
+      "ar": "ساعة ونصف مشيًا في القرية، على مهل. الانطلاق من الكشك، عبورٌ للساحة، وقفة عند كنيسة مار يوسف، قراءةٌ للوحات الدرب، وإصغاءٌ لما يرويه الكبار عن الجلول والينابيع. من دون ارتفاعات تُذكر.",
+      "en": "An hour and a half on foot through the village, at walking pace. You set off from the kiosk, cross the square, stop at Saint Joseph's church, read the trail signs, and listen to what the elders tell of the terraces and the springs. Almost no climbing."
+    },
+    "categorie": "visite",
+    "duree_minutes": 90,
+    "participants_min": 2,
+    "participants_max": 15,
+    "prix_montant": null,
+    "prix_devise": "USD",
+    "prix_unite": "personne",
+    "inclus": {
+      "fr": "L'accompagnement d'un jeune guide d'Azour, dans la langue de votre choix.",
+      "ar": "مرافقة أحد أدلّاء عازور الشباب، باللغة التي تختارونها.",
+      "en": "A young Azour guide with you, in the language of your choice."
+    },
+    "niveau": "facile",
+    "saison": {
+      "fr": "Toute l'année.",
+      "ar": "طوال السنة.",
+      "en": "All year round."
+    },
+    "langues": ["ar", "fr", "en"],
+    "photo": null,
+    "statut": "publie",
+    "ordre": 1,
+    "parcours_slugs": []
+  },
+  {
+    "slug": "boucle-du-shir-accompagnee",
+    "nom": {
+      "fr": "Randonnée accompagnée — la boucle du Shir",
+      "ar": "مشية مع دليل — حلقة الشير",
+      "en": "Guided hike — the Shir loop"
+    },
+    "accroche": {
+      "fr": "La forêt d'Azour et la falaise panoramique, avec un guide qui connaît chaque pierre.",
+      "ar": "حرج عازور والمطلّ على الجرف، مع دليل يعرف كل حجر.",
+      "en": "The Azour pine wood and the panoramic cliff, with a guide who knows every stone."
+    },
+    "description": {
+      "fr": "La boucle classique : la pinède, la crête, puis le belvédère du Shir au-dessus de la vallée du Bisri. Le guide règle l'allure sur le groupe et s'arrête où il faut — c'est ce qui la distingue de la trace téléchargée.",
+      "ar": "الحلقة المعروفة: غابة الصنوبر، فالقمّة، فمطلّ الشير فوق وادي بسري. الدليل يضبط الإيقاع على الجماعة ويقف حيث يجب — وهنا الفارق عن المسار المُحمَّل.",
+      "en": "The classic loop: the pine wood, the ridge, then the Shir viewpoint above the Bisri valley. The guide sets the pace by the group and stops where it matters — that is what a downloaded track cannot do."
+    },
+    "categorie": "randonnee",
+    "duree_minutes": 120,
+    "participants_min": 2,
+    "participants_max": 15,
+    "prix_montant": null,
+    "prix_devise": "USD",
+    "prix_unite": "personne",
+    "inclus": {
+      "fr": "L'accompagnement d'un guide d'Azour. Prévoyez de l'eau et des chaussures fermées.",
+      "ar": "مرافقة دليل من عازور. احملوا الماء وانتعلوا حذاءً مغلقًا.",
+      "en": "An Azour guide with you. Bring water and closed shoes."
+    },
+    "niveau": "facile",
+    "saison": {
+      "fr": "D'octobre à juin. L'été, partez tôt le matin.",
+      "ar": "من تشرين الأول إلى حزيران. في الصيف، انطلقوا باكرًا.",
+      "en": "October to June. In summer, set off early."
+    },
+    "langues": ["ar", "fr", "en"],
+    "photo": null,
+    "statut": "publie",
+    "ordre": 2,
+    "parcours_slugs": ["boucle-foret-falaise"]
+  },
+  {
+    "slug": "bisri-accompagnee",
+    "nom": {
+      "fr": "Grande randonnée — Azour, Joubeh, vallée du Bisri",
+      "ar": "مشية طويلة — عازور، جوبة، وادي بسري",
+      "en": "Long hike — Azour, Joubeh, Bisri valley"
+    },
+    "accroche": {
+      "fr": "Trois heures de descente et de traversée, de la falaise jusqu'au fond de la vallée.",
+      "ar": "ثلاث ساعات نزولًا وعبورًا، من الجرف إلى قعر الوادي.",
+      "en": "Three hours down and across, from the cliff to the valley floor."
+    },
+    "description": {
+      "fr": "Le parcours linéaire, celui qui demande des jambes : la falaise d'Azour, le passage par Joubeh, puis la descente vers le Bisri. Le retour ne se fait pas à pied — le kiosque l'organise au moment de la réservation.",
+      "ar": "المسار الخطّي، الذي يطلب ساقين صلبتين: جرف عازور، فالمرور بجوبة، فالنزول إلى بسري. العودة لا تكون سيرًا — الكشك يرتّبها عند الحجز.",
+      "en": "The one-way route, the one that asks something of your legs: the Azour cliff, through Joubeh, then down towards the Bisri. You do not walk back — the kiosk arranges the return when you book."
+    },
+    "categorie": "randonnee",
+    "duree_minutes": 180,
+    "participants_min": 2,
+    "participants_max": 12,
+    "prix_montant": null,
+    "prix_devise": "USD",
+    "prix_unite": "personne",
+    "inclus": {
+      "fr": "L'accompagnement d'un guide et l'organisation du retour. Eau, chapeau et chaussures de marche indispensables.",
+      "ar": "مرافقة دليل وتنظيم العودة. الماء والقبّعة وحذاء المشي ضرورية.",
+      "en": "A guide with you and the return arranged. Water, a hat and walking shoes are essential."
+    },
+    "niveau": "modere",
+    "saison": {
+      "fr": "D'octobre à mai. Déconseillée en plein été.",
+      "ar": "من تشرين الأول إلى أيار. لا يُنصح بها في عزّ الصيف.",
+      "en": "October to May. Not advised in high summer."
+    },
+    "langues": ["ar", "fr", "en"],
+    "photo": null,
+    "statut": "publie",
+    "ordre": 3,
+    "parcours_slugs": ["azour-joubeh-bisri"]
+  },
+  {
+    "slug": "hyrax-rock",
+    "nom": {
+      "fr": "Hyrax Rock — éco-aventure verticale",
+      "ar": "صخرة الوبر — مغامرة عمودية",
+      "en": "Hyrax Rock — vertical eco-adventure"
+    },
+    "accroche": {
+      "fr": "La paroi, le matériel, les consignes — encadrement obligatoire.",
+      "ar": "الصخر والمعدّات والتعليمات — بإشراف إلزامي.",
+      "en": "The rock face, the gear, the briefing — supervised access only."
+    },
+    "description": {
+      "fr": "Le seul parcours d'Azour qui ne se fait pas seul. Un guide formé vous accompagne du départ au retour, fournit le matériel et donne les consignes avant la paroi. Le nombre de places dépend de l'équipement disponible ce jour-là : le kiosque confirme.",
+      "ar": "المسار الوحيد في عازور الذي لا يُسلك وحيدًا. دليل مدرَّب يرافقكم من الانطلاق إلى العودة، يؤمّن المعدّات ويشرح التعليمات قبل الصخر. عدد الأماكن تابعٌ للمعدّات المتوفّرة في ذلك اليوم: الكشك يؤكّد.",
+      "en": "The only route at Azour you cannot do alone. A trained guide is with you from start to finish, provides the gear and gives the briefing before the face. How many places there are depends on the equipment available that day: the kiosk confirms."
+    },
+    "categorie": "aventure",
+    "duree_minutes": 60,
+    "participants_min": 1,
+    "participants_max": null,
+    "prix_montant": null,
+    "prix_devise": "USD",
+    "prix_unite": "personne",
+    "inclus": {
+      "fr": "L'encadrement et le matériel de sécurité. Chaussures fermées obligatoires.",
+      "ar": "الإشراف ومعدّات السلامة. الحذاء المغلق إلزامي.",
+      "en": "Supervision and safety equipment. Closed shoes required."
+    },
+    "niveau": "difficile",
+    "saison": {
+      "fr": "Par temps sec uniquement.",
+      "ar": "في الطقس الجافّ حصرًا.",
+      "en": "Dry weather only."
+    },
+    "langues": ["ar", "fr", "en"],
+    "photo": null,
+    "statut": "publie",
+    "ordre": 4,
+    "parcours_slugs": ["hyrax-rock"]
+  },
+  {
+    "slug": "journee-a-azour",
+    "nom": {
+      "fr": "La journée à Azour",
+      "ar": "يوم في عازور",
+      "en": "A day at Azour"
+    },
+    "accroche": {
+      "fr": "Le village le matin, la randonnée l'après-midi, et une table entre les deux.",
+      "ar": "القرية صباحًا، والمشية بعد الظهر، ومائدة بينهما.",
+      "en": "The village in the morning, the hike in the afternoon, a table in between."
+    },
+    "description": {
+      "fr": "Une journée complète, montée avec vous : la visite du village, une randonnée choisie selon vos jambes, et le déjeuner dans une des tables d'Azour. Les établissements sont indépendants du projet — le kiosque fait le lien, vous réglez sur place.",
+      "ar": "يوم كامل يُرتَّب معكم: جولة في القرية، ومشية تُختار على قدر ساقيكم، وغداء على إحدى موائد عازور. المنشآت مستقلّة عن المشروع — الكشك يصل بينكم، والدفع يتمّ هناك.",
+      "en": "A full day, put together with you: the village walk, a hike chosen to suit you, and lunch at one of Azour's tables. The establishments are independent from the project — the kiosk makes the introduction, you settle up on the spot."
+    },
+    "categorie": "journee",
+    "duree_minutes": 360,
+    "participants_min": 2,
+    "participants_max": 20,
+    "prix_montant": null,
+    "prix_devise": "USD",
+    "prix_unite": "personne",
+    "inclus": {
+      "fr": "L'accompagnement sur la journée et la réservation de la table. Le repas se règle à l'établissement.",
+      "ar": "المرافقة طوال اليوم وحجز المائدة. ثمن الطعام يُدفع في المنشأة.",
+      "en": "A guide for the day and the table booked for you. The meal is paid at the establishment."
+    },
+    "niveau": "facile",
+    "saison": {
+      "fr": "Toute l'année, selon la météo.",
+      "ar": "طوال السنة، بحسب الطقس.",
+      "en": "All year round, weather permitting."
+    },
+    "langues": ["ar", "fr", "en"],
+    "photo": null,
+    "statut": "publie",
+    "ordre": 5,
+    "parcours_slugs": ["boucle-foret-falaise"]
+  },
+  {
+    "slug": "groupes-et-scolaires",
+    "nom": {
+      "fr": "Groupes, scolaires et associations",
+      "ar": "المجموعات والمدارس والجمعيات",
+      "en": "Groups, schools and associations"
+    },
+    "accroche": {
+      "fr": "Classes, clubs de randonnée, groupes de la diaspora : le programme se construit avec vous.",
+      "ar": "صفوف مدرسية، أندية مشي، مجموعات من المغتربين: البرنامج يُبنى معكم.",
+      "en": "School classes, hiking clubs, diaspora groups: the programme is built with you."
+    },
+    "description": {
+      "fr": "Durée, niveau, repas et transport se calent au cas par cas. Indiquez le nombre de personnes, la date envisagée et ce que vous cherchez : le kiosque revient vers vous avec une proposition.",
+      "ar": "المدّة والمستوى والطعام والنقل تُضبط حالةً بحالة. اذكروا عدد الأشخاص والموعد المرتقب وما تبحثون عنه: الكشك يعود إليكم باقتراح.",
+      "en": "Length, level, meals and transport are set case by case. Tell us how many you are, the date you have in mind and what you are after: the kiosk comes back to you with a proposal."
+    },
+    "categorie": "groupe",
+    "duree_minutes": null,
+    "participants_min": 8,
+    "participants_max": 60,
+    "prix_montant": null,
+    "prix_devise": "USD",
+    "prix_unite": "groupe",
+    "inclus": {
+      "fr": "Un programme sur mesure et un ou plusieurs guides selon la taille du groupe.",
+      "ar": "برنامج على القياس ودليل أو أكثر بحسب حجم المجموعة.",
+      "en": "A tailored programme and one or more guides depending on the size of the group."
+    },
+    "niveau": null,
+    "saison": {
+      "fr": "Toute l'année, sur rendez-vous.",
+      "ar": "طوال السنة، بموعد مسبق.",
+      "en": "All year round, by arrangement."
+    },
+    "langues": ["ar", "fr", "en"],
+    "photo": null,
+    "statut": "publie",
+    "ordre": 6,
+    "parcours_slugs": []
+  }
+]

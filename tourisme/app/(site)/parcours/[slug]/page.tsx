@@ -3,11 +3,12 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getLocale, getTranslations } from 'next-intl/server'
-import { CalendarRange, CircleAlert, Footprints, MapPin, MessageCircle, Route } from 'lucide-react'
-import { getParcours, getParcoursBySlug, getPois, getTerritoire } from '@/lib/content'
+import { CalendarRange, CircleAlert, Footprints, MapPin, Route, Ticket } from 'lucide-react'
+import { getFormules, getParcours, getParcoursBySlug, getPois, getTerritoire } from '@/lib/content'
 import { tx } from '@/lib/i18n-text'
 import MapView from '@/components/carte/MapView'
 import PackHorsLigne from '@/components/PackHorsLigne'
+import ActionCard from '@/components/ui/ActionCard'
 import ParcoursCard from '@/components/ParcoursCard'
 import { BadgeDifficulte, BadgeType } from '@/components/ParcoursMeta'
 import InfoNotice from '@/components/ui/InfoNotice'
@@ -26,14 +27,16 @@ export async function generateMetadata(props: PageProps<'/parcours/[slug]'>): Pr
 
 export default async function FicheParcours(props: PageProps<'/parcours/[slug]'>) {
   const { slug } = await props.params
-  const [parcours, tous, pois, territoire, locale, t, tc] = await Promise.all([
+  const [parcours, tous, pois, formules, territoire, locale, t, tc, tr] = await Promise.all([
     getParcoursBySlug(slug),
     getParcours(),
     getPois(),
+    getFormules(),
     getTerritoire(),
     getLocale(),
     getTranslations('parcours'),
     getTranslations('commun'),
+    getTranslations('reserver'),
   ])
   if (!parcours) notFound()
 
@@ -49,15 +52,11 @@ export default async function FicheParcours(props: PageProps<'/parcours/[slug]'>
     no: p.panneau_no ?? i + 1,
   }))
 
-  const whatsapp =
-    territoire.contact_whatsapp ??
-    pois.find((p) => p.type === 'guide')?.contact?.whatsapp ??
-    null
-  const waLink = whatsapp
-    ? `https://wa.me/${whatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
-        `${tx(parcours.nom, locale)} — ${tc('reserverGuide')}`,
-      )}`
-    : null
+  // La sortie encadrée passe désormais par la page de réservation : le
+  // kiosque reçoit la demande, un guide la confirme. Si une formule
+  // porte ce parcours, on y va directement.
+  const formuleLiee = formules.find((f) => f.parcours_slugs.includes(parcours.slug)) ?? null
+  const lienReserver = formuleLiee ? `/reserver/${formuleLiee.slug}` : '/reserver'
 
   const packUrls = [
     `/parcours/${parcours.slug}`,
@@ -108,13 +107,12 @@ export default async function FicheParcours(props: PageProps<'/parcours/[slug]'>
 
       <div className="space-y-[var(--s2)]">
         {parcours.acces_guide ? (
-          waLink ? (
-            <a href={waLink} target="_blank" rel="noopener" className="btn btn-pin w-full">
-              <MessageCircle size={18} aria-hidden /> {tc('reserverGuide')}
-            </a>
-          ) : (
+          <>
+            <Link href={lienReserver} className="btn btn-pin w-full">
+              <Ticket size={18} aria-hidden /> {tc('reserverGuide')}
+            </Link>
             <InfoNotice ton="vigilance">{tc('accesGuide')}</InfoNotice>
-          )
+          </>
         ) : (
           <>
             <PackHorsLigne slug={parcours.slug} version={parcours.version} urls={packUrls} />
@@ -140,6 +138,15 @@ export default async function FicheParcours(props: PageProps<'/parcours/[slug]'>
             {tx(parcours.description, locale)}
           </p>
         </section>
+      ) : null}
+
+      {!parcours.acces_guide && formuleLiee ? (
+        <ActionCard
+          href={lienReserver}
+          titre={tr('demander')}
+          detail={tx(formuleLiee.accroche, locale)}
+          icone={<Ticket size={19} aria-hidden />}
+        />
       ) : null}
 
       {parcours.trace ? (
