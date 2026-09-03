@@ -266,9 +266,9 @@
     ],
     "panneau_no": null,
     "texte": {
-      "fr": "Bungalows et tentes aménagées au creux d'une vallée de pins et de chênes, et un restaurant dont la terrasse sert l'été comme l'hiver — sur réservation. Établissement indépendant du projet — contact direct.",
-      "ar": "أكواخ وخيام مجهزة في وادٍ من الصنوبر والسنديان، ومطعم تعمل تراسه صيفًا وشتاءً — بحجز مسبق. منشأة مستقلة عن المشروع — تواصل مباشر.",
-      "en": "Bungalows and furnished tents in a valley of pines and oaks, and a restaurant whose terrace serves in summer and in winter — by reservation. Independent from the project — contact directly."
+      "fr": "Bungalows et tentes aménagées au creux d'une vallée de pins et de chênes, et un bar-restaurant dont la terrasse sert l'été comme l'hiver — sur réservation. Établissement indépendant du projet — contact direct.",
+      "ar": "أكواخ وخيام مجهزة في وادٍ من الصنوبر والسنديان، ومطعم وبار تعمل تراسهما صيفًا وشتاءً — بحجز مسبق. منشأة مستقلة عن المشروع — تواصل مباشر.",
+      "en": "Bungalows and furnished tents in a valley of pines and oaks, and a bar-restaurant whose terrace serves in summer and in winter — by reservation. Independent from the project — contact directly."
     },
     "photo": null,
     "contact": {
@@ -277,7 +277,8 @@
     "statut": "publie",
     "ordre": 12,
     "services": [
-      "restaurant"
+      "restaurant",
+      "bar"
     ],
     "sur_reservation": true
   },

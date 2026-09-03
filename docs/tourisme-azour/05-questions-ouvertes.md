@@ -87,8 +87,8 @@
     « Sur réservation » devient un **paramètre à part** (colonne
     `sur_reservation`, case à cocher au back-office) : ce n'est pas ce
     qu'on sert, c'est la condition pour l'obtenir — et arriver sans avoir
-    prévenu, c'est trouver porte close. Le bar n'est pas rétabli : rien
-    ne l'a confirmé.
+    prévenu, c'est trouver porte close. Le **bar est confirmé** dans la
+    foulée : Blue Jay est un bar-restaurant.
 
 ## Encore ouvert
 
