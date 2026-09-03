@@ -1,8 +1,33 @@
-# Support de présentation aux partenaires
+# Supports de présentation
 
-`communes.html` — 30 diapositives, 30 minutes, pour la séance de prise en
-main d'une commune partenaire (première tenue : Jouy-en-Josas et Jeïta,
-triade du programme CEM Liban–Yvelines).
+Deux supports, deux publics — et le même moteur (mêmes touches, même
+impression PDF, mêmes reconstitutions d'écran) :
+
+| Fichier | Public | Durée | Ce qu'il répond |
+|---|---|---|---|
+| `communes.html` | une commune partenaire et son porteur | 30 min | « à quoi ça sert, et comment je m'en sers » |
+| `ycid.html` | la direction de programme et YCID | 25 min | « ce que la coordination voit, décide et doit prouver » |
+
+## Le support aux communes se paramètre
+
+Un seul fichier pour les deux triades : les noms de communes, les
+personnes, les montants et les lignes budgétaires viennent d'une table
+en tête de script, pas du HTML. Dupliquer le fichier aurait produit deux
+supports qui divergent au premier correctif.
+
+    communes.html                 Jouy-en-Josas ↔ Jeïta (défaut)
+    communes.html?volet=azour     Villepreux ↔ Azour
+
+Le sélecteur du bandeau bas fait la même chose en séance, sans toucher à
+l'URL. Ce qui change : la couverture, la règle « qui voit quoi », le
+volet en chiffres (financeurs, années, nombre de lignes), les
+reconstitutions d'écran (projet, budget, tâches, appels de fonds, file
+« À valider »), les engagements de fin, et les notes du présentateur.
+Ce qui ne change pas : le programme (106 200 €, trois volets), le
+principe, la visite, les bonnes pratiques.
+
+Ajouter un troisième volet, c'est ajouter une entrée à `VOLETS` — rien
+d'autre.
 
 Fichier **statique et autonome** : un seul HTML, aucune dépendance hors
 les polices Google (et il reste lisible sans elles, hors ligne). Servi
@@ -11,6 +36,7 @@ le vidéoprojecteur d'une mairie, ou depuis un fichier téléchargé si le
 wifi de la salle est mauvais. Un lien y mène depuis la page Aide.
 
     https://ycid.joefr.cloud/presentation/communes.html
+    https://ycid.joefr.cloud/presentation/ycid.html
 
 ## Pendant la présentation
 
@@ -63,6 +89,9 @@ Trois endroits, et rien d'autre :
    montants du volet concerné (source : `web/docs/donnees-cem-liban/`) ;
 3. la diapositive **« Ce qu'on vous demande »** — les trois colonnes
    d'engagements, une par organisation présente.
+
+Pour une commune du programme CEM, il n'y a rien à modifier : le volet
+se choisit dans le bandeau ou par `?volet=`.
 
 Les chiffres affichés viennent de la transposition du classeur
 budgétaire du programme, vérifiée ligne à ligne : volet Jouy-en-Josas ·

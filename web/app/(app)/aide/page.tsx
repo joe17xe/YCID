@@ -47,6 +47,13 @@ export default async function AidePage() {
             className="text-sm underline" style={{ color: "var(--brand-accent,#0E6B5C)" }}>
             Support de présentation aux partenaires (30 min)
           </a>
+          {/* Deux publics, deux supports : la commune demande « comment je
+              m'en sers », la coordination « ce que je vois, décide et dois
+              prouver ». Un support unique aurait mal répondu aux deux. */}
+          <a href="/presentation/ycid.html" target="_blank" rel="noopener noreferrer"
+            className="text-sm underline" style={{ color: "var(--brand-accent,#0E6B5C)" }}>
+            Support de présentation à la coordination (25 min)
+          </a>
         </div>
       </div>
 
