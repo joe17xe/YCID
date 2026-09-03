@@ -34,8 +34,19 @@ export default async function AidePage() {
       <div className="mb-8">
         <h1 className="text-2xl font-bold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>Aide et prise en main</h1>
         <p className="mt-1 text-sm leading-relaxed" style={{ color: "#66716B" }}>{HELP_INTRO}</p>
-        <div className="mt-3">
+        {/* La visite guidée s'adresse à une personne devant son écran ;
+            le support de présentation s'adresse à une SALLE — la séance
+            de prise en main d'une commune partenaire. Deux usages, deux
+            portes, au même endroit : c'est ici qu'on vient chercher
+            « comment on explique l'outil aux autres ». Le support est un
+            fichier statique (public/presentation) : il s'ouvre sans
+            connexion, donc aussi depuis le vidéoprojecteur d'une mairie. */}
+        <div className="mt-3 flex flex-wrap items-center gap-4">
           <WelcomeTour userId={user.id} steps={tourSteps} mode="button" />
+          <a href="/presentation/communes.html" target="_blank" rel="noopener noreferrer"
+            className="text-sm underline" style={{ color: "var(--brand-accent,#0E6B5C)" }}>
+            Support de présentation aux partenaires (30 min)
+          </a>
         </div>
       </div>
 
