@@ -1,0 +1,1045 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Solid'Pilot — Le programme vu de la coordination (YCID)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   Support de présentation — 25 min, coordination du programme
+   ------------------------------------------------------------
+   Destiné à la direction de programme et à YCID : ce que la
+   coordination voit, décide et doit pouvoir prouver. Le support des
+   communes (communes.html) répond à l'autre question — comment on
+   s'en sert au quotidien.
+   Autonome : un seul fichier, aucune dépendance hors polices.
+   Navigation : ← → / espace, S sommaire, N notes, P plein écran,
+   T chrono. Impression : une diapositive par page (PDF paysage).
+   Les écrans sont des reconstitutions fidèles de l'application
+   (mêmes couleurs, mêmes libellés). Pour les remplacer par de
+   vraies captures : voir README.md à côté de ce fichier.
+   ============================================================ */
+:root{
+  --brand:#0E6B5C; --brand-soft:#E4F0EC; --ink:#17211D; --muted:#66716B;
+  --line:#E3E6E2; --bg:#F5F6F4; --white:#fff;
+  --sidebar:#16241F; --sidebar-fg:#F2F5F3; --sidebar-muted:#AFBDB6;
+  --blue:#3B5488; --blue-soft:#E8ECF5; --mairie:#1F5F7A; --mairie-soft:#E3F0F5;
+  --amber:#B4690E; --amber-soft:#F7EDDD; --red:#A3342C; --red-soft:#F6E7E5;
+  --terrain:#8A6A1F; --terrain-soft:#F5EFE2; --audit:#2C6B7E; --audit-soft:#E7F1F4;
+  --violet:#6B4A8C; --violet-soft:#F0E9F5;
+  --font-title:"Sora","Segoe UI",system-ui,-apple-system,sans-serif;
+  --font-body:"Inter","Segoe UI",system-ui,-apple-system,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:#0A0F0D;font-family:var(--font-body);color:var(--ink);overflow:hidden}
+
+/* ---------- scène 16:9 mise à l'échelle ---------- */
+#deck{position:fixed;inset:0;display:grid;place-items:center}
+#stage{width:1280px;height:720px;position:relative;transform:scale(var(--k,1));transform-origin:center center;
+  box-shadow:0 24px 80px rgba(0,0,0,.5);border-radius:6px;overflow:hidden;background:var(--white)}
+.slide{position:absolute;inset:0;display:none;flex-direction:column;padding:52px 64px 56px;background:var(--white)}
+.slide.on{display:flex}
+body.measuring .slide{display:flex;visibility:hidden}
+body.measuring .slide.on{visibility:visible}
+.slide.dark{background:var(--sidebar);color:#F2F5F3}
+.slide.soft{background:var(--bg)}
+
+/* ---------- chrome ---------- */
+#bar{position:fixed;top:0;left:0;right:0;height:3px;background:rgba(255,255,255,.12);z-index:40}
+#bar i{display:block;height:100%;width:0;background:var(--brand);transition:width .25s}
+#hud{position:fixed;right:14px;bottom:12px;z-index:40;display:flex;gap:8px;align-items:center;
+  font-size:12px;color:#8C9A93;font-variant-numeric:tabular-nums}
+#hud button{font:inherit;color:#C7D2CC;background:rgba(255,255,255,.08);border:0;border-radius:8px;
+  padding:5px 9px;cursor:pointer}
+#hud button:hover{background:rgba(255,255,255,.16);color:#fff}
+#hud select{font:inherit;color:#C7D2CC;background:rgba(255,255,255,.08);border:0;border-radius:8px;padding:5px 6px}
+#hud select option{color:#17211D}
+#clock.run{color:#8FD6C4}#clock.over{color:#E9A76B}
+body.notes-on #hud{top:10px;bottom:auto}
+#toc{position:fixed;inset:0;z-index:50;background:rgba(10,15,13,.96);display:none;padding:36px 40px;overflow:auto}
+#toc.on{display:block}
+#toc h3{font-family:var(--font-title);color:#fff;margin:0 0 18px;font-size:18px;letter-spacing:.02em}
+#toc ol{columns:2;column-gap:40px;margin:0;padding:0 0 0 22px;color:#C7D2CC;font-size:14px;line-height:2}
+#toc li{cursor:pointer;break-inside:avoid}
+#toc li:hover{color:#fff}
+#toc li b{color:#8FD6C4;font-weight:600}
+.notes{display:none;position:absolute;left:0;right:0;bottom:0;max-height:36%;overflow:auto;
+  background:#131A17;color:#D7E0DB;font-size:14px;line-height:1.55;padding:14px 22px;border-top:2px solid var(--brand)}
+body.notes-on .slide.on .notes{display:block}
+.notes b{color:#8FD6C4;font-weight:600}
+.notes ul{margin:6px 0 0;padding-left:18px}
+
+/* ---------- typo de diapositive ---------- */
+.kicker{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--brand);font-weight:600;margin-bottom:10px}
+.slide.dark .kicker{color:#8FD6C4}
+h1{font-family:var(--font-title);font-size:56px;line-height:1.05;margin:0 0 14px;letter-spacing:-.02em}
+h2{font-family:var(--font-title);font-size:38px;line-height:1.12;margin:0 0 18px;letter-spacing:-.01em}
+h3{font-family:var(--font-title);font-size:20px;margin:0 0 8px}
+p{font-size:20px;line-height:1.5;margin:0 0 14px;color:#2A342F}
+.slide.dark p{color:#CFDAD4}
+.lead{font-size:23px;color:var(--muted)}
+.small{font-size:15px;color:var(--muted)}
+.tiny{font-size:13px;color:var(--muted)}
+strong{color:var(--ink)}
+.slide.dark strong{color:#fff}
+.pagenum{display:none;position:absolute;right:26px;bottom:18px;font-size:12px;color:#A9B4AE}
+.brandline{position:absolute;left:26px;bottom:18px;font-size:12px;color:#A9B4AE}
+.slide.dark .pagenum,.slide.dark .brandline{color:#6F817A}
+
+/* ---------- mises en page ---------- */
+.body{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center}
+.cols{display:flex;gap:34px;flex:1;min-height:0}
+.cols>*{min-width:0}
+.c1{flex:1}.c2{flex:2}.c3{flex:3}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.center{justify-content:center;align-items:center;text-align:center}
+ul.big{margin:0;padding:0;list-style:none}
+ul.big li{position:relative;padding-left:34px;font-size:21px;line-height:1.45;margin-bottom:16px;color:#2A342F}
+ul.big li::before{content:"";position:absolute;left:0;top:9px;width:14px;height:14px;border-radius:5px;background:var(--brand-soft);border:2px solid var(--brand)}
+ul.num{margin:0;padding:0;list-style:none;counter-reset:n}
+ul.num li{position:relative;padding-left:44px;font-size:19px;line-height:1.4;margin-bottom:14px;counter-increment:n}
+ul.num li::before{content:counter(n);position:absolute;left:0;top:-1px;width:29px;height:29px;border-radius:10px;
+  background:var(--brand);color:#fff;font-size:15px;font-weight:700;display:grid;place-items:center;font-family:var(--font-title)}
+.box{background:var(--bg);border:1px solid var(--line);border-radius:16px;padding:20px 22px}
+.box.accent{background:var(--brand-soft);border-color:#BFDDD4}
+.box.warn{background:var(--amber-soft);border-color:#E8D5AE}
+.box.dark{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.14)}
+.kpi{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px 18px}
+.kpi .v{font-family:var(--font-title);font-size:34px;line-height:1;color:var(--ink)}
+.kpi .l{font-size:13px;color:var(--muted);margin-top:8px;line-height:1.35}
+.kpi .m{height:5px;border-radius:99px;background:#E7EBE8;margin-top:10px;overflow:hidden}
+.kpi .m i{display:block;height:100%;background:var(--brand)}
+.pill{display:inline-block;font-size:13px;font-weight:600;padding:4px 11px;border-radius:99px}
+.p-green{background:var(--brand-soft);color:var(--brand)}
+.p-blue{background:var(--blue-soft);color:var(--blue)}
+.p-mairie{background:var(--mairie-soft);color:var(--mairie)}
+.p-amber{background:var(--amber-soft);color:var(--amber)}
+.p-red{background:var(--red-soft);color:var(--red)}
+.p-terrain{background:var(--terrain-soft);color:var(--terrain)}
+.p-audit{background:var(--audit-soft);color:var(--audit)}
+.p-grey{background:#EEF0EE;color:var(--muted)}
+.p-violet{background:var(--violet-soft);color:var(--violet)}
+table.t{width:100%;border-collapse:collapse;font-size:17px}
+table.t th{text-align:left;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;padding:0 10px 8px}
+table.t td{padding:9px 10px;border-top:1px solid var(--line)}
+table.t td.num{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+table.t tr.tot td{border-top:2px solid var(--ink);font-weight:700}
+.flow{display:flex;align-items:stretch;gap:10px}
+.flow .step{flex:1;background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 12px;position:relative}
+.flow .step .n{font-size:11px;font-weight:700;color:var(--brand);letter-spacing:.1em}
+.flow .step h4{font-family:var(--font-title);font-size:16px;margin:6px 0 6px}
+.flow .step p{font-size:13.5px;line-height:1.4;color:var(--muted);margin:0}
+.flow .arr{align-self:center;color:#B9C4BE;font-size:20px}
+.callout{border-left:4px solid var(--brand);padding:4px 0 4px 16px;font-size:19px;line-height:1.45;color:#2A342F}
+.slide.dark .callout{border-color:#8FD6C4;color:#DCE5E1}
+
+/* ---------- reconstitutions d'écran ---------- */
+.shotbox{position:relative}
+.shot{margin:0;transform-origin:top left;border-radius:14px;overflow:hidden;border:1px solid #D8DED9;background:#fff;
+  box-shadow:0 14px 34px rgba(23,33,29,.14)}
+.shot img{display:block;width:100%;height:auto}
+.app{display:flex;height:100%;font-size:12px}
+.app-side{width:146px;flex:none;background:var(--sidebar);color:var(--sidebar-muted);padding:9px 7px}
+.app-side .lg{display:flex;align-items:center;gap:6px;padding:2px 4px 10px;border-bottom:1px solid rgba(255,255,255,.09);margin-bottom:8px}
+.app-side .lg i{width:15px;height:15px;border-radius:5px;background:var(--brand);display:block}
+.app-side .lg b{font-family:var(--font-title);color:#F2F5F3;font-size:12px}
+.app-side .grp{font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:#7E8D86;margin:9px 0 4px;padding-left:6px}
+.app-side a{display:flex;align-items:center;gap:6px;padding:5px 6px;border-radius:8px;color:var(--sidebar-muted);
+  text-decoration:none;font-size:11px;white-space:nowrap}
+.app-side a.on{background:#F4F7F5;color:#17211D;font-weight:600}
+.app-side svg{width:12px;height:12px;flex:none}
+.app-main{flex:1;background:var(--bg);display:flex;flex-direction:column;min-width:0}
+.app-top{height:30px;flex:none;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;
+  justify-content:flex-end;gap:8px;padding:0 10px;font-size:10.5px;color:var(--muted)}
+.app-top .av{width:19px;height:19px;border-radius:50%;background:var(--brand-soft);color:var(--brand);
+  display:grid;place-items:center;font-size:9px;font-weight:700}
+.app-top .bell{position:relative;color:#66716B}
+.app-top .bell b{position:absolute;top:-3px;right:-4px;background:var(--red);color:#fff;font-size:7.5px;
+  border-radius:99px;padding:0 3px;font-weight:700}
+.app-body{padding:12px 14px;overflow:hidden;flex:1}
+.app h1{font-family:var(--font-title);font-size:16px;margin:0 0 2px;color:var(--ink);letter-spacing:0}
+.app h2{font-family:var(--font-title);font-size:12px;margin:0 0 6px;color:var(--ink)}
+.app p{font-size:10.5px;line-height:1.4;color:var(--muted);margin:0}
+.card{background:#fff;border:1px solid var(--line);border-radius:11px;padding:9px 10px}
+.tabs{display:flex;gap:3px;background:#EEF0EE;padding:3px;border-radius:11px;margin:8px 0 9px;flex-wrap:wrap}
+.tab{padding:4px 8px;border-radius:8px;font-size:10px;color:var(--muted);white-space:nowrap}
+.tab.on{background:#fff;color:var(--brand);font-weight:600;box-shadow:0 1px 2px rgba(23,33,29,.07)}
+.tab b{font-size:8.5px;background:#E3E6E2;color:var(--muted);border-radius:99px;padding:1px 4px;margin-left:4px}
+.tab.on b{background:var(--brand-soft);color:var(--brand)}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+.tile{background:#fff;border:1px solid var(--line);border-radius:10px;padding:7px 8px}
+.tile .l{font-size:9px;color:var(--muted);display:flex;align-items:center;gap:4px}
+.tile .l i{width:5px;height:5px;border-radius:50%;display:block}
+.tile .v{font-family:var(--font-title);font-size:15px;color:var(--ink);margin-top:3px;line-height:1}
+.tile .m{height:3px;border-radius:99px;background:#EEF0EE;margin-top:5px;overflow:hidden}
+.tile .m i{display:block;height:100%}
+.tile .s{font-size:8.5px;color:#9AA39D;margin-top:4px}
+.bdg{font-size:8.5px;font-weight:600;padding:2px 6px;border-radius:99px;display:inline-block;white-space:nowrap}
+table.g{width:100%;border-collapse:collapse;font-size:10px}
+table.g th{text-align:left;font-size:8.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);
+  font-weight:600;padding:0 5px 5px}
+table.g td{padding:5px;border-top:1px solid var(--line);color:#2A342F}
+table.g td.num{text-align:right;font-variant-numeric:tabular-nums}
+table.g tr.grp td{background:#F1F4F2;font-weight:600;color:var(--ink);font-size:9.5px}
+.row{display:flex;align-items:center;gap:7px}
+.between{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.btn{font-size:9.5px;font-weight:600;padding:4px 9px;border-radius:8px;background:var(--brand);color:#fff;display:inline-block}
+.btn.ghost{background:#fff;color:var(--ink);border:1px solid var(--line)}
+.mut{color:var(--muted)}
+.hr{height:1px;background:var(--line);margin:7px 0}
+.legend{font-size:12.5px;color:var(--muted);margin-top:8px;text-align:center}
+
+/* ---------- couverture ---------- */
+.cover{background:linear-gradient(140deg,#0E2A24 0%,#16241F 55%,#1B3A31 100%);color:#fff;justify-content:center}
+.cover h1{font-size:62px;color:#fff}
+.cover .sub{font-size:24px;color:#B8CCC4;margin-bottom:26px}
+.cover .who{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:30px}
+.cover .who span{border:1px solid rgba(255,255,255,.22);border-radius:99px;padding:7px 16px;font-size:15px;color:#DDE7E3}
+.cover .meta{font-size:14px;color:#7E948C;line-height:1.7}
+.cover .mark{width:54px;height:54px;border-radius:18px;background:var(--brand);margin-bottom:26px}
+.section h2{font-size:46px;color:#fff}
+.section .num{font-family:var(--font-title);font-size:110px;line-height:1;color:rgba(143,214,196,.28);margin-bottom:8px}
+
+/* ---------- impression / PDF ---------- */
+@page{size:1280px 720px;margin:0}
+@media print{
+  body{background:#fff;overflow:visible}
+  .pagenum{display:block}
+  #deck{position:static;display:block}
+  #stage{width:1280px;height:auto;transform:none;box-shadow:none;border-radius:0}
+  .slide{position:relative;display:flex!important;width:1280px;height:720px;page-break-after:always;break-after:page}
+  #bar,#hud,#toc{display:none!important}
+  .notes{display:none!important}
+}
+</style>
+</head>
+<body>
+<svg style="display:none" aria-hidden="true">
+ <symbol id="i-dash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+ <symbol id="i-folder" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h3.6l1.8 2H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+ <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3.5"/><path d="m8 12.2 2.8 2.8L16.2 9"/></symbol>
+ <symbol id="i-build" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M9 8h1.5M13.5 8H15M9 12h1.5M13.5 12H15M10 21v-3.5h4V21"/></symbol>
+ <symbol id="i-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V5m-4.5 4.5L12 5l4.5 4.5M4 20h16"/></symbol>
+ <symbol id="i-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 20V11M10 20V5M16 20v-6M2.5 20h19"/></symbol>
+ <symbol id="i-bulb" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 18h5M10.5 21h3M12 3a6 6 0 0 0-3.2 11.1V17h6.4v-2.9A6 6 0 0 0 12 3z"/></symbol>
+ <symbol id="i-mega" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10v4h4l7 4V6l-7 4H4zM18.5 9.2a4 4 0 0 1 0 5.6"/></symbol>
+ <symbol id="i-help" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.6a2.5 2.5 0 1 1 3.1 2.4c-.7.3-1.1.9-1.1 1.6v.4"/><circle cx="11.6" cy="17" r=".8" fill="currentColor" stroke="none"/></symbol>
+ <symbol id="i-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16.5V11a6 6 0 1 1 12 0v5.5l1.6 1.7H4.4zM10 21h4"/></symbol>
+</svg>
+
+<div id="bar"><i></i></div>
+<div id="deck"><div id="stage">
+
+<!-- ============ 1 · COUVERTURE ============ -->
+<section class="slide cover">
+  <div class="mark"></div>
+  <h1>Solid'Pilot</h1>
+  <div class="sub">Le programme CEM Liban–Yvelines, vu de la coordination</div>
+  <div class="who">
+    <span>YCID</span>
+    <span>Direction de programme</span>
+    <span>Trois volets · 106 200 €</span>
+  </div>
+  <div class="meta">
+    Point d'étape et prise en main — 25 minutes<br>
+    Septembre 2026 · Application développée par REFLEY pour YCID
+  </div>
+  <div class="notes">
+    <b>Accueil (30 s).</b> Séance différente de celle des communes : ici on ne montre pas
+    « comment déposer un devis », on montre <b>ce que la coordination voit et décide</b>.
+    <ul>
+      <li>Objectif : que Bérengère et YCID sachent ce que l'outil leur donne, ce qu'il leur demande,
+      et ce qui est décidé pour la suite.</li>
+      <li><b>Touches :</b> → suivant · S sommaire · N notes · T chrono · P plein écran.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============ 2 · PLAN ============ -->
+<section class="slide">
+  <div class="kicker">Les 25 prochaines minutes</div>
+  <h2>Ce que nous allons voir</h2>
+  <div class="body">
+    <div class="cols">
+      <div class="c3">
+        <table class="t">
+          <tr><td><span class="pill p-grey">5 min</span></td><td><strong>1. Où en est le programme.</strong> Le portefeuille en un écran, les trois volets, ce que chacun voit.</td></tr>
+          <tr><td><span class="pill p-grey">7 min</span></td><td><strong>2. Le travail de coordination, outillé.</strong> Valider, appeler les fonds, relancer, rendre compte.</td></tr>
+          <tr><td><span class="pill p-grey">5 min</span></td><td><strong>3. Ce qui protège YCID.</strong> La chaîne de justification, le journal, le RGPD.</td></tr>
+          <tr><td><span class="pill p-grey">4 min</span></td><td><strong>4. Administrer sans dépendre de personne.</strong> Comptes, organisations, configuration.</td></tr>
+          <tr><td><span class="pill p-grey">4 min</span></td><td><strong>5. La suite.</strong> La méthode, la roadmap, ce qu'on attend d'YCID.</td></tr>
+        </table>
+      </div>
+      <div class="c2">
+        <div class="box accent" style="height:100%">
+          <h3>Ce qui se décide aujourd'hui</h3>
+          <ul class="big" style="margin-top:12px">
+            <li style="font-size:18px">Qui administre l'outil côté YCID</li>
+            <li style="font-size:18px">Le calendrier des séances communes</li>
+            <li style="font-size:18px">Les trois prochains chantiers</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="brandline">Solid'Pilot · YCID</div>
+  <div class="notes"><b>1 min.</b> Annoncer que la séance se termine par des décisions, pas par des questions.
+  Les trois points de l'encadré sont ce qu'on veut avoir tranché en sortant.</div>
+</section>
+
+<!-- ============ 3 · SECTION 1 ============ -->
+<section class="slide dark section center">
+  <div class="num">1</div>
+  <h2>Où en est le programme</h2>
+  <p class="lead" style="color:#9FB4AC">Ce que la coordination lit en trente secondes, et que personne ne lui envoie.</p>
+  <div class="notes"><b>Transition.</b> « Avant l'outil, cette réponse demandait trois mails et deux jours. »</div>
+</section>
+
+<!-- ============ 4 · LE PORTEFEUILLE ============ -->
+<section class="slide">
+  <div class="kicker">1 · Où en est le programme</div>
+  <h2>Le portefeuille en un écran</h2>
+  <div class="body">
+    <div class="shotbox" style="height:450px">
+      <figure class="shot" data-capture="pilotage.png">
+        <div class="app">
+          <div class="app-side" data-nav="steering"></div>
+          <div class="app-main">
+            <div class="app-top"><span class="bell"><svg style="width:13px;height:13px"><use href="#i-bell"/></svg><b>4</b></span>
+              <span>Bérengère A. · <span class="bdg" style="background:var(--brand-soft);color:var(--brand)">Admin YCID</span></span>
+              <span class="av">BA</span></div>
+            <div class="app-body">
+              <h1>Pilotage — Portefeuille</h1>
+              <p>Les projets de tous les programmes, et ce qui glisse.</p>
+              <div class="tiles" style="margin:9px 0">
+                <div class="tile"><div class="l"><i style="background:var(--brand)"></i>Budget total portefeuille</div><div class="v">106 200 €</div><div class="s">3 projets · 3 exercices</div></div>
+                <div class="tile"><div class="l"><i style="background:var(--blue)"></i>Projets en cours</div><div class="v">3</div><div class="s">sur 3</div></div>
+                <div class="tile" style="border-color:#E8D5AE;background:#FBF0E0"><div class="l" style="color:#8A6A1F"><i style="background:var(--amber)"></i>Décisions ouvertes</div><div class="v" style="color:#8A6A1F">7</div><div class="s" style="color:#8A6A1F">en attente d'une suite</div></div>
+                <div class="tile" style="border-color:#F0CBC7;background:#FBEAEA"><div class="l" style="color:#A3342C"><i style="background:var(--red)"></i>Décisions en retard</div><div class="v" style="color:#A3342C">2</div><div class="s" style="color:#A3342C">échéance dépassée</div></div>
+              </div>
+              <div class="card">
+                <table class="g">
+                  <tr><th style="width:30%">Projet</th><th>Partenaires</th><th>Avancement</th><th style="text-align:right">Voté</th><th style="text-align:right">Engagé</th><th style="text-align:right">Payé</th><th>Retards</th></tr>
+                  <tr><td><strong>CEM Liban — Triade Villepreux · Azour · LEY</strong><div style="font-size:8.5px;color:var(--muted)">Liban · France</div></td>
+                    <td>Villepreux, Azour, LEY, CD78</td>
+                    <td><div class="m" style="height:4px;border-radius:99px;background:#EEF0EE;overflow:hidden;width:60px"><i style="display:block;height:100%;width:41%;background:var(--brand)"></i></div>41 %</td>
+                    <td class="num">49 200 €</td><td class="num">16 800 €</td><td class="num">6 100 €</td>
+                    <td><span class="bdg" style="background:var(--red-soft);color:var(--red)">1 tâche</span></td></tr>
+                  <tr><td><strong>CEM Liban — Triade Jouy-en-Josas · Jeïta · Comité</strong><div style="font-size:8.5px;color:var(--muted)">Liban · France</div></td>
+                    <td>Jouy-en-Josas, Jeïta, Comité</td>
+                    <td><div class="m" style="height:4px;border-radius:99px;background:#EEF0EE;overflow:hidden;width:60px"><i style="display:block;height:100%;width:38%;background:var(--brand)"></i></div>38 %</td>
+                    <td class="num">29 900 €</td><td class="num">11 400 €</td><td class="num">4 260 €</td>
+                    <td><span class="bdg" style="background:var(--red-soft);color:var(--red)">2 tâches</span></td></tr>
+                  <tr><td><strong>CEM Liban — Coordination et actions communes</strong><div style="font-size:8.5px;color:var(--muted)">YCID</div></td>
+                    <td>YCID, MEAE</td>
+                    <td><div class="m" style="height:4px;border-radius:99px;background:#EEF0EE;overflow:hidden;width:60px"><i style="display:block;height:100%;width:22%;background:var(--brand)"></i></div>22 %</td>
+                    <td class="num">27 100 €</td><td class="num">5 400 €</td><td class="num">2 100 €</td>
+                    <td><span class="bdg" style="background:#EEF0EE;color:var(--muted)">aucune</span></td></tr>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </figure>
+    </div>
+    <div class="legend">Trois volets, un tableau. Le montant voté vient du classeur ; l'engagé et le payé viennent des pièces.</div>
+  </div>
+  <div class="brandline">Solid'Pilot · YCID</div>
+  <div class="notes"><b>2 min.</b> L'écran que la direction de programme ouvre en premier.
+  <ul><li>Insister : ces chiffres ne sont saisis nulle part deux fois. L'engagé est la somme des devis validés,
+  le payé celle des factures réglées — ils se déduisent des pièces déposées par les partenaires.</li>
+  <li>« Décisions en retard » : ce sont les décisions de COPIL dont l'échéance est passée. C'est l'indicateur
+  de pilotage le plus utile en réunion.</li></ul></div>
+</section>
+
+<!-- ============ 5 · LES TROIS VOLETS ============ -->
+<section class="slide soft">
+  <div class="kicker">1 · Où en est le programme</div>
+  <h2>Les trois volets, et qui les finance</h2>
+  <div class="body">
+    <table class="t">
+      <tr><th>Volet</th><th style="text-align:right">Numéraire</th><th style="text-align:right">Valorisation</th><th style="text-align:right">Total</th><th style="text-align:right">Lignes</th></tr>
+      <tr><td><strong>Villepreux · Azour · LEY</strong></td><td class="num">40 700 €</td><td class="num">8 500 €</td><td class="num">49 200 €</td><td class="num">32</td></tr>
+      <tr><td><strong>Jouy-en-Josas · Jeïta · Comité de Jumelage</strong></td><td class="num">26 900 €</td><td class="num">3 000 €</td><td class="num">29 900 €</td><td class="num">21</td></tr>
+      <tr><td><strong>Coordination et actions communes</strong> <span class="tiny">(YCID)</span></td><td class="num">25 100 €</td><td class="num">2 000 €</td><td class="num">27 100 €</td><td class="num">12</td></tr>
+      <tr class="tot"><td>Programme</td><td class="num">92 700 €</td><td class="num">13 500 €</td><td class="num">106 200 €</td><td class="num">65</td></tr>
+    </table>
+    <div class="grid4" style="margin-top:22px">
+      <div class="kpi"><div class="v">51 200 €</div><div class="l">MEAE</div></div>
+      <div class="kpi"><div class="v">15 000 €</div><div class="l">Département des Yvelines</div></div>
+      <div class="kpi"><div class="v">17 000 €</div><div class="l">YCID</div></div>
+      <div class="kpi"><div class="v">23 000 €</div><div class="l">Communes, associations, comités</div></div>
+    </div>
+  </div>
+  <div class="brandline">Solid'Pilot · YCID</div>
+  <div class="notes"><b>1 min 30.</b> Ces chiffres sont la transposition du classeur, vérifiée trois fois :
+  totaux généraux, totaux par partenaire, et bloc « ce que dépense chaque partenaire ». Les huit totaux
+  du classeur sont retrouvés à l'euro.
+  <ul><li>Si un partenaire conteste un chiffre : la correction se fait dans l'outil, elle est tracée,
+  et elle vaut pour tout le monde en même temps. C'est tout l'intérêt.</li></ul></div>
+</section>
+
+<!-- ============ 6 · QUI VOIT QUOI ============ -->
+<section class="slide">
+  <div class="kicker">1 · Où en est le programme</div>
+  <h2>La coordination voit tout ; les autres, leur volet</h2>
+  <div class="body">
+    <div class="cols" style="align-items:flex-start">
+      <div class="c1">
+        <ul class="big">
+          <li><strong>YCID</strong> participe aux trois volets : la coordination lit les trois, et c'est la seule à le faire.</li>
+          <li><strong>Chaque triade</strong> voit son projet, ses chiffres, ses pièces. Jeïta ne voit pas le budget d'Azour.</li>
+          <li>Sur la carte, un projet hors droits apparaît comme <strong>« 1 projet sans accès »</strong> — jamais nommé.</li>
+          <li>Les règles sont appliquées <strong>par le serveur</strong>, pas par l'écran : rien à contourner depuis un navigateur.</li>
+        </ul>
+      </div>
+      <div class="c1">
+        <div class="box accent">
+          <h3>Pourquoi ce cloisonnement est un service, pas une méfiance</h3>
+          <p style="font-size:17px;margin:0">Un partenaire à qui l'on ouvre tout finit par ne plus rien regarder.
+          Chacun voit ce dont il répond — et la coordination reste le seul endroit où le programme
+          se lit d'un bloc. C'est aussi ce qui permet d'ouvrir l'outil à une commune sans lui
+          faire porter la confidentialité des autres.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="brandline">Solid'Pilot · YCID</div>
+  <div class="notes"><b>1 min 30.</b> Question qui vient toujours : « et si une commune veut voir l'ensemble ? »
+  Réponse : le rapport, ou la page publique du projet. Ouvrir un accès complet à tous ferait porter
+  à chacun la confidentialité des autres — et ce n'est pas ce qu'on nous demande.</div>
+</section>
+
+<!-- ============ 7 · SECTION 2 ============ -->
+<section class="slide dark section center">
+  <div class="num">2</div>
+  <h2>Le travail de coordination, outillé</h2>
+  <p class="lead" style="color:#9FB4AC">Valider, appeler les fonds, relancer, rendre compte.</p>
+  <div class="notes"><b>Transition.</b> « Voilà les quatre gestes qui prennent aujourd'hui le plus de temps. »</div>
+</section>
+
+<!-- ============ 8 · À VALIDER ============ -->
+<section class="slide">
+  <div class="kicker">2 · Le travail outillé</div>
+  <h2>Valider : l'unanimité, et le délai comme vrai risque</h2>
+  <div class="body">
+    <div class="cols" style="gap:22px">
+      <div class="c3">
+        <div class="shotbox" style="height:360px">
+          <figure class="shot" data-capture="a-valider-ycid.png">
+            <div class="app">
+              <div class="app-side" data-nav="toValidate"></div>
+              <div class="app-main">
+                <div class="app-top"><span class="bell"><svg style="width:13px;height:13px"><use href="#i-bell"/></svg><b>4</b></span><span class="av">BA</span></div>
+                <div class="app-body">
+                  <h1>À valider</h1>
+                  <p>2 devis attendent une décision de vos organisations.</p>
+                  <div class="card" style="margin-top:8px">
+                    <div class="between">
+                      <div><div style="font-size:11px;font-weight:600;color:var(--ink)">Devis — Aménagement du site principal du Shir</div>
+                        <div style="font-size:9.5px;color:var(--muted);margin-top:2px">Triade Villepreux · Azour — déposé par Karim A. le 30/08</div>
+                        <div style="font-size:9.5px;color:var(--muted);margin-top:2px">Validé par LEY le 31/08 · <strong>votre tour</strong></div></div>
+                      <div style="text-align:right"><div style="font-family:var(--font-title);font-size:16px;color:var(--ink)">8 200 €</div>
+                        <span class="bdg" style="background:var(--amber-soft);color:var(--amber)">Étape 2 · coordination</span></div>
+                    </div>
+                    <div class="hr"></div>
+                    <div class="row"><span class="btn">Valider</span><span class="btn ghost" style="color:#A3342C;border-color:#F0CBC7">Refuser (motif obligatoire)</span></div>
+                  </div>
+                  <div class="card" style="margin-top:7px">
+                    <div class="between"><div><div style="font-size:11px;font-weight:600;color:var(--ink)">Devis — Terrassement et nivellement du sentier (lot 2)</div>
+                      <div style="font-size:9.5px;color:var(--muted);margin-top:2px">Triade Jouy · Jeïta — en attente du Comité de Jumelage</div></div>
+                      <span class="bdg" style="background:#EEF0EE;color:var(--muted)">Étape 1 · vous reviendra</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </figure>
+        </div>
+      </div>
+      <div class="c1">
+        <ul class="big" style="font-size:17px">
+          <li style="font-size:17px"><strong>Unanimité</strong> : un montant n'est engagé que si toutes les organisations sollicitées ont validé.</li>
+          <li style="font-size:17px">Le circuit est <strong>ordonné</strong> : l'organisation porteuse d'abord, la coordination ensuite.</li>
+          <li style="font-size:17px">La file ne montre que <strong>ce qui est actionnable</strong> — pas ce qui attend quelqu'un d'autre.</li>
+          <li style="font-size:17px">Le vrai risque n'est pas la fraude, c'est <strong>l'attente</strong>.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="brandline">Solid'Pilot · YCID</div>
+  <div class="notes"><b>2 min.</b> Point de méthode à assumer devant YCID : l'unanimité bloque, et c'est voulu.
+  <ul><li>« Un engagement sur lequel un cofinanceur ne s'est pas prononcé n'est pas un engagement » — arbitrage
+  du 25/07, et c'est ce qui protège la déclaration au MEAE.</li>
+  <li>Contrepartie non négociable : que l'organisation silencieuse SACHE qu'on l'attend. D'où les notifications
+  et cette file. Si YCID met trois semaines à trancher, c'est le chantier qui décale.</li>
+  <li>Décider au nom d'une organisation reste possible pour un administrateur, avec motif obligatoire et trace au Journal.</li></ul></div>
+</section>
+
+<!-- ============ 9 · APPELS DE FONDS ============ -->
+<section class="slide">
+  <div class="kicker">2 · Le travail outillé</div>
+  <h2>Appeler les fonds, et relancer sans fichier de suivi</h2>
+  <div class="body">
+    <div class="shotbox" style="height:330px">
+      <figure class="shot" data-capture="appels-ycid.png">
+        <div class="app"><div class="app-main" style="background:#fff">
+          <div class="app-body" style="padding:11px 13px">
+            <div class="between"><h2 style="margin:0">Appels de fonds — programme CEM Liban</h2><span class="btn">+ Appel de fonds</span></div>
+            <table class="g" style="margin-top:6px">
+              <tr><th>Année</th><th>Qui paie</th><th>Bénéficiaire</th><th style="text-align:right">Montant</th><th>État</th><th></th></tr>
+              <tr><td>2025</td><td><strong>YCID</strong></td><td>LEY</td><td class="num">4 980 €</td>
+                <td><span class="bdg" style="background:var(--brand-soft);color:var(--brand)">Reçu le 18/11/2025</span></td><td></td></tr>
+              <tr><td>2026</td><td><strong>YCID</strong></td><td>LEY</td><td class="num">19 920 €</td>
+                <td><span class="bdg" style="background:var(--amber-soft);color:var(--amber)">Demandé le 02/09</span></td>
+                <td><span class="btn ghost">Relancer</span></td></tr>
+              <tr><td>2026</td><td>Commune de Villepreux</td><td>LEY</td><td class="num">2 000 €</td>
+                <td><span class="bdg" style="background:var(--blue-soft);color:var(--blue)">Versé le 12/03 · VIR-2026-041</span></td>
+                <td class="mut" style="font-size:9px">réception à confirmer par LEY</td></tr>
+              <tr><td>2026</td><td>LEY</td><td class="mut">— pour le projet</td><td class="num">1 000 €</td>
+                <td><span class="bdg" style="background:#EEF0EE;color:var(--muted)">Promis</span></td><td></td></tr>
+              <tr><td>2027</td><td><strong>YCID</strong></td><td>LEY</td><td class="num">8 300 €</td>
+                <td><span class="bdg" style="background:#EEF0EE;color:var(--muted)">Promis</span></td><td></td></tr>
+            </table>
+            <p style="margin-top:7px;font-size:9.5px">La subvention YCID de 33 200 € est versée par tranches selon les décaissements : 15 % en 2025, 60 % en 2026, 25 % en 2027.</p>
+          </div></div>
+      </figure>
+    </div>
+    <div class="legend">promis → demandé → versé → reçu. Le payeur déclare le virement, le bénéficiaire confirme le crédit.</div>
+  </div>
+  <div class="brandline">Solid'Pilot · YCID</div>
+  <div class="notes"><b>2 min.</b> L'écran que la directrice de programme utilisera le plus après le portefeuille.
+  <ul><li>La relance est <b>manuelle</b>, délibérément : c'est un geste politique, pas un robot. L'outil garde la trace
+  de la dernière relance et l'historique complet au Journal.</li>
+  <li>Une promesse est un FLUX entre organisations, le budget est la dépense : l'écran les compare, ne les confond jamais.
+  L'écart est signalé, pas corrigé en douce.</li>
+  <li>« Versé » et « reçu » sont deux gestes distincts, par deux personnes différentes — et c'est la date de réception
+  qui autorise à dépenser.</li></ul></div>
+</section>
+
+<!-- ============ 10 · RENDRE COMPTE ============ -->
+<section class="slide soft">
+  <div class="kicker">2 · Le travail outillé</div>
+  <h2>Rendre compte : le rapport se prépare tout seul</h2>
+  <div class="body">
+    <div class="grid2" style="gap:20px">
+      <div class="box"><h3>Le rapport d'expert</h3>
+        <p style="font-size:17px;margin:0">Un rapport rédigé à partir des données réelles du projet — avancement,
+        budget, indicateurs, décisions — avec vos instructions. Il se régénère, se relit, s'imprime.
+        Les rapports déjà produits restent consultables sans être régénérés.</p></div>
+      <div class="box"><h3>Ce qui part à l'IA</h3>
+        <p style="font-size:17px;margin:0">Un condensé <strong>anonyme</strong> : ni nom, ni email, ni identifiant de personne.
+        Un contrôle automatique refuse toute requête du condensé qui demanderait un champ identifiant.
+        La destination du rapport est dite à l'écran, avant de cliquer.</p></div>
+      <div class="box"><h3>Les indicateurs</h3>
+        <p style="font-size:17px;margin:0">Jeunes mobilisés, kilomètres de sentier, guides formés :
+        une mesure par période, saisie par ceux qui étaient là. C'est ce que lira le MEAE —
+        et ce que le rapport reprend sans que personne ne les recopie.</p></div>
+      <div class="box"><h3>Les pièces</h3>
+        <p style="font-size:17px;margin:0">L'onglet Documents rassemble toutes les pièces d'un projet,
+        filtrables et téléchargeables en une archive. Le jour du contrôle, la réponse est un clic,
+        pas une demi-journée de fouille dans les boîtes mail.</p></div>
+    </div>
+  </div>
+  <div class="brandline">Solid'Pilot · YCID</div>
+  <div class="notes"><b>1 min 30.</b> Sur l'IA, être précis et sobre : elle rédige à partir de données déjà saisies,
+  elle n'invente pas de chiffres, et le condensé qui lui est transmis est anonyme — c'est vérifié par un contrôle
+  automatique à chaque livraison. Ne pas survendre : le rapport est un brouillon solide, relu par un humain.</div>
+</section>
+
+<!-- ============ 11 · SECTION 3 ============ -->
+<section class="slide dark section center">
+  <div class="num">3</div>
+  <h2>Ce qui protège YCID</h2>
+  <p class="lead" style="color:#9FB4AC">Devant un financeur, devant un contrôle, et devant un désaccord entre partenaires.</p>
+  <div class="notes"><b>Transition.</b> « Cette partie n'est pas une formalité : c'est la raison pour laquelle
+  un outil vaut mieux qu'un classeur partagé. »</div>
+</section>
+
+<!-- ============ 12 · LA CHAÎNE DE JUSTIFICATION ============ -->
+<section class="slide">
+  <div class="kicker">3 · Ce qui protège YCID</div>
+  <h2>La chaîne de justification, de bout en bout</h2>
+  <div class="body">
+    <div class="flow" style="margin-bottom:20px">
+      <div class="step"><div class="n">1</div><h4>La pièce</h4><p>Le devis est déposé sur sa ligne budgétaire, par qui l'a reçu.</p></div>
+      <div class="arr">›</div>
+      <div class="step"><div class="n">2</div><h4>La décision</h4><p>Chaque organisation sollicitée se prononce, motif à l'appui pour un refus.</p></div>
+      <div class="arr">›</div>
+      <div class="step"><div class="n">3</div><h4>L'engagement</h4><p>Unanimité obtenue : le montant devient de l'engagé.</p></div>
+      <div class="arr">›</div>
+      <div class="step"><div class="n">4</div><h4>Le paiement</h4><p>La facture est marquée payée : le réalisé s'incrémente.</p></div>
+      <div class="arr">›</div>
+      <div class="step" style="border-color:#BFDDD4;background:var(--brand-soft)"><div class="n">5</div><h4>La preuve</h4><p>La pièce, la décision et sa date restent au dossier, pour toujours.</p></div>
+    </div>
+    <div class="callout">
+      Une pièce <strong>décidée ne se supprime plus</strong> : la décision est ce qui justifie la dépense,
+      elle ne peut pas dépendre du bon vouloir de celui qu'elle contraint.
+    </div>
+  </div>
+  <div class="brandline">Solid'Pilot · YCID</div>
+  <div class="notes"><b>1 min 30.</b> Le point à faire entendre : chaque euro déclaré au MEAE est adossé à une pièce
+  ET à une décision datée. Un tableur ne sait pas faire ça.
+  <ul><li>Anecdote utile : la règle « une décision ne se rejoue pas » a été gravée en base après avoir constaté
+  qu'un refus pouvait disparaître avec la pièce refusée.</li></ul></div>
+</section>
+
+<!-- ============ 13 · JOURNAL & AUDITEUR ============ -->
+<section class="slide soft">
+  <div class="kicker">3 · Ce qui protège YCID</div>
+  <h2>Le journal, et le contrôleur que le contrôlé ne choisit pas</h2>
+  <div class="body">
+    <div class="grid2" style="gap:20px">
+      <div class="box"><h3>Un journal inaltérable</h3>
+        <p style="font-size:17px;margin:0">Créations, modifications, validations, réouvertures de tâches,
+        suppressions : qui, quoi, quand. Consultable par les membres du projet, filtrable,
+        et il <strong>survit à la suppression du projet</strong>.</p></div>
+      <div class="box"><h3>Le rôle d'auditeur</h3>
+        <p style="font-size:17px;margin:0">Il voit tout, journal compris, et ne modifie rien — pas même une mesure.
+        Il est <strong>nommé et retiré par un administrateur YCID seul</strong> : l'audité ne congédie pas son auditeur.</p></div>
+      <div class="box"><h3>Les tâches verrouillées</h3>
+        <p style="font-size:17px;margin:0">Une tâche terminée ne se rouvre qu'avec une double confirmation
+        d'administrateur et un motif obligatoire, tracé. Ce n'est pas de la défiance :
+        c'est ce qui rend l'avancement affiché crédible.</p></div>
+      <div class="box"><h3>La procuration</h3>
+        <p style="font-size:17px;margin:0">Un administrateur peut décider au nom d'une organisation qui n'a pas de compte —
+        geste motivé, tracé, et le rapport dira « validé par un administrateur au nom de X »,
+        jamais « validé par X ».</p></div>
+    </div>
+  </div>
+  <div class="brandline">Solid'Pilot · YCID</div>
+  <div class="notes"><b>1 min 30.</b> Ces quatre points sont ceux qu'un commissaire aux comptes, un DGS
+  ou un contrôleur du Département poseront. Les connaître par cœur vaut mieux que de les chercher en séance.</div>
+</section>
+
+<!-- ============ 14 · RGPD ============ -->
+<section class="slide">
+  <div class="kicker">3 · Ce qui protège YCID</div>
+  <h2>Données personnelles : ce que YCID doit pouvoir répondre</h2>
+  <div class="body">
+    <div class="cols" style="align-items:flex-start">
+      <div class="c1">
+        <ul class="big" style="font-size:19px">
+          <li style="font-size:19px"><strong>Le strict nécessaire</strong> : nom professionnel, email, rôle. Pas de donnée sensible.</li>
+          <li style="font-size:19px"><strong>Le droit d'accès</strong> : l'export des données d'une personne se produit depuis l'outil.</li>
+          <li style="font-size:19px"><strong>L'effacement par anonymisation</strong> : la personne disparaît, l'historique du programme reste juste.</li>
+          <li style="font-size:19px"><strong>La rétention</strong> est paramétrée, pas subie.</li>
+        </ul>
+      </div>
+      <div class="c1">
+        <div class="box warn">
+          <h3 style="color:#8A6A1F">Pourquoi l'anonymisation plutôt que la suppression</h3>
+          <p style="font-size:17px;margin:0;color:#6E5518">Supprimer un compte effacerait aussi qui a validé quel devis,
+          et le programme perdrait sa piste d'audit — celle-là même qu'un financeur peut demander cinq ans après.
+          L'anonymisation retire la personne et <strong style="color:#5E4712">garde le geste</strong> :
+          « validé le 12/03 par un compte supprimé ».</p>
+        </div>
+        <div class="box" style="margin-top:14px">
+          <h3>Sauvegardes</h3>
+          <p style="font-size:17px;margin:0">Sauvegarde régulière de la base et des pièces, avec points de contrôle.
+          Le jour où quelque chose casse, la question n'est pas « a-t-on une sauvegarde ? » mais « de quand ? ».</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="brandline">Solid'Pilot · YCID</div>
+  <div class="notes"><b>1 min 30.</b> Si la question « où sont hébergées les données ? » est posée et que la réponse précise
+  n'est pas connue : la noter et la faire remonter, ne pas improviser. C'est le genre de réponse qu'on ne rattrape pas.</div>
+</section>
+
+<!-- ============ 15 · SECTION 4 ============ -->
+<section class="slide dark section center">
+  <div class="num">4</div>
+  <h2>Administrer sans dépendre de personne</h2>
+  <p class="lead" style="color:#9FB4AC">L'outil s'administre depuis l'outil — pas par un ticket au développeur.</p>
+  <div class="notes"><b>Transition.</b> « C'est le point qui décide si l'outil survit à son auteur. »</div>
+</section>
+
+<!-- ============ 16 · ADMINISTRATION ============ -->
+<section class="slide">
+  <div class="kicker">4 · Administrer</div>
+  <h2>Ce qu'YCID pilote seul, depuis l'écran</h2>
+  <div class="body">
+    <div class="shotbox" style="height:340px">
+      <figure class="shot" data-capture="admin.png">
+        <div class="app">
+          <div class="app-side" data-nav="users"></div>
+          <div class="app-main">
+            <div class="app-top"><span class="av">BA</span></div>
+            <div class="app-body">
+              <div class="between"><div><h1>Utilisateurs</h1><p>11 comptes · accès sur invitation</p></div>
+                <span class="row"><span class="btn ghost">Importer (CSV)</span><span class="btn">+ Créer un compte</span></span></div>
+              <div class="card" style="margin-top:8px">
+                <table class="g">
+                  <tr><th style="width:26%">Personne</th><th>Organisation</th><th>Rôles projet</th><th>État</th><th></th></tr>
+                  <tr><td>Bérengère A. <span class="bdg" style="background:var(--brand-soft);color:var(--brand)">Vous</span></td><td>YCID</td><td>Admin plateforme</td><td><span class="bdg" style="background:var(--brand-soft);color:var(--brand)">Actif</span></td><td class="mut">Modifier</td></tr>
+                  <tr><td>Karim A.</td><td>Libanais en Yvelines (LEY)</td><td>Responsable projet — Triade Azour</td><td><span class="bdg" style="background:var(--brand-soft);color:var(--brand)">Actif</span></td><td class="mut">Modifier</td></tr>
+                  <tr><td>Nadia B.</td><td>Commune de Jouy-en-Josas</td><td>Référent Mairie — Triade Jeïta</td><td><span class="bdg" style="background:var(--brand-soft);color:var(--brand)">Actif</span></td><td class="mut">Modifier</td></tr>
+                  <tr><td>Rami H.</td><td>Municipalité d'Azour</td><td>Contributeur · Terrain</td><td><span class="bdg" style="background:#EEF0EE;color:var(--muted)">Invité</span></td><td class="mut">Relancer</td></tr>
+                </table>
+              </div>
+              <div class="row" style="margin-top:8px;flex-wrap:wrap">
+                <span class="bdg" style="background:#EEF0EE;color:var(--muted)">Organisations</span>
+                <span class="bdg" style="background:#EEF0EE;color:var(--muted)">Programmes</span>
+                <span class="bdg" style="background:#EEF0EE;color:var(--muted)">Accès &amp; rôles</span>
+                <span class="bdg" style="background:#EEF0EE;color:var(--muted)">Stockage</span>
+                <span class="bdg" style="background:#EEF0EE;color:var(--muted)">Configuration — marque, email, IA</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </figure>
+    </div>
+    <div class="legend">Comptes, organisations, programmes, droits, marque, email, IA : tout se règle dans l'application.</div>
+  </div>
+  <div class="brandline">Solid'Pilot · YCID</div>
+  <div class="notes"><b>1 min 30.</b> Message principal : YCID n'a pas besoin du développeur pour faire vivre l'outil.
+  <ul><li>La capacité « gestion des comptes » se délègue SANS donner l'administration complète :
+  quelqu'un peut créer et inviter des comptes sans toucher à la configuration ni au circuit de validation.</li>
+  <li>Deux pouvoirs restent réservés à l'administrateur : nommer ou retirer un auditeur, et décider au nom
+  d'une organisation.</li></ul></div>
+</section>
+
+<!-- ============ 17 · WHITE LABEL ============ -->
+<section class="slide soft">
+  <div class="kicker">4 · Administrer</div>
+  <h2>Et le jour où une autre collectivité le reprend</h2>
+  <div class="body">
+    <div class="cols" style="align-items:flex-start">
+      <div class="c1">
+        <ul class="big" style="font-size:19px">
+          <li style="font-size:19px">Le <strong>nom, le logo et la couleur</strong> de l'outil sont des paramètres, pas du code.</li>
+          <li style="font-size:19px">Les <strong>programmes</strong> existent au-dessus des projets : un second programme n'est pas une seconde application.</li>
+          <li style="font-size:19px">Le <strong>kit de communication</strong> héberge les supports officiels, à disposition de tous les partenaires.</li>
+          <li style="font-size:19px">Les <strong>rôles</strong> sont une matrice unique, lisible à l'écran — pas 141 règles éparpillées.</li>
+        </ul>
+      </div>
+      <div class="c1">
+        <div class="box accent" style="height:100%">
+          <h3>Ce que cela vaut pour YCID</h3>
+          <p style="font-size:18px">L'outil n'a pas été écrit pour le seul CEM Liban. Le jour où une autre
+          coopération démarre — ou une autre collectivité s'y intéresse —, il s'agit de créer un programme
+          et des comptes, pas de refaire un logiciel.</p>
+          <p style="font-size:18px;margin:0">C'est aussi ce qui rend le temps investi aujourd'hui
+          réutilisable demain.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="brandline">Solid'Pilot · YCID</div>
+  <div class="notes"><b>1 min.</b> Argument à garder pour la fin d'un COPIL ou une demande de subvention :
+  l'outil est un actif du territoire, pas un consommable de projet.</div>
+</section>
+
+<!-- ============ 18 · SECTION 5 ============ -->
+<section class="slide dark section center">
+  <div class="num">5</div>
+  <h2>La suite</h2>
+  <p class="lead" style="color:#9FB4AC">Comment ça se construit, et ce qu'on attend d'YCID.</p>
+  <div class="notes"><b>Transition.</b> « Deux minutes sur la méthode, parce qu'elle explique le rythme. »</div>
+</section>
+
+<!-- ============ 19 · LA MÉTHODE ============ -->
+<section class="slide">
+  <div class="kicker">5 · La suite</div>
+  <h2>Comment l'outil se construit</h2>
+  <div class="body">
+    <div class="grid4" style="margin-bottom:20px">
+      <div class="kpi"><div class="v">70</div><div class="l">migrations de base numérotées, rejouables</div></div>
+      <div class="kpi"><div class="v">120+</div><div class="l">demandes livrées, une par sujet</div></div>
+      <div class="kpi"><div class="v">6</div><div class="l">contrôles automatiques avant chaque livraison</div></div>
+      <div class="kpi"><div class="v">0</div><div class="l">régression connue passée en production depuis leur mise en place</div></div>
+    </div>
+    <div class="cols">
+      <div class="c1"><div class="box"><h3>Les contrôles ne font pas du chiffre</h3>
+        <p style="font-size:17px;margin:0">Chacun vise une panne <strong>réellement subie</strong> : un rapport généré
+        « sur 0 phase », une matrice de droits en désaccord avec la base, un tableau qui sortait du cadre
+        sur téléphone, un agrégat qui comptait du bénévolat comme de l'argent.</p></div></div>
+      <div class="c1"><div class="box"><h3>Une règle de livraison</h3>
+        <p style="font-size:17px;margin:0">Rien n'est annoncé déployé sans avoir été vérifié en ligne.
+        Cette règle est née d'un incident : un déploiement annoncé à tort, découvert par l'utilisateur.
+        Elle est écrite dans le dépôt.</p></div></div>
+    </div>
+  </div>
+  <div class="brandline">Solid'Pilot · YCID</div>
+  <div class="notes"><b>1 min 30.</b> Cette diapositive répond à une question qu'on ne pose pas toujours à voix haute :
+  « est-ce que cet outil est sérieux, ou est-ce du bricolage ? »
+  <ul><li>Le chiffre « 0 régression » vaut pour ce que les contrôles couvrent — le dire honnêtement, sans l'étendre.</li></ul></div>
+</section>
+
+<!-- ============ 20 · ROADMAP ============ -->
+<section class="slide soft">
+  <div class="kicker">5 · La suite</div>
+  <h2>Ce que les partenaires ont demandé — et obtenu</h2>
+  <div class="body">
+    <table class="t" style="font-size:18px">
+      <tr><th style="width:44%">La demande</th><th>Ce qui a été livré</th></tr>
+      <tr><td>« Chaque année, on promet des sommes et je relance tout le monde »</td><td><strong>Les appels de fonds</strong> : promesses annuelles, comparaison au budget, relances tracées.</td></tr>
+      <tr><td>« LEY a reçu 2 000 € de la mairie. Comment le confirmer ? »</td><td><strong>Versé / reçu</strong> : le payeur déclare, le bénéficiaire confirme, et c'est la réception qui autorise à dépenser.</td></tr>
+      <tr><td>« Rien ne montre qu'il y a un devis à valider »</td><td><strong>La file « À valider »</strong> et les notifications, avec lien direct vers la ligne.</td></tr>
+      <tr><td>« Le travail est entre deux villes, la carte n'en montre qu'une »</td><td><strong>Les villes du projet</strong> : un repère par ville, des deux côtés de la carte.</td></tr>
+      <tr><td>« Il faut pouvoir poser une question sur une tâche »</td><td><strong>Commentaires et demandes</strong> sur les tâches, avec notification de la bonne personne.</td></tr>
+    </table>
+    <div class="callout" style="margin-top:18px">
+      La page <strong>Roadmap</strong> est ouverte à tous les partenaires : ils décrivent, les autres votent, YCID arbitre.
+    </div>
+  </div>
+  <div class="brandline">Solid'Pilot · YCID</div>
+  <div class="notes"><b>1 min 30.</b> C'est la diapositive qui donne envie de continuer : presque tout ce qui a été
+  ajouté cette année vient d'une phrase dite en réunion. Nommer les personnes à l'origine des demandes si elles
+  sont dans la salle — rien ne fidélise autant.</div>
+</section>
+
+<!-- ============ 21 · CE QU'ON ATTEND ============ -->
+<section class="slide">
+  <div class="kicker">5 · La suite</div>
+  <h2>Ce qu'on attend d'YCID</h2>
+  <div class="body">
+    <div class="grid3" style="gap:18px">
+      <div class="box" style="border-color:#BFDDD4;background:var(--brand-soft)">
+        <h3 style="color:var(--brand)">Décider</h3>
+        <ul class="num" style="font-size:16px;margin-top:10px">
+          <li>Qui <strong>administre l'outil</strong> côté YCID, et qui peut créer des comptes.</li>
+          <li>Faut-il <strong>un auditeur</strong> sur le programme, et qui.</li>
+          <li>Les <strong>trois prochains chantiers</strong>, dans l'ordre.</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h3>Faire</h3>
+        <ul class="num" style="font-size:16px;margin-top:10px">
+          <li>Ouvrir les comptes des <strong>référents des quatre communes</strong>.</li>
+          <li>Fixer le calendrier des <strong>séances de prise en main</strong>.</li>
+          <li><strong>Relancer</strong> ce qui attend : deux devis et un versement.</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h3>Surveiller</h3>
+        <ul class="num" style="font-size:16px;margin-top:10px">
+          <li>Le <strong>délai de validation</strong> : c'est lui qui décale les chantiers.</li>
+          <li>Les <strong>mesures d'impact</strong> par trimestre — le rapport MEAE s'en nourrit.</li>
+          <li>La <strong>valorisation déclarée</strong> : non saisie, elle est perdue.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="callout" style="margin-top:22px">
+      Objectif du prochain COPIL : <strong>aucun chiffre ne vient d'un mail</strong>. Tout se lit à l'écran, ensemble.
+    </div>
+  </div>
+  <div class="brandline">Solid'Pilot · YCID</div>
+  <div class="notes"><b>2 min.</b> Sortir de la séance avec des noms et des dates, pas des intentions.
+  Noter en direct : l'administrateur désigné, la date des séances communes, les trois chantiers retenus.</div>
+</section>
+
+<!-- ============ 22 · QUESTIONS ============ -->
+<section class="slide dark center">
+  <div class="kicker">Merci</div>
+  <h1 style="color:#fff;font-size:52px">Questions ?</h1>
+  <p class="lead" style="color:#9FB4AC;max-width:820px;text-align:center">
+    Ce que la coordination y gagne : <strong style="color:#fff">une seule source de vérité</strong>,
+    <strong style="color:#fff">des décisions datées</strong>,
+    et <strong style="color:#fff">un rapport qui se prépare tout seul</strong>.
+  </p>
+  <div class="box dark" style="margin-top:26px;text-align:center;padding:18px 30px">
+    <div style="font-size:19px;color:#DCE5E1">ycid.joefr.cloud</div>
+    <div class="small" style="color:#7E948C;margin-top:6px">Accès sur invitation · Support : REFLEY</div>
+  </div>
+  <div class="notes"><b>Clôture.</b> Questions probables : le coût de fonctionnement, la reprise par une autre
+  collectivité, la dépendance au développeur, l'hébergement des données. Répondre franchement, noter ce qu'on ne sait pas.</div>
+</section>
+
+
+</div></div>
+
+<div id="hud">
+  <button id="prev" title="Précédent (←)">‹</button>
+  <span id="count">1 / 30</span>
+  <button id="next" title="Suivant (→)">›</button>
+  <button id="btoc" title="Sommaire (S)">Sommaire</button>
+  <button id="bnotes" title="Notes du présentateur (N)">Notes</button>
+  <span id="clock" title="Chrono (T)">00:00</span>
+  <button id="bfull" title="Plein écran (P)">⛶</button>
+</div>
+
+<div id="toc"><h3>Sommaire — cliquer pour aller à la diapositive</h3><ol></ol></div>
+
+<script>
+(function () {
+  'use strict';
+
+
+  // ---- 1. La barre latérale des reconstitutions d'écran ----------------
+  // Une seule définition, comme dans l'application : huit copies dans le
+  // HTML auraient divergé dès la première correction.
+  var NAV = [
+    { items: [['dashboard', 'Tableau de bord', 'i-dash']] },
+    { label: 'Projets', items: [
+      ['projects', 'Projets', 'i-folder'],
+      ['toValidate', 'À valider', 'i-check'],
+      ['organisations', 'Organisations', 'i-build'],
+      ['import', 'Import', 'i-up']] },
+    { label: 'Suivi', items: [
+      ['steering', 'Pilotage', 'i-chart'],
+      ['roadmap', 'Roadmap', 'i-bulb'],
+      ['kit', 'Kit de com', 'i-mega'],
+      ['help', 'Aide', 'i-help']] }
+  ];
+  Array.prototype.forEach.call(document.querySelectorAll('[data-nav]'), function (side) {
+    var active = side.getAttribute('data-nav'), html = '<div class="lg"><i></i><b>Solid’Pilot</b></div>';
+    NAV.forEach(function (g) {
+      if (g.label) html += '<div class="grp">' + g.label + '</div>';
+      g.items.forEach(function (it) {
+        html += '<a class="' + (it[0] === active ? 'on' : '') + '">' +
+          '<svg><use href="#' + it[2] + '"/></svg>' + it[1] + '</a>';
+      });
+    });
+    side.innerHTML = html;
+  });
+
+  // ---- 2. Les vraies captures, si elles existent -----------------------
+  // Déposer un PNG dans ./captures/ nommé comme l'attribut data-capture
+  // remplace la reconstitution, sans toucher au HTML.
+  Array.prototype.forEach.call(document.querySelectorAll('figure.shot[data-capture]'), function (fig) {
+    var src = 'captures/' + fig.getAttribute('data-capture'), probe = new Image();
+    probe.onload = function () {
+      fig.setAttribute('data-real', '1');
+      fig.style.transform = 'none'; fig.style.width = '100%';
+      fig.innerHTML = '';
+      fig.style.background = '#fff';
+      probe.style.width = '100%'; probe.style.height = '100%'; probe.style.objectFit = 'contain';
+      fig.appendChild(probe);
+      fig.style.height = '100%';
+    };
+    probe.src = src;
+  });
+
+
+  // ---- 3 bis. Agrandissement des reconstitutions ------------------------
+  // Les écrans sont dessinés aux dimensions réelles de l'application, puis
+  // agrandis pour rester lisibles depuis le fond de la salle. Deux passes :
+  // la hauteur naturelle dépend de la largeur, qui dépend du facteur.
+  function fitShots() {
+    document.body.classList.add('measuring');
+    Array.prototype.forEach.call(document.querySelectorAll('.shotbox'), function (box) {
+      var fig = box.querySelector('.shot');
+      if (!fig || fig.getAttribute('data-real')) return;
+      var bw = box.clientWidth, bh = box.clientHeight, z = 1, pass;
+      fig.style.transform = 'none';
+      for (pass = 0; pass < 2; pass++) {
+        fig.style.width = (bw / z) + 'px';
+        var h = fig.getBoundingClientRect().height;
+        if (!h) return;
+        z = Math.max(1, Math.min(2.8, bh / h));
+      }
+      fig.style.width = (bw / z) + 'px';
+      fig.style.transform = 'scale(' + z + ')';
+    });
+    document.body.classList.remove('measuring');
+  }
+
+  // ---- 3. Navigation ---------------------------------------------------
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var stage = document.getElementById('stage'), bar = document.querySelector('#bar i');
+  var count = document.getElementById('count'), toc = document.getElementById('toc');
+  var i = 0;
+
+  slides.forEach(function (s, n) {
+    var p = s.querySelector('.pagenum');
+    if (p) p.textContent = (n + 1) + ' / ' + slides.length;
+  });
+
+  function titleOf(s) {
+    var h = s.querySelector('h1, h2');
+    return h ? h.textContent.trim() : 'Diapositive';
+  }
+  toc.querySelector('ol').innerHTML = slides.map(function (s, n) {
+    return '<li data-i="' + n + '"><b>' + (n + 1) + '.</b> ' + titleOf(s) + '</li>';
+  }).join('');
+  toc.addEventListener('click', function (e) {
+    var li = e.target.closest('li');
+    if (li) { go(+li.getAttribute('data-i')); toc.classList.remove('on'); }
+    else if (e.target === toc) toc.classList.remove('on');
+  });
+
+  function go(n) {
+    i = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach(function (s, k) { s.classList.toggle('on', k === i); });
+    bar.style.width = ((i + 1) / slides.length * 100) + '%';
+    count.textContent = (i + 1) + ' / ' + slides.length;
+    if (history.replaceState) history.replaceState(null, '', '#' + (i + 1));
+    startClock();
+  }
+
+  // ---- 4. Mise à l'échelle 16:9 ---------------------------------------
+  function fit() {
+    var k = Math.min(window.innerWidth / 1280, window.innerHeight / 720);
+    stage.style.setProperty('--k', k);
+  }
+  window.addEventListener('resize', function () { fit(); fitShots(); });
+
+  // ---- 5. Chrono du présentateur --------------------------------------
+  var t0 = null, clock = document.getElementById('clock'), tick = null;
+  function paint() {
+    var s = Math.floor((Date.now() - t0) / 1000);
+    clock.textContent = String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+    clock.className = s > 1800 ? 'over' : 'run';
+  }
+  function startClock() {
+    if (t0) return;
+    t0 = Date.now(); paint(); tick = setInterval(paint, 1000);
+  }
+  function resetClock() {
+    clearInterval(tick); t0 = null; clock.textContent = '00:00'; clock.className = '';
+  }
+
+  // ---- 6. Commandes ----------------------------------------------------
+  document.addEventListener('keydown', function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    var k = e.key;
+    if (k === 'ArrowRight' || k === ' ' || k === 'PageDown' || k === 'Enter') { go(i + 1); e.preventDefault(); }
+    else if (k === 'ArrowLeft' || k === 'PageUp' || k === 'Backspace') { go(i - 1); e.preventDefault(); }
+    else if (k === 'Home') go(0);
+    else if (k === 'End') go(slides.length - 1);
+    else if (k === 's' || k === 'S') toc.classList.toggle('on');
+    else if (k === 'n' || k === 'N') document.body.classList.toggle('notes-on');
+    else if (k === 't' || k === 'T') { t0 ? resetClock() : startClock(); }
+    else if (k === 'p' || k === 'P' || k === 'f' || k === 'F') {
+      document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+    } else if (k === 'Escape') toc.classList.remove('on');
+  });
+  document.getElementById('next').onclick = function () { go(i + 1); };
+  document.getElementById('prev').onclick = function () { go(i - 1); };
+  document.getElementById('btoc').onclick = function () { toc.classList.toggle('on'); };
+  document.getElementById('bnotes').onclick = function () { document.body.classList.toggle('notes-on'); };
+  document.getElementById('bfull').onclick = function () {
+    document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+  };
+  stage.addEventListener('click', function (e) {
+    if (e.target.closest('a, button, .notes')) return;
+    go(e.clientX < window.innerWidth / 3 ? i - 1 : i + 1);
+  });
+  var x0 = null;
+  stage.addEventListener('touchstart', function (e) { x0 = e.touches[0].clientX; }, { passive: true });
+  stage.addEventListener('touchend', function (e) {
+    if (x0 === null) return;
+    var dx = e.changedTouches[0].clientX - x0;
+    if (Math.abs(dx) > 45) go(dx < 0 ? i + 1 : i - 1);
+    x0 = null;
+  }, { passive: true });
+
+  // ---- 7. Démarrage ----------------------------------------------------
+  fit();
+  fitShots();
+  window.addEventListener('load', fitShots);
+  var start = parseInt((location.hash || '').replace('#', ''), 10);
+  go(isFinite(start) && start > 0 ? start - 1 : 0);
+  resetClock();
+})();
+</script>
+</body>
+</html>
