@@ -52,6 +52,15 @@ export default async function PagePratique() {
   const tables = pois.filter((p) => sert(p, 'restaurant') && aAzour(p))
   const plusLoin = pois.filter((p) => sert(p, 'restaurant') && !aAzour(p))
 
+  /* La ligne de contexte : ce qu'on y trouve, et « sur réservation »
+     quand il faut avoir prévenu — arriver sans appeler, c'est trouver
+     porte close. Le service qui titre la section n'est pas répété. */
+  const contexte = (p: Poi, sauf?: Service) =>
+    [
+      ...(p.services ?? []).filter((s) => s !== sauf).map((s) => ts(s)),
+      ...(p.sur_reservation ? [t('surReservation')] : []),
+    ].join(' · ') || null
+
   /* Ces adresses sont indépendantes du projet : le seul service qu'on leur
      rend, c'est de rendre le contact joignable d'un geste. Téléphone,
      WhatsApp, et à défaut le site — sinon la ligne n'a pas d'aparté. */
@@ -176,6 +185,7 @@ export default async function PagePratique() {
                     icone={p.photo ? undefined : <Coffee size={18} aria-hidden />}
                     titre={tx(p.nom, locale)}
                     detail={tx(p.texte, locale)}
+                    meta={contexte(p, 'petit_dejeuner')}
                     aside={contacts(p)}
                   />
                 ))}
@@ -197,10 +207,7 @@ export default async function PagePratique() {
                     icone={p.photo ? undefined : <UtensilsCrossed size={18} aria-hidden />}
                     titre={tx(p.nom, locale)}
                     detail={tx(p.texte, locale)}
-                    meta={(p.services ?? [])
-                      .filter((s) => s !== 'petit_dejeuner')
-                      .map((s) => ts(s))
-                      .join(' · ')}
+                    meta={contexte(p, 'petit_dejeuner')}
                     aside={contacts(p)}
                   />
                 ))}

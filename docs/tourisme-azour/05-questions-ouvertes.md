@@ -81,6 +81,14 @@
     Blue Jay Valley redevient un **hébergement seul** : son service de
     table est retiré, et la phrase qui l'annonçait aussi — une
     description qui promet une table vaut une table promise.
+15. **Correction du 14, le même jour** : Blue Jay Valley **a bien un
+    restaurant**, avec une terrasse qui sert l'été comme l'hiver, **sur
+    réservation**. Son service de table est rétabli et sa fiche le dit.
+    « Sur réservation » devient un **paramètre à part** (colonne
+    `sur_reservation`, case à cocher au back-office) : ce n'est pas ce
+    qu'on sert, c'est la condition pour l'obtenir — et arriver sans avoir
+    prévenu, c'est trouver porte close. Le bar n'est pas rétabli : rien
+    ne l'a confirmé.
 
 ## Encore ouvert
 

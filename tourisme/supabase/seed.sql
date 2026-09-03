@@ -64,125 +64,140 @@ on conflict (territoire_id, slug) do update set nom = excluded.nom, accroche = e
   dangers = excluded.dangers, acces = excluded.acces, depart = excluded.depart,
   photo = excluded.photo, statut = excluded.statut, ordre = excluded.ordre;
 
-insert into pois (territoire_id, slug, nom, type, geom, panneau_no, texte, photo, audio_url, contact, statut, ordre, services)
+insert into pois (territoire_id, slug, nom, type, geom, panneau_no, texte, photo, audio_url, contact, statut, ordre, services, sur_reservation)
 values ((select id from territoires where slug = 'azour'), 'place-du-village', '{"fr":"Place du village — départ des sentiers","ar":"ساحة القرية — نقطة انطلاق الدروب","en":"Village square — trailhead"}'::jsonb, 'depart', st_setsrid(st_makepoint(35.5715, 33.5295), 4326), 1,
-  '{"fr":"Le point de départ de tous les parcours. Le kiosque touristique, animé par les jeunes et les guides d''Azour, vous renseigne, vous équipe et vous met en route. Stationnement sur la place.","ar":"نقطة انطلاق جميع المسارات. الكشك السياحي، بإشراف شباب وأدلّاء عازور، يرشدكم ويجهّزكم ويضعكم على الدرب. موقف سيارات في الساحة.","en":"The starting point of every route. The tourist kiosk, run by Azour''s young people and guides, informs you, equips you and sets you on your way. Parking on the square."}'::jsonb, null, null, null, 'publie', 1, '{}')
+  '{"fr":"Le point de départ de tous les parcours. Le kiosque touristique, animé par les jeunes et les guides d''Azour, vous renseigne, vous équipe et vous met en route. Stationnement sur la place.","ar":"نقطة انطلاق جميع المسارات. الكشك السياحي، بإشراف شباب وأدلّاء عازور، يرشدكم ويجهّزكم ويضعكم على الدرب. موقف سيارات في الساحة.","en":"The starting point of every route. The tourist kiosk, run by Azour''s young people and guides, informs you, equips you and sets you on your way. Parking on the square."}'::jsonb, null, null, null, 'publie', 1, '{}', false)
 on conflict (territoire_id, slug) do update set nom = excluded.nom, type = excluded.type,
   geom = excluded.geom, panneau_no = excluded.panneau_no, texte = excluded.texte,
   photo = excluded.photo, audio_url = excluded.audio_url, contact = excluded.contact,
-  statut = excluded.statut, ordre = excluded.ordre, services = excluded.services;
+  statut = excluded.statut, ordre = excluded.ordre, services = excluded.services,
+  sur_reservation = excluded.sur_reservation;
 
-insert into pois (territoire_id, slug, nom, type, geom, panneau_no, texte, photo, audio_url, contact, statut, ordre, services)
+insert into pois (territoire_id, slug, nom, type, geom, panneau_no, texte, photo, audio_url, contact, statut, ordre, services, sur_reservation)
 values ((select id from territoires where slug = 'azour'), 'kiosque', '{"fr":"Kiosque touristique d''Azour","ar":"كشك عازور السياحي","en":"Azour tourist kiosk"}'::jsonb, 'patrimoine', st_setsrid(st_makepoint(35.5716, 33.5296), 4326), null,
-  '{"fr":"Informations, conseils, réservation des guides et des sorties encadrées. Animé par les jeunes du village.","ar":"معلومات ونصائح وحجز الأدلّاء والنشاطات المؤطَّرة. بإشراف شباب القرية.","en":"Information, advice, booking of guides and supervised outings. Run by the village youth."}'::jsonb, null, null, null, 'publie', 2, '{}')
+  '{"fr":"Informations, conseils, réservation des guides et des sorties encadrées. Animé par les jeunes du village.","ar":"معلومات ونصائح وحجز الأدلّاء والنشاطات المؤطَّرة. بإشراف شباب القرية.","en":"Information, advice, booking of guides and supervised outings. Run by the village youth."}'::jsonb, null, null, null, 'publie', 2, '{}', false)
 on conflict (territoire_id, slug) do update set nom = excluded.nom, type = excluded.type,
   geom = excluded.geom, panneau_no = excluded.panneau_no, texte = excluded.texte,
   photo = excluded.photo, audio_url = excluded.audio_url, contact = excluded.contact,
-  statut = excluded.statut, ordre = excluded.ordre, services = excluded.services;
+  statut = excluded.statut, ordre = excluded.ordre, services = excluded.services,
+  sur_reservation = excluded.sur_reservation;
 
-insert into pois (territoire_id, slug, nom, type, geom, panneau_no, texte, photo, audio_url, contact, statut, ordre, services)
+insert into pois (territoire_id, slug, nom, type, geom, panneau_no, texte, photo, audio_url, contact, statut, ordre, services, sur_reservation)
 values ((select id from territoires where slug = 'azour'), 'eglise-saint-joseph', '{"fr":"Église Saint-Joseph","ar":"كنيسة مار يوسف","en":"Saint Joseph church"}'::jsonb, 'patrimoine', st_setsrid(st_makepoint(35.572, 33.53), 4326), null,
-  '{"fr":"L''église du village, repère du départ des sentiers.","ar":"كنيسة القرية، معلم قرب نقطة انطلاق الدروب.","en":"The village church, a landmark by the trailhead."}'::jsonb, null, null, null, 'publie', 3, '{}')
+  '{"fr":"L''église du village, repère du départ des sentiers.","ar":"كنيسة القرية، معلم قرب نقطة انطلاق الدروب.","en":"The village church, a landmark by the trailhead."}'::jsonb, null, null, null, 'publie', 3, '{}', false)
 on conflict (territoire_id, slug) do update set nom = excluded.nom, type = excluded.type,
   geom = excluded.geom, panneau_no = excluded.panneau_no, texte = excluded.texte,
   photo = excluded.photo, audio_url = excluded.audio_url, contact = excluded.contact,
-  statut = excluded.statut, ordre = excluded.ordre, services = excluded.services;
+  statut = excluded.statut, ordre = excluded.ordre, services = excluded.services,
+  sur_reservation = excluded.sur_reservation;
 
-insert into pois (territoire_id, slug, nom, type, geom, panneau_no, texte, photo, audio_url, contact, statut, ordre, services)
+insert into pois (territoire_id, slug, nom, type, geom, panneau_no, texte, photo, audio_url, contact, statut, ordre, services, sur_reservation)
 values ((select id from territoires where slug = 'azour'), 'foret-des-pins', '{"fr":"Forêt de pins et d''orchidées","ar":"غابة الصنوبر والسحلبيات","en":"Pine and orchid forest"}'::jsonb, 'nature', st_setsrid(st_makepoint(35.5678, 33.5322), 4326), 2,
-  '{"fr":"Pins, chênes et pistachier de Palestine. Au printemps, trois orchidées remarquables fleurissent ici : Limodorum abortivum, Ophrys fuciflora et Anacamptis sancta. En sous-bois, les champignons Mycena travaillent à l''équilibre de la forêt.","ar":"صنوبر وسنديان وبطم فلسطيني. في الربيع تُزهر هنا ثلاث سحلبيات نادرة: Limodorum abortivum وOphrys fuciflora وAnacamptis sancta. وفي ظل الأشجار تعمل فطور Mycena على توازن الغابة.","en":"Pines, oaks and Palestine pistachio. In spring three remarkable orchids bloom here: Limodorum abortivum, Ophrys fuciflora and Anacamptis sancta. On the forest floor, Mycena fungi keep the ecosystem in balance."}'::jsonb, '/photos/mycena.jpg', null, null, 'publie', 4, '{}')
+  '{"fr":"Pins, chênes et pistachier de Palestine. Au printemps, trois orchidées remarquables fleurissent ici : Limodorum abortivum, Ophrys fuciflora et Anacamptis sancta. En sous-bois, les champignons Mycena travaillent à l''équilibre de la forêt.","ar":"صنوبر وسنديان وبطم فلسطيني. في الربيع تُزهر هنا ثلاث سحلبيات نادرة: Limodorum abortivum وOphrys fuciflora وAnacamptis sancta. وفي ظل الأشجار تعمل فطور Mycena على توازن الغابة.","en":"Pines, oaks and Palestine pistachio. In spring three remarkable orchids bloom here: Limodorum abortivum, Ophrys fuciflora and Anacamptis sancta. On the forest floor, Mycena fungi keep the ecosystem in balance."}'::jsonb, '/photos/mycena.jpg', null, null, 'publie', 4, '{}', false)
 on conflict (territoire_id, slug) do update set nom = excluded.nom, type = excluded.type,
   geom = excluded.geom, panneau_no = excluded.panneau_no, texte = excluded.texte,
   photo = excluded.photo, audio_url = excluded.audio_url, contact = excluded.contact,
-  statut = excluded.statut, ordre = excluded.ordre, services = excluded.services;
+  statut = excluded.statut, ordre = excluded.ordre, services = excluded.services,
+  sur_reservation = excluded.sur_reservation;
 
-insert into pois (territoire_id, slug, nom, type, geom, panneau_no, texte, photo, audio_url, contact, statut, ordre, services)
+insert into pois (territoire_id, slug, nom, type, geom, panneau_no, texte, photo, audio_url, contact, statut, ordre, services, sur_reservation)
 values ((select id from territoires where slug = 'azour'), 'falaise-panoramique', '{"fr":"Falaise panoramique du Shir","ar":"جرف الشير البانورامي","en":"Shir panoramic cliff"}'::jsonb, 'belvedere', st_setsrid(st_makepoint(35.5648, 33.5342), 4326), 3,
-  '{"fr":"Le grand balcon d''Azour : des falaises calcaires du Cénomanien, épaisses de 500 à 600 mètres, sculptées par le karst et piquetées de silex. En contrebas, la vallée du Bisri et le corridor de la rivière Awali. Levez les yeux en saison : les cigognes migrent au-dessus de la vallée.","ar":"شرفة عازور الكبرى: جروف كلسية من العصر السينوماني، بسماكة ٥٠٠ إلى ٦٠٠ متر، نحتها الكارست وتخللها الصوان. في الأسفل وادي بسري ومجرى نهر الأولي. ارفعوا أنظاركم في الموسم: طيور اللقلق تهاجر فوق الوادي.","en":"Azour''s great balcony: Cenomanian limestone cliffs 500-600 m thick, carved by karst and studded with chert. Below, the Bisri valley and the Awali river corridor. Look up in season: storks migrate over the valley."}'::jsonb, '/photos/shir-falaise.jpg', null, null, 'publie', 5, '{}')
+  '{"fr":"Le grand balcon d''Azour : des falaises calcaires du Cénomanien, épaisses de 500 à 600 mètres, sculptées par le karst et piquetées de silex. En contrebas, la vallée du Bisri et le corridor de la rivière Awali. Levez les yeux en saison : les cigognes migrent au-dessus de la vallée.","ar":"شرفة عازور الكبرى: جروف كلسية من العصر السينوماني، بسماكة ٥٠٠ إلى ٦٠٠ متر، نحتها الكارست وتخللها الصوان. في الأسفل وادي بسري ومجرى نهر الأولي. ارفعوا أنظاركم في الموسم: طيور اللقلق تهاجر فوق الوادي.","en":"Azour''s great balcony: Cenomanian limestone cliffs 500-600 m thick, carved by karst and studded with chert. Below, the Bisri valley and the Awali river corridor. Look up in season: storks migrate over the valley."}'::jsonb, '/photos/shir-falaise.jpg', null, null, 'publie', 5, '{}', false)
 on conflict (territoire_id, slug) do update set nom = excluded.nom, type = excluded.type,
   geom = excluded.geom, panneau_no = excluded.panneau_no, texte = excluded.texte,
   photo = excluded.photo, audio_url = excluded.audio_url, contact = excluded.contact,
-  statut = excluded.statut, ordre = excluded.ordre, services = excluded.services;
+  statut = excluded.statut, ordre = excluded.ordre, services = excluded.services,
+  sur_reservation = excluded.sur_reservation;
 
-insert into pois (territoire_id, slug, nom, type, geom, panneau_no, texte, photo, audio_url, contact, statut, ordre, services)
+insert into pois (territoire_id, slug, nom, type, geom, panneau_no, texte, photo, audio_url, contact, statut, ordre, services, sur_reservation)
 values ((select id from territoires where slug = 'azour'), 'rocher-hyrax', '{"fr":"Hyrax Rock — le rocher du daman","ar":"صخرة الوبر","en":"Hyrax Rock"}'::jsonb, 'belvedere', st_setsrid(st_makepoint(35.563, 33.535), 4326), 4,
-  '{"fr":"Un bloc calcaire suspendu au-dessus de la vallée, accessible uniquement en sortie encadrée (cordes fixes). Le daman des rochers — petit cousin lointain de l''éléphant — vit dans ces falaises et a donné son nom au site.","ar":"كتلة كلسية معلّقة فوق الوادي، لا يمكن الوصول إليها إلا في نشاط مؤطَّر (حبال مثبتة). الوبر الصخري — قريب بعيد صغير للفيل — يسكن هذه الجروف وأعطى الموقع اسمه.","en":"A limestone block suspended above the valley, reachable only on supervised outings (fixed ropes). The rock hyrax — a small, distant cousin of the elephant — lives in these cliffs and gave the site its name."}'::jsonb, '/photos/hyrax-rock.jpg', null, null, 'publie', 6, '{}')
+  '{"fr":"Un bloc calcaire suspendu au-dessus de la vallée, accessible uniquement en sortie encadrée (cordes fixes). Le daman des rochers — petit cousin lointain de l''éléphant — vit dans ces falaises et a donné son nom au site.","ar":"كتلة كلسية معلّقة فوق الوادي، لا يمكن الوصول إليها إلا في نشاط مؤطَّر (حبال مثبتة). الوبر الصخري — قريب بعيد صغير للفيل — يسكن هذه الجروف وأعطى الموقع اسمه.","en":"A limestone block suspended above the valley, reachable only on supervised outings (fixed ropes). The rock hyrax — a small, distant cousin of the elephant — lives in these cliffs and gave the site its name."}'::jsonb, '/photos/hyrax-rock.jpg', null, null, 'publie', 6, '{}', false)
 on conflict (territoire_id, slug) do update set nom = excluded.nom, type = excluded.type,
   geom = excluded.geom, panneau_no = excluded.panneau_no, texte = excluded.texte,
   photo = excluded.photo, audio_url = excluded.audio_url, contact = excluded.contact,
-  statut = excluded.statut, ordre = excluded.ordre, services = excluded.services;
+  statut = excluded.statut, ordre = excluded.ordre, services = excluded.services,
+  sur_reservation = excluded.sur_reservation;
 
-insert into pois (territoire_id, slug, nom, type, geom, panneau_no, texte, photo, audio_url, contact, statut, ordre, services)
+insert into pois (territoire_id, slug, nom, type, geom, panneau_no, texte, photo, audio_url, contact, statut, ordre, services, sur_reservation)
 values ((select id from territoires where slug = 'azour'), 'chir-el-joube', '{"fr":"Chir el Joube","ar":"شير الجوبة","en":"Chir el Joube"}'::jsonb, 'belvedere', st_setsrid(st_makepoint(35.5615, 33.539), 4326), 5,
-  '{"fr":"Second système de falaises sur l''itinéraire vers le Bisri, au-dessus des terrasses de Joubeh.","ar":"نظام الجروف الثاني على الطريق إلى بسري، فوق جلول الجوبة.","en":"The second cliff system on the way to the Bisri, above the Joubeh terraces."}'::jsonb, null, null, null, 'publie', 7, '{}')
+  '{"fr":"Second système de falaises sur l''itinéraire vers le Bisri, au-dessus des terrasses de Joubeh.","ar":"نظام الجروف الثاني على الطريق إلى بسري، فوق جلول الجوبة.","en":"The second cliff system on the way to the Bisri, above the Joubeh terraces."}'::jsonb, null, null, null, 'publie', 7, '{}', false)
 on conflict (territoire_id, slug) do update set nom = excluded.nom, type = excluded.type,
   geom = excluded.geom, panneau_no = excluded.panneau_no, texte = excluded.texte,
   photo = excluded.photo, audio_url = excluded.audio_url, contact = excluded.contact,
-  statut = excluded.statut, ordre = excluded.ordre, services = excluded.services;
+  statut = excluded.statut, ordre = excluded.ordre, services = excluded.services,
+  sur_reservation = excluded.sur_reservation;
 
-insert into pois (territoire_id, slug, nom, type, geom, panneau_no, texte, photo, audio_url, contact, statut, ordre, services)
+insert into pois (territoire_id, slug, nom, type, geom, panneau_no, texte, photo, audio_url, contact, statut, ordre, services, sur_reservation)
 values ((select id from territoires where slug = 'azour'), 'belvedere-bisri', '{"fr":"Belvédère de la vallée du Bisri","ar":"مطل وادي بسري","en":"Bisri valley viewpoint"}'::jsonb, 'belvedere', st_setsrid(st_makepoint(35.5625, 33.5403), 4326), 6,
-  '{"fr":"Vue ouverte sur la vallée préservée du Bisri et la rivière Awali, avant la grande descente.","ar":"إطلالة مفتوحة على وادي بسري المصان ونهر الأولي، قبل النزول الكبير.","en":"An open view over the preserved Bisri valley and the Awali river, before the big descent."}'::jsonb, '/photos/vallee-bisri.jpg', null, null, 'publie', 8, '{}')
+  '{"fr":"Vue ouverte sur la vallée préservée du Bisri et la rivière Awali, avant la grande descente.","ar":"إطلالة مفتوحة على وادي بسري المصان ونهر الأولي، قبل النزول الكبير.","en":"An open view over the preserved Bisri valley and the Awali river, before the big descent."}'::jsonb, '/photos/vallee-bisri.jpg', null, null, 'publie', 8, '{}', false)
 on conflict (territoire_id, slug) do update set nom = excluded.nom, type = excluded.type,
   geom = excluded.geom, panneau_no = excluded.panneau_no, texte = excluded.texte,
   photo = excluded.photo, audio_url = excluded.audio_url, contact = excluded.contact,
-  statut = excluded.statut, ordre = excluded.ordre, services = excluded.services;
+  statut = excluded.statut, ordre = excluded.ordre, services = excluded.services,
+  sur_reservation = excluded.sur_reservation;
 
-insert into pois (territoire_id, slug, nom, type, geom, panneau_no, texte, photo, audio_url, contact, statut, ordre, services)
+insert into pois (territoire_id, slug, nom, type, geom, panneau_no, texte, photo, audio_url, contact, statut, ordre, services, sur_reservation)
 values ((select id from territoires where slug = 'azour'), 'chemin-agricole', '{"fr":"Chemins agricoles du retour","ar":"الطرق الزراعية في طريق العودة","en":"Farm tracks on the way back"}'::jsonb, 'nature', st_setsrid(st_makepoint(35.5691, 33.5297), 4326), 7,
-  '{"fr":"Le retour de la boucle emprunte les chemins agricoles du village — oliviers, terrasses et murets de pierre sèche.","ar":"تعود الجولة عبر طرق القرية الزراعية — زيتون وجلول وجدران حجرية جافة.","en":"The loop returns along the village farm tracks — olive trees, terraces and dry-stone walls."}'::jsonb, '/photos/chemin-agricole.jpg', null, null, 'publie', 9, '{}')
+  '{"fr":"Le retour de la boucle emprunte les chemins agricoles du village — oliviers, terrasses et murets de pierre sèche.","ar":"تعود الجولة عبر طرق القرية الزراعية — زيتون وجلول وجدران حجرية جافة.","en":"The loop returns along the village farm tracks — olive trees, terraces and dry-stone walls."}'::jsonb, '/photos/chemin-agricole.jpg', null, null, 'publie', 9, '{}', false)
 on conflict (territoire_id, slug) do update set nom = excluded.nom, type = excluded.type,
   geom = excluded.geom, panneau_no = excluded.panneau_no, texte = excluded.texte,
   photo = excluded.photo, audio_url = excluded.audio_url, contact = excluded.contact,
-  statut = excluded.statut, ordre = excluded.ordre, services = excluded.services;
+  statut = excluded.statut, ordre = excluded.ordre, services = excluded.services,
+  sur_reservation = excluded.sur_reservation;
 
-insert into pois (territoire_id, slug, nom, type, geom, panneau_no, texte, photo, audio_url, contact, statut, ordre, services)
+insert into pois (territoire_id, slug, nom, type, geom, panneau_no, texte, photo, audio_url, contact, statut, ordre, services, sur_reservation)
 values ((select id from territoires where slug = 'azour'), 'village-bisri', '{"fr":"Village du Bisri (arrivée)","ar":"قرية بسري (الوصول)","en":"Bisri village (finish)"}'::jsonb, 'depart', st_setsrid(st_makepoint(35.553, 33.556), 4326), 8,
-  '{"fr":"Point d''arrivée de l''itinéraire linéaire, au fond de la vallée. Prévoyez votre retour (voiture déposée ou navette avec un guide).","ar":"نقطة وصول المسار الخطي في قاع الوادي. دبّروا عودتكم (سيارة متروكة مسبقًا أو نقل مع دليل).","en":"The finish of the linear route, on the valley floor. Plan your return (a car left in advance, or a shuttle with a guide)."}'::jsonb, null, null, null, 'publie', 10, '{}')
+  '{"fr":"Point d''arrivée de l''itinéraire linéaire, au fond de la vallée. Prévoyez votre retour (voiture déposée ou navette avec un guide).","ar":"نقطة وصول المسار الخطي في قاع الوادي. دبّروا عودتكم (سيارة متروكة مسبقًا أو نقل مع دليل).","en":"The finish of the linear route, on the valley floor. Plan your return (a car left in advance, or a shuttle with a guide)."}'::jsonb, null, null, null, 'publie', 10, '{}', false)
 on conflict (territoire_id, slug) do update set nom = excluded.nom, type = excluded.type,
   geom = excluded.geom, panneau_no = excluded.panneau_no, texte = excluded.texte,
   photo = excluded.photo, audio_url = excluded.audio_url, contact = excluded.contact,
-  statut = excluded.statut, ordre = excluded.ordre, services = excluded.services;
+  statut = excluded.statut, ordre = excluded.ordre, services = excluded.services,
+  sur_reservation = excluded.sur_reservation;
 
-insert into pois (territoire_id, slug, nom, type, geom, panneau_no, texte, photo, audio_url, contact, statut, ordre, services)
+insert into pois (territoire_id, slug, nom, type, geom, panneau_no, texte, photo, audio_url, contact, statut, ordre, services, sur_reservation)
 values ((select id from territoires where slug = 'azour'), 'camping-el-abo', '{"fr":"Camping El Abo - Le Cave","ar":"مخيم العبو - المغارة","en":"El Abo - Le Cave campsite"}'::jsonb, 'camping', st_setsrid(st_makepoint(35.582, 33.5215), 4326), null,
-  '{"fr":"Le site de camping aménagé par le programme à Bteddine El Lockh : sentiers, toilettes, point d''eau. Ouverture progressive en 2026-2027 — renseignez-vous au kiosque.","ar":"موقع التخييم الذي يجهّزه البرنامج في بتدين اللقش: دروب ومرافق صحية ونقطة ماء. افتتاح تدريجي في ٢٠٢٦–٢٠٢٧ — استعلموا عند الكشك.","en":"The campsite being developed by the programme at Bteddine El Lockh: trails, toilets, water point. Opening progressively in 2026-2027 — ask at the kiosk."}'::jsonb, null, null, null, 'brouillon', 11, '{}')
+  '{"fr":"Le site de camping aménagé par le programme à Bteddine El Lockh : sentiers, toilettes, point d''eau. Ouverture progressive en 2026-2027 — renseignez-vous au kiosque.","ar":"موقع التخييم الذي يجهّزه البرنامج في بتدين اللقش: دروب ومرافق صحية ونقطة ماء. افتتاح تدريجي في ٢٠٢٦–٢٠٢٧ — استعلموا عند الكشك.","en":"The campsite being developed by the programme at Bteddine El Lockh: trails, toilets, water point. Opening progressively in 2026-2027 — ask at the kiosk."}'::jsonb, null, null, null, 'brouillon', 11, '{}', false)
 on conflict (territoire_id, slug) do update set nom = excluded.nom, type = excluded.type,
   geom = excluded.geom, panneau_no = excluded.panneau_no, texte = excluded.texte,
   photo = excluded.photo, audio_url = excluded.audio_url, contact = excluded.contact,
-  statut = excluded.statut, ordre = excluded.ordre, services = excluded.services;
+  statut = excluded.statut, ordre = excluded.ordre, services = excluded.services,
+  sur_reservation = excluded.sur_reservation;
 
-insert into pois (territoire_id, slug, nom, type, geom, panneau_no, texte, photo, audio_url, contact, statut, ordre, services)
+insert into pois (territoire_id, slug, nom, type, geom, panneau_no, texte, photo, audio_url, contact, statut, ordre, services, sur_reservation)
 values ((select id from territoires where slug = 'azour'), 'blue-jay-valley', '{"fr":"Blue Jay Valley — bungalows et tentes","ar":"بلو جاي فالي — بنغالوهات وخيم","en":"Blue Jay Valley — bungalows and tents"}'::jsonb, 'hebergement', st_setsrid(st_makepoint(35.576, 33.532), 4326), null,
-  '{"fr":"Bungalows et tentes aménagées au creux d''une vallée de pins et de chênes. Établissement indépendant du projet — contact direct.","ar":"أكواخ وخيام مجهزة في وادٍ من الصنوبر والسنديان. منشأة مستقلة عن المشروع — تواصل مباشر.","en":"Bungalows and furnished tents in a valley of pines and oaks. Independent from the project — contact directly."}'::jsonb, null, null, '{"site":"https://bluejayvalley.com"}'::jsonb, 'publie', 12, '{}')
+  '{"fr":"Bungalows et tentes aménagées au creux d''une vallée de pins et de chênes, et un restaurant dont la terrasse sert l''été comme l''hiver — sur réservation. Établissement indépendant du projet — contact direct.","ar":"أكواخ وخيام مجهزة في وادٍ من الصنوبر والسنديان، ومطعم تعمل تراسه صيفًا وشتاءً — بحجز مسبق. منشأة مستقلة عن المشروع — تواصل مباشر.","en":"Bungalows and furnished tents in a valley of pines and oaks, and a restaurant whose terrace serves in summer and in winter — by reservation. Independent from the project — contact directly."}'::jsonb, null, null, '{"site":"https://bluejayvalley.com"}'::jsonb, 'publie', 12, '{restaurant}', true)
 on conflict (territoire_id, slug) do update set nom = excluded.nom, type = excluded.type,
   geom = excluded.geom, panneau_no = excluded.panneau_no, texte = excluded.texte,
   photo = excluded.photo, audio_url = excluded.audio_url, contact = excluded.contact,
-  statut = excluded.statut, ordre = excluded.ordre, services = excluded.services;
+  statut = excluded.statut, ordre = excluded.ordre, services = excluded.services,
+  sur_reservation = excluded.sur_reservation;
 
-insert into pois (territoire_id, slug, nom, type, geom, panneau_no, texte, photo, audio_url, contact, statut, ordre, services)
+insert into pois (territoire_id, slug, nom, type, geom, panneau_no, texte, photo, audio_url, contact, statut, ordre, services, sur_reservation)
 values ((select id from territoires where slug = 'azour'), 'pineview-hotel', '{"fr":"Pineview Hotel","ar":"فندق باين فيو","en":"Pineview Hotel"}'::jsonb, 'hebergement', st_setsrid(st_makepoint(35.57, 33.528), 4326), null,
-  '{"fr":"L''hôtel du village, sur la route de Jezzine, à 950 mètres d''altitude sous les pins : sa table sert une cuisine libanaise de produits frais. Établissement indépendant du projet — contact direct.","ar":"فندق القرية على طريق جزين، على ارتفاع ٩٥٠ مترًا تحت الصنوبر: مطعمه يقدّم مطبخًا لبنانيًا من منتجات طازجة. منشأة مستقلة عن المشروع — تواصل مباشر.","en":"The village hotel, on the Jezzine road at 950 m under the pines: its kitchen serves Lebanese cooking from fresh produce. Independent from the project — contact directly."}'::jsonb, null, null, null, 'publie', 13, '{restaurant}')
+  '{"fr":"L''hôtel du village, sur la route de Jezzine, à 950 mètres d''altitude sous les pins : sa table sert une cuisine libanaise de produits frais. Établissement indépendant du projet — contact direct.","ar":"فندق القرية على طريق جزين، على ارتفاع ٩٥٠ مترًا تحت الصنوبر: مطعمه يقدّم مطبخًا لبنانيًا من منتجات طازجة. منشأة مستقلة عن المشروع — تواصل مباشر.","en":"The village hotel, on the Jezzine road at 950 m under the pines: its kitchen serves Lebanese cooking from fresh produce. Independent from the project — contact directly."}'::jsonb, null, null, null, 'publie', 13, '{restaurant}', false)
 on conflict (territoire_id, slug) do update set nom = excluded.nom, type = excluded.type,
   geom = excluded.geom, panneau_no = excluded.panneau_no, texte = excluded.texte,
   photo = excluded.photo, audio_url = excluded.audio_url, contact = excluded.contact,
-  statut = excluded.statut, ordre = excluded.ordre, services = excluded.services;
+  statut = excluded.statut, ordre = excluded.ordre, services = excluded.services,
+  sur_reservation = excluded.sur_reservation;
 
-insert into pois (territoire_id, slug, nom, type, geom, panneau_no, texte, photo, audio_url, contact, statut, ordre, services)
+insert into pois (territoire_id, slug, nom, type, geom, panneau_no, texte, photo, audio_url, contact, statut, ordre, services, sur_reservation)
 values ((select id from territoires where slug = 'azour'), 'beit-mrad', '{"fr":"Beit Mrad — maison d''hôtes","ar":"بيت مراد — بيت ضيافة","en":"Beit Mrad — guesthouse"}'::jsonb, 'hebergement', st_setsrid(st_makepoint(35.5722, 33.5288), 4326), null,
-  '{"fr":"Une maison de village restaurée, dont les murs remontent à 1750 : chambres meublées d''ancien, boiseries travaillées, et une cour où l''on sert le petit-déjeuner libanais au saj, au bord de la ferme. Établissement indépendant du projet — contact direct.","ar":"بيت قروي مرمَّم تعود جدرانه إلى العام ١٧٥٠: غرف بأثاث عتيق وأشغال خشبية دقيقة، وساحة يُقدَّم فيها الفطور اللبناني على الصاج عند طرف المزرعة. منشأة مستقلة عن المشروع — تواصل مباشر.","en":"A restored village house whose walls date back to 1750: rooms furnished with antiques, worked woodwork, and a courtyard where the Lebanese breakfast is served on the saj, beside the farm. Independent from the project — contact directly."}'::jsonb, null, null, '{"tel":"+961 3 553 343","site":"https://www.instagram.com/beitmrad/"}'::jsonb, 'publie', 14, '{petit_dejeuner}')
+  '{"fr":"Une maison de village restaurée, dont les murs remontent à 1750 : chambres meublées d''ancien, boiseries travaillées, et une cour où l''on sert le petit-déjeuner libanais au saj, au bord de la ferme. Établissement indépendant du projet — contact direct.","ar":"بيت قروي مرمَّم تعود جدرانه إلى العام ١٧٥٠: غرف بأثاث عتيق وأشغال خشبية دقيقة، وساحة يُقدَّم فيها الفطور اللبناني على الصاج عند طرف المزرعة. منشأة مستقلة عن المشروع — تواصل مباشر.","en":"A restored village house whose walls date back to 1750: rooms furnished with antiques, worked woodwork, and a courtyard where the Lebanese breakfast is served on the saj, beside the farm. Independent from the project — contact directly."}'::jsonb, null, null, '{"tel":"+961 3 553 343","site":"https://www.instagram.com/beitmrad/"}'::jsonb, 'publie', 14, '{petit_dejeuner}', false)
 on conflict (territoire_id, slug) do update set nom = excluded.nom, type = excluded.type,
   geom = excluded.geom, panneau_no = excluded.panneau_no, texte = excluded.texte,
   photo = excluded.photo, audio_url = excluded.audio_url, contact = excluded.contact,
-  statut = excluded.statut, ordre = excluded.ordre, services = excluded.services;
+  statut = excluded.statut, ordre = excluded.ordre, services = excluded.services,
+  sur_reservation = excluded.sur_reservation;
 
-insert into pois (territoire_id, slug, nom, type, geom, panneau_no, texte, photo, audio_url, contact, statut, ordre, services)
+insert into pois (territoire_id, slug, nom, type, geom, panneau_no, texte, photo, audio_url, contact, statut, ordre, services, sur_reservation)
 values ((select id from territoires where slug = 'azour'), 'guides-azour', '{"fr":"Les jeunes guides d''Azour","ar":"أدلّاء عازور الشباب","en":"Azour''s young guides"}'::jsonb, 'guide', st_setsrid(st_makepoint(35.5716, 33.5296), 4326), null,
-  '{"fr":"Formés en 2026-2027 dans le cadre du programme, les jeunes guides accompagnent les randonnées, encadrent Hyrax Rock et animent le kiosque. Réservation au kiosque ou par téléphone/WhatsApp.","ar":"تدرّبوا في ٢٠٢٦–٢٠٢٧ ضمن البرنامج، يرافقون المشيات ويؤطّرون صخرة الوبر ويديرون الكشك. الحجز عند الكشك أو عبر الهاتف/واتساب.","en":"Trained in 2026-2027 through the programme, the young guides lead hikes, supervise Hyrax Rock and run the kiosk. Book at the kiosk or by phone/WhatsApp."}'::jsonb, null, null, null, 'publie', 15, '{}')
+  '{"fr":"Formés en 2026-2027 dans le cadre du programme, les jeunes guides accompagnent les randonnées, encadrent Hyrax Rock et animent le kiosque. Réservation au kiosque ou par téléphone/WhatsApp.","ar":"تدرّبوا في ٢٠٢٦–٢٠٢٧ ضمن البرنامج، يرافقون المشيات ويؤطّرون صخرة الوبر ويديرون الكشك. الحجز عند الكشك أو عبر الهاتف/واتساب.","en":"Trained in 2026-2027 through the programme, the young guides lead hikes, supervise Hyrax Rock and run the kiosk. Book at the kiosk or by phone/WhatsApp."}'::jsonb, null, null, null, 'publie', 15, '{}', false)
 on conflict (territoire_id, slug) do update set nom = excluded.nom, type = excluded.type,
   geom = excluded.geom, panneau_no = excluded.panneau_no, texte = excluded.texte,
   photo = excluded.photo, audio_url = excluded.audio_url, contact = excluded.contact,
-  statut = excluded.statut, ordre = excluded.ordre, services = excluded.services;
+  statut = excluded.statut, ordre = excluded.ordre, services = excluded.services,
+  sur_reservation = excluded.sur_reservation;
 
 delete from parcours_pois where parcours_id = (select id from parcours where slug = 'boucle-foret-falaise' and territoire_id = (select id from territoires where slug = 'azour'));
 insert into parcours_pois (parcours_id, poi_id, ordre)

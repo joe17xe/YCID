@@ -40,7 +40,8 @@ Ce qui se renseigne au back-office — rien d'autre ne définit la carte :
   hébergement, restaurant, guide, urgence, point d'eau…), coordonnées,
   numéro de panneau (le lien terrain ↔ app), texte court ×3, photos,
   lien audio, **services rendus sur place** (petit-déjeuner, restaurant,
-  bar, épicerie, point d'eau), rattachement à 0..n parcours.
+  bar, épicerie, point d'eau), **sur réservation** (oui / non),
+  rattachement à 0..n parcours.
 
   Le **type** dit ce qu'est le lieu, les **services** disent ce qu'on y
   trouve : une maison d'hôtes sert le petit-déjeuner sans être un
@@ -48,7 +49,9 @@ Ce qui se renseigne au back-office — rien d'autre ne définit la carte :
   C'est ce champ, et non le type, qui alimente la rubrique « Se
   restaurer » — et la distance au centre du territoire y sépare seule
   les tables du village de celles qu'on va chercher plus loin. Aucune
-  liste n'est écrite dans le code.
+  liste n'est écrite dans le code. **« Sur réservation » est un champ
+  distinct** des services : ce n'est pas ce qu'on sert, c'est la
+  condition pour l'obtenir.
 - **Formule** (réservation) : nom ×3, accroche ×3, description ×3,
   catégorie (visite / randonnée / aventure / journée / groupe), durée,
   participants min-max, **tarif** (montant + devise + par personne ou par

@@ -90,6 +90,8 @@ export interface Poi {
   nom: I18nText
   type: PoiType
   services?: Service[]
+  /** Ne sert que si l'on a prévenu — l'information qui évite la porte close. */
+  sur_reservation?: boolean
   geom: Position
   panneau_no?: number | null
   texte?: I18nText | null

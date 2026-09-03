@@ -44,6 +44,7 @@ type PoiRow = {
   lon: number
   lat: number
   services: Service[] | null
+  sur_reservation: boolean | null
 }
 
 /* Ce qu'on trouve sur place — ce qui alimente « Se restaurer » côté
@@ -545,6 +546,7 @@ function LignePoi({
   const [panneau, setPanneau] = useState(o.panneau_no?.toString() ?? '')
   const [statut, setStatut] = useState(o.statut)
   const [services, setServices] = useState<Service[]>(o.services ?? [])
+  const [surResa, setSurResa] = useState(o.sur_reservation ?? false)
   const [err, setErr] = useState<string | null>(null)
   return (
     <div className="card flex flex-wrap items-end gap-2.5 p-3.5">
@@ -598,6 +600,17 @@ function LignePoi({
               {s.label}
             </label>
           ))}
+          {/* Séparé des services : ce n'est pas ce qu'on sert, c'est la
+              condition pour l'obtenir. */}
+          <label className="flex items-center gap-1.5 text-[12.5px] font-semibold">
+            <input
+              type="checkbox"
+              checked={surResa}
+              onChange={(e) => setSurResa(e.target.checked)}
+              className="h-4 w-4 accent-[var(--ocre)]"
+            />
+            Sur réservation
+          </label>
         </div>
       </fieldset>
       <button
