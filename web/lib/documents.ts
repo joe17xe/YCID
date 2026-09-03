@@ -25,8 +25,33 @@ export const MAX_DOC_SIZE = 10 * 1024 * 1024
 // dans « engagé » faute de ligne à créditer.
 export const BUDGET_DOC_TYPES: DocType[] = ['devis', 'facture', 'recu', 'justificatif']
 
+// Les trois natures qui portent de l'argent, et l'invariant du modèle :
+// elles EXIGENT une ligne budgétaire et un montant, quel que soit
+// l'écran depuis lequel on les dépose. La 0070 grave la même règle en
+// base (contrainte `documents_argent_sur_ligne`) — ici pour la dire aux
+// formulaires, là-bas pour qu'aucun chemin ne puisse s'en dispenser.
+//
+// Le montant n'est pas un ornement : `engaged` est la somme des
+// montants des devis validés (lib/budget.ts). Un devis sans montant se
+// fait valider normalement et engage zéro euro, en silence.
+export const MONEY_DOC_TYPES: DocType[] = ['devis', 'facture', 'recu']
+
+export const isMoneyDoc = (t: DocType) => MONEY_DOC_TYPES.includes(t)
+
 // Natures admises sur une tâche : la preuve de ce qui a été fait.
 export const TASK_DOC_TYPES: DocType[] = ['justificatif', 'photo', 'livrable', 'note', 'etude', 'rapport', 'convention']
+
+// Natures proposées dans l'onglet Documents — LA SECONDE PORTE (0070).
+// D'abord les pièces qui portent sur le projet entier (la convention de
+// financement n'a pas d'autre point de dépôt), puis les natures
+// d'argent, qui n'y sont admises qu'en désignant leur ligne. Le devis
+// n'y figurait pas : la règle « un devis vit sur une ligne » se
+// confondait alors avec « un devis se dépose depuis l'onglet Budget »,
+// et l'écran n'expliquait ni l'une ni l'autre.
+export const PROJECT_DOC_TYPES: DocType[] = [
+  'convention', 'rapport', 'etude', 'note', 'justificatif',
+  ...MONEY_DOC_TYPES,
+]
 
 // Moment d'une photo de terrain (PR 38c). Une photo de chantier ne vaut
 // que rapprochée de son état initial : sans cette qualification, une

@@ -82,7 +82,7 @@ export async function buildTourSteps(supabase: SupabaseClient, userId: string): 
   steps.push({
     title: 'Le circuit d’un devis',
     body: [
-      'Un devis se dépose sur une ligne budgétaire (onglet Budget, bouton « Pièces »). Il part alors en validation : l’organisation porteuse d’abord, la coordinatrice ensuite.',
+      'Un devis vit sur une ligne budgétaire. Deux chemins y mènent : l’onglet Budget, bouton « Pièces » de la ligne ; ou l’onglet Documents, où la ligne et le montant vous seront demandés. Il part alors en validation : l’organisation porteuse d’abord, la coordinatrice ensuite.',
       'Le montant n’est engagé que lorsque toutes ont validé ; un refus le rejette. Ce qui attend VOTRE décision se trouve dans la file « À valider ».',
     ],
     link: { href: '/a-valider', label: 'Ouvrir la file « À valider »' },

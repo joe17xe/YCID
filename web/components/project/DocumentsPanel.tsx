@@ -5,7 +5,7 @@ import { Download, Trash2, Archive, FilterX } from "lucide-react"
 import Modal, { ErrorMessage } from "@/components/ui/Modal"
 import { DOC_TYPE_LABELS, DOC_MOMENT_LABELS, type DocType, type DocMoment } from "@/lib/documents"
 import {
-  getDocumentUrl, getDocumentUrls, deleteDocument, getDocumentPurgeState,
+  getDocumentUrl, getDocumentUrls, deleteDocument, getDocumentPurgeState, withdrawDocument,
 } from "@/app/(app)/projets/[id]/document-actions"
 
 // ============================================================
@@ -29,6 +29,12 @@ export interface ProjectDoc {
   phaseName: string | null
   taskTitle: string | null
   lineposte: string | null
+  // 0070 — le retrait : la pièce reste, barrée. Trois champs plutôt
+  // qu'un booléen, parce qu'un retrait sans auteur ni date ne vaut pas
+  // mieux que la suppression qu'il remplace.
+  withdrawnAt: string | null
+  withdrawnReason: string | null
+  withdrawerName: string | null
 }
 
 // Date locale au format AAAA-MM-JJ. Indispensable pour que l'AFFICHAGE
@@ -77,6 +83,12 @@ export default function DocumentsPanel({ projectId, projectName, docs, canManage
   // renvoyée pour la décrire — jamais une phrase reconstituée ici.
   const [purging, setPurging] = useState<{ doc: ProjectDoc; message: string } | null>(null)
   const [purgeError, setPurgeError] = useState("")
+  // Retrait d'une pièce en attente de décision (0070). Même mécanique
+  // que la purge : c'est le SERVEUR qui a refusé la suppression et
+  // nommé le geste de remplacement ; l'écran ne fait que le proposer.
+  const [withdrawing, setWithdrawing] = useState<{ doc: ProjectDoc; message: string } | null>(null)
+  const [withdrawReason, setWithdrawReason] = useState("")
+  const [withdrawError, setWithdrawError] = useState("")
 
   useEffect(() => {
     let alive = true
@@ -174,6 +186,10 @@ export default function DocumentsPanel({ projectId, projectName, docs, canManage
       // Le serveur peut savoir mieux que cet écran : la pièce a pu être
       // décidée depuis le chargement, ou l'état n'a jamais été obtenu.
       if (res.needsPurge) { setPurgeError(""); setPurging({ doc: d, message: res.error ?? "" }) }
+      else if (res.needsWithdraw) {
+        setWithdrawError(""); setWithdrawReason("")
+        setWithdrawing({ doc: d, message: res.error ?? "" })
+      }
       else setError(res.error ?? "Suppression impossible.")
     })
   }
@@ -206,6 +222,19 @@ export default function DocumentsPanel({ projectId, projectName, docs, canManage
       // rien ne s'est passé.
       if (!res.ok) setPurgeError(res.error ?? "Purge impossible.")
       else { setPurging(null); router.refresh() }
+    })
+  }
+
+  function confirmWithdraw() {
+    const target = withdrawing?.doc
+    if (!target) return
+    setWithdrawError("")
+    startTransition(async () => {
+      const res = await withdrawDocument(target.id, withdrawReason)
+      // L'échec reste DANS le dialogue, pour la raison dite plus bas sur
+      // la purge : le bandeau du haut est derrière la fenêtre.
+      if (!res.ok) setWithdrawError(res.error ?? "Retrait impossible.")
+      else { setWithdrawing(null); setWithdrawReason(""); router.refresh() }
     })
   }
 
@@ -287,9 +316,20 @@ export default function DocumentsPanel({ projectId, projectName, docs, canManage
                   <td data-primary="" className="px-4 py-3">
                     <button type="button" onClick={() => download(d.id)}
                       className="inline-flex items-center gap-1 underline decoration-dotted text-left"
-                      style={{ color: "#17211D" }}>
+                      style={{ color: d.withdrawnAt ? "#9AA39D" : "#17211D",
+                        textDecoration: d.withdrawnAt ? "line-through" : undefined }}>
                       <Download size={12} aria-hidden="true" /> {d.filename}
                     </button>
+                    {/* Barrée ET expliquée : le barré seul dirait qu'il
+                        s'est passé quelque chose sans dire quoi, ni par
+                        qui — soit exactement ce qu'on reprochait à la
+                        suppression silencieuse. */}
+                    {d.withdrawnAt && (
+                      <div className="text-[11px] mt-1" style={{ color: "#8A6A1F" }}>
+                        Retiré par {d.withdrawerName ?? "son déposant"} le {fmtDate(d.withdrawnAt)}
+                        {d.withdrawnReason ? ` — ${d.withdrawnReason}` : ""}
+                      </div>
+                    )}
                   </td>
                   <td data-label="Nature" className="px-4 py-3 text-xs" style={{ color: "#66716B" }}>
                     {DOC_TYPE_LABELS[d.type] ?? d.type}
@@ -317,7 +357,9 @@ export default function DocumentsPanel({ projectId, projectName, docs, canManage
                         garde l'affichage d'avant : escamoter par défaut
                         ferait disparaître la corbeille de toutes les
                         pièces à chaque incident réseau. */}
-                    {canManage && (isDecided(d) ? purgeState?.canPurge && (
+                    {/* Une pièce retirée est close : ni corbeille, ni
+                        purge. Le geste a déjà eu lieu, et il se lit. */}
+                    {canManage && !d.withdrawnAt && (isDecided(d) ? purgeState?.canPurge && (
                       <button type="button" onClick={() => askPurge(d)} disabled={pending}
                         className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg border font-medium"
                         style={{ borderColor: "#E3E6E2", color: "#A3342C" }}
@@ -344,6 +386,43 @@ export default function DocumentsPanel({ projectId, projectName, docs, canManage
           </div>
         )}
       </div>
+
+      {/* Le retrait proposé par le serveur : la pièce attend une
+          décision, l'effacer viderait la file de quelqu'un sans un mot.
+          Le motif est FACULTATIF — un refus s'impose à autrui et doit
+          être motivé (0030), un retrait ne s'impose à personne — mais il
+          part dans la notification, donc le renseigner rend service. */}
+      {withdrawing && (
+        <Modal open onClose={() => !pending && setWithdrawing(null)} busy={pending} maxWidth="max-w-lg"
+          title={`Retirer « ${withdrawing.doc.filename} »`}>
+          <div className="space-y-3">
+            <p className="text-sm rounded-xl p-3" style={{ background: "#FBF0E0", color: "#6E5518" }}>
+              {withdrawing.message}
+            </p>
+            <div>
+              <label htmlFor="doc-withdraw-reason" className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>
+                Motif <span style={{ color: "#66716B", fontWeight: 400 }}>(facultatif, transmis aux organisations sollicitées)</span>
+              </label>
+              <textarea id="doc-withdraw-reason" rows={2} value={withdrawReason}
+                onChange={e => setWithdrawReason(e.target.value)}
+                placeholder="Devis erroné, remplacé par la version corrigée…"
+                className="w-full px-3 py-2 rounded-xl border text-sm" style={{ borderColor: "#E3E6E2" }} />
+            </div>
+            <ErrorMessage>{withdrawError}</ErrorMessage>
+            <div className="flex justify-end gap-2 pt-1">
+              <button type="button" onClick={() => setWithdrawing(null)} disabled={pending}
+                className="px-4 py-2 rounded-xl border text-sm font-medium" style={{ borderColor: "#E3E6E2", color: "#66716B" }}>
+                Annuler
+              </button>
+              <button type="button" onClick={confirmWithdraw} disabled={pending}
+                className="px-4 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-40"
+                style={{ background: "#8A6A1F" }}>
+                {pending ? "Retrait…" : "Retirer la pièce"}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {/* Le second temps de la purge. En DIALOGUE ici, alors que le
           panneau d'une ligne budgétaire le fait en place : ce tableau se

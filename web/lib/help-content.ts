@@ -22,7 +22,7 @@ export const HELP_ROLES: { role: string; desc: string }[] = [
 export const HELP_STEPS: { title: string; text: string }[] = [
   { title: "1. Suivre l'avancement", text: "Ouvrez votre projet depuis le Tableau de bord ou Projets. L'onglet Tâches liste les phases et les tâches : statut, avancement, échéances, documents." },
   { title: "2. Gérer le budget", text: "L'onglet Budget affiche les lignes avec leur financeur, les valorisations et les statuts. Chaque ligne se répartit sur les tâches qu'elle finance, et chaque tâche affiche le budget qui lui est affecté." },
-  { title: "3. Faire valider", text: "Les justificatifs se déposent sur la tâche ou sur la ligne budgétaire concernée. Un devis déposé part automatiquement en validation ; une fois validé il compte comme engagé, et une facture marquée payée alimente le réalisé. Une tâche terminée ne se modifie plus sans double confirmation d'un administrateur." },
+  { title: "3. Faire valider", text: "Une pièce d'argent — devis, facture, reçu — vit sur une ligne budgétaire : déposez-la depuis l'onglet Budget (bouton « Pièces »), ou depuis l'onglet Documents en désignant la ligne et le montant. Les deux chemins mènent au même endroit. Un devis déposé part automatiquement en validation ; une fois validé il compte comme engagé, et une facture marquée payée alimente le réalisé. Les autres pièces se déposent là où elles appartiennent : livrables et photos sur la tâche, convention et rapports sur le projet." },
   { title: "4. Mesurer l'impact", text: "L'onglet Impact suit les indicateurs du projet (jeunes mobilisés, km de sentiers…). Une mesure par période — c'est ce qui alimente les rapports aux financeurs." },
   { title: "5. Rassembler les pièces", text: "L'onglet Documents réunit toutes les pièces du projet, quel que soit l'endroit où elles ont été déposées : filtrables par nature, par phase et par date, avec téléchargement groupé en archive." },
   { title: "6. Piloter et rendre compte", text: "L'onglet COPIL garde les comptes rendus et le suivi des décisions. La page Pilotage donne la santé de l'ensemble du portefeuille." },
@@ -32,6 +32,8 @@ export const HELP_FAQ: { q: string; a: string }[] = [
   { q: "Qui voit quoi ?", a: "Chaque organisation voit les projets auxquels elle participe. YCID et les administrateurs ont accès à l'ensemble." },
   { q: "Une tâche terminée peut-elle être corrigée ?", a: "Oui, mais uniquement par un administrateur YCID/LEY, après double confirmation et avec un motif obligatoire — la correction est tracée dans le Journal." },
   { q: "Une dépense a été payée, comment l'enregistrer ?", a: "Déposez la facture sur la ligne budgétaire, puis le responsable financier la marque « payée »." },
+  { q: "Où déposer un devis ?", a: "Sur sa ligne budgétaire — c'est la règle, et la seule. Deux chemins y mènent : l'onglet Budget, bouton « Pièces » de la ligne ; ou l'onglet Documents, « Déposer une pièce », où la ligne et le montant sont alors demandés. Le montant n'est pas facultatif : c'est lui qui sera engagé une fois le devis validé." },
+  { q: "Je me suis trompé de devis, puis-je l'enlever ?", a: "Tant qu'aucune organisation ne s'est prononcée, oui : « Retirer » plutôt que supprimer. La pièce reste au dossier, barrée, avec votre motif, et les organisations sollicitées sont prévenues que leur décision n'est plus attendue. Déposez ensuite le bon devis sur la même ligne. Une fois une décision prise, la pièce reste : on repart en déposant un nouveau devis." },
   { q: "Peut-on importer nos tableaux Excel existants ?", a: "Oui : page Import, formats Projets, Phases, Tâches et Budget (CSV, séparateur ;). Aperçu avant import, lignes en erreur exclues." },
   { q: "Qui peut modifier cette page d'aide ?", a: "Son contenu est paramétrable : à terme, l'administrateur YCID l'éditera directement depuis l'outil." },
   { q: "Les accès sont-ils sécurisés ?", a: HELP_SECURITY },
@@ -52,12 +54,12 @@ export const TAB_HELP: Record<string, { title: string; anchor: string; excerpt: 
   budget: {
     title: "Budget",
     anchor: "premiers-pas",
-    excerpt: "Trois montants par ligne, par phase et par projet : prévu (budgété), engagé (devis validés) et payé (factures et reçus réglés). Le budget d'une phase est la somme de ses lignes, jamais une saisie séparée. Le montant voté du projet est la référence : déplacer du budget d'une ligne à l'autre est normal, l'enveloppe totale ne doit pas bouger. Les lignes « valorisation » (apports non financiers) sont comptées à part.",
+    excerpt: "Trois montants par ligne, par phase et par projet : prévu (budgété), engagé (devis validés) et payé (factures et reçus réglés). Devis, factures et reçus se déposent sur leur ligne — ici par le bouton « Pièces », ou depuis l'onglet Documents en désignant la ligne. Le budget d'une phase est la somme de ses lignes, jamais une saisie séparée. Le montant voté du projet est la référence : déplacer du budget d'une ligne à l'autre est normal, l'enveloppe totale ne doit pas bouger. Les lignes « valorisation » (apports non financiers) sont comptées à part.",
   },
   documents: {
     title: "Documents",
     anchor: "premiers-pas",
-    excerpt: "Toutes les pièces du projet réunies, quel que soit leur point de dépôt : tâche, ligne budgétaire, phase ou projet. Filtrables par nature, par phase et par date ; l'archive téléchargée reprend exactement la sélection affichée.",
+    excerpt: "Toutes les pièces du projet réunies, quel que soit leur point de dépôt : tâche, ligne budgétaire, phase ou projet. « Déposer une pièce » accepte ici ce qui porte sur le projet entier — convention, rapport, étude — et aussi les devis, factures et reçus, à condition de désigner leur ligne budgétaire et leur montant. Filtrables par nature, par phase et par date ; l'archive téléchargée reprend exactement la sélection affichée.",
   },
   impact: {
     title: "Impact",

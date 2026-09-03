@@ -34,7 +34,7 @@ export default async function AValiderPage() {
     ? await supabase.from("validations")
         .select(`id, org_id, step, organizations:org_id(name),
                  documents:document_id(
-                   id, filename, amount, project_id, uploaded_at,
+                   id, filename, amount, project_id, uploaded_at, withdrawn_at,
                    uploaded_by, profiles:uploaded_by(full_name),
                    projects:project_id(name),
                    budget_line_id, budget_lines:budget_line_id(poste),
@@ -53,7 +53,11 @@ export default async function AValiderPage() {
     const step = v.step ?? 1
     return !all.some((o: any) => (o.step ?? 1) < step && o.decision !== 'valide')
   }
-  const all = (pending ?? []).filter(v => v.documents)
+  // Une pièce retirée par son déposant (0070) n'attend plus personne :
+  // la laisser ici ferait ouvrir un panneau où les boutons ont disparu,
+  // et la base refuserait la décision de toute façon.
+  const notWithdrawn = (v: any) => !(Array.isArray(v.documents) ? v.documents[0] : v.documents)?.withdrawn_at
+  const all = (pending ?? []).filter(v => v.documents).filter(notWithdrawn)
   const rows = all.filter(isActionable)
   const waiting = all.length - rows.length
   const one = <T,>(x: T | T[] | null | undefined): T | null => (Array.isArray(x) ? x[0] ?? null : x ?? null)

@@ -114,7 +114,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
   const [{ data: project }, { data: phases }, { data: budgetLines }, { data: indicators }, { data: meetings }, { data: audit, count: auditCount }, { data: phasePhotos }, { data: allDocs }, canEditCompleted] = await Promise.all([
     supabase.from("projects").select("*, project_organizations(org_id, role, organizations(id, name, type)), project_members(user_id, role, profiles(id, full_name, email)), validation_rules(id, role, doc_type)").eq("id", id).single(),
     supabase.from("phases").select("*, tasks(*, profiles:assignee_id(full_name), documents(*), task_comments(id, body, created_at, author_id, author:author_id(full_name), addressed_to, answered_at, addressee:addressed_to(full_name)))").eq("project_id", id).order("position"),
-    supabase.from("budget_lines").select("*, funder:funder_org_id(name), owner:owner_org_id(name), phase:phase_id(name), allocations:budget_line_tasks(task_id, amount, task:task_id(title)), documents(id, filename, type, amount, paid, paid_at, uploaded_at, validations(id, org_id, decision, step, comment, org:org_id(name), decider:decided_by(full_name)))").eq("project_id", id).order("year"),
+    supabase.from("budget_lines").select("*, funder:funder_org_id(name), owner:owner_org_id(name), phase:phase_id(name), allocations:budget_line_tasks(task_id, amount, task:task_id(title)), documents(id, filename, type, amount, paid, paid_at, uploaded_at, withdrawn_at, withdrawn_reason, withdrawer:withdrawn_by(full_name), validations(id, org_id, decision, step, comment, org:org_id(name), decider:decided_by(full_name)))").eq("project_id", id).order("year"),
     supabase.from("indicators").select("*, measures:indicator_measures(*)").eq("project_id", id),
     supabase.from("meetings").select("*, decisions(*, owner:owner_user_id(full_name))").eq("project_id", id).order("date", { ascending: false }),
     // Journal : filtres + pagination (roadmap). Le compte exact vient
@@ -138,7 +138,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
     // Zone documentaire centralisée (PR 38d) : toutes les pièces du
     // projet, quel que soit leur point de dépôt.
     supabase.from("documents")
-      .select("id, filename, type, moment, amount, paid, uploaded_at, phase:phase_id(name), task:task_id(title), line:budget_line_id(poste), uploader:uploaded_by(full_name)")
+      .select("id, filename, type, moment, amount, paid, uploaded_at, withdrawn_at, withdrawn_reason, withdrawer:withdrawn_by(full_name), phase:phase_id(name), task:task_id(title), line:budget_line_id(poste), uploader:uploaded_by(full_name)")
       .eq("project_id", id).order("uploaded_at", { ascending: false }),
     canEditCompletedTasks(supabase, user.id),
   ])
@@ -173,6 +173,12 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
     phaseName: one<{ name: string }>(d.phase)?.name ?? null,
     taskTitle: one<{ title: string }>(d.task)?.title ?? null,
     lineposte: one<{ poste: string }>(d.line)?.poste ?? null,
+    // 0070 — une pièce retirée reste au dossier, barrée : la liste doit
+    // pouvoir le dire, sinon le retrait ne vaudrait pas mieux qu'une
+    // suppression silencieuse.
+    withdrawnAt: d.withdrawn_at ?? null,
+    withdrawnReason: d.withdrawn_reason ?? null,
+    withdrawerName: one<{ full_name: string | null }>(d.withdrawer)?.full_name ?? null,
   }))
 
   const photosByPhase = new Map<string, PhasePhoto[]>()
@@ -1537,6 +1543,9 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                               docs={(l.documents ?? []).map((d: any) => ({
                                 id: d.id, filename: d.filename, type: d.type,
                                 amount: d.amount ?? null, paid: !!d.paid, paid_at: d.paid_at ?? null,
+                                withdrawnAt: d.withdrawn_at ?? null,
+                                withdrawnReason: d.withdrawn_reason ?? null,
+                                withdrawerName: (Array.isArray(d.withdrawer) ? d.withdrawer[0]?.full_name : d.withdrawer?.full_name) ?? null,
                                 validations: (d.validations ?? []).map((v: any) => {
                                   // Un échelon n'est actionnable que si tous
                                   // ceux qui le précèdent ont validé — même
@@ -1624,8 +1633,21 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
               une ligne budgétaire, puisqu'elle les couvre toutes. */}
           {canTasks && (
             <div className="flex justify-end mb-4">
+              {/* Les lignes, pour la seconde porte du dépôt (0070) : on
+                  part du fichier et l'on désigne la ligne. Les
+                  valorisations sont transmises mais écartées par le
+                  dialogue dès qu'il s'agit d'argent. */}
               <ProjectDocUpload projectId={id}
-                phases={(phases ?? []).map((p: any) => ({ id: p.id, name: p.name }))} />
+                phases={(phases ?? []).map((p: any) => ({ id: p.id, name: p.name }))}
+                lines={(budgetLines ?? []).map((l: any) => ({
+                  id: l.id, poste: l.poste,
+                  phaseId: l.phase_id ?? null,
+                  phaseName: one<{ name: string }>(l.phase)?.name ?? null,
+                  funderName: one<{ name: string }>(l.funder)?.name ?? null,
+                  year: l.year ?? null,
+                  planned: l.planned_amount != null ? Number(l.planned_amount) : null,
+                  isValorisation: !!l.is_valorisation,
+                }))} />
             </div>
           )}
           <DocumentsPanel projectId={id} projectName={project.name} docs={projectDocs} canManage={canTasks} />

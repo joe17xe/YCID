@@ -4,10 +4,10 @@ import { useRouter } from "next/navigation"
 import { Paperclip, Upload, Trash2, Check, X as XIcon } from "lucide-react"
 import Modal, { ErrorMessage } from "@/components/ui/Modal"
 import { createClient } from "@/lib/supabase/client"
-import { BUDGET_DOC_TYPES, DOC_TYPE_LABELS, MAX_DOC_SIZE, buildStoragePath, type DocType } from "@/lib/documents"
+import { BUDGET_DOC_TYPES, DOC_TYPE_LABELS, MAX_DOC_SIZE, buildStoragePath, isMoneyDoc, type DocType } from "@/lib/documents"
 import { isEngagedDoc, pendingOrgCount } from "@/lib/budget"
 import {
-  saveDocument, deleteDocument, getDocumentUrl, decideValidation, setDocumentPaid, getDocumentPurgeState,
+  saveDocument, deleteDocument, withdrawDocument, getDocumentUrl, decideValidation, setDocumentPaid, getDocumentPurgeState,
 } from "@/app/(app)/projets/[id]/document-actions"
 
 // ============================================================
@@ -46,6 +46,11 @@ export interface LineDoc {
   amount: number | null
   paid: boolean
   paid_at: string | null
+  // 0070 — retirée par son déposant avant toute décision : la pièce
+  // reste ici, barrée, et ce qu'elle attendait n'attend plus personne.
+  withdrawnAt: string | null
+  withdrawnReason: string | null
+  withdrawerName: string | null
   validations: LineValidation[]
 }
 
@@ -83,6 +88,10 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
   // Purge d'une pièce décidée : le message vient du SERVEUR, qui seul a
   // compté ce qu'elle emporte (0059). L'écran ne le reformule pas.
   const [purging, setPurging] = useState<{ id: string; message: string } | null>(null)
+  // Retrait (0070) : même mécanique en place que la purge — le serveur
+  // refuse la suppression et nomme le geste, l'écran le propose.
+  const [withdrawing, setWithdrawing] = useState<{ id: string; message: string } | null>(null)
+  const [withdrawReason, setWithdrawReason] = useState("")
   // Qui peut purger est un rôle PLATEFORME : rien dans les données de la
   // ligne ne le dit. On le demande, sinon il n'y aurait que deux issues,
   // toutes deux mauvaises — proposer à tous une action que la base
@@ -110,9 +119,9 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
   // de même nature : ce que J'AI à décider est une action ; ce qu'un
   // AUTRE doit décider est un état d'avancement.
   const mineToDecide = docs.reduce((n, d) =>
-    n + (d.validations ?? []).filter(v => v.decision === "en_attente" && v.canDecide && !v.blocked).length, 0)
+    n + (d.withdrawnAt ? 0 : (d.validations ?? []).filter(v => v.decision === "en_attente" && v.canDecide && !v.blocked).length), 0)
   const othersPending = docs.reduce((n, d) =>
-    n + (d.validations ?? []).filter(v => v.decision === "en_attente" && !(v.canDecide && !v.blocked)).length, 0)
+    n + (d.withdrawnAt ? 0 : (d.validations ?? []).filter(v => v.decision === "en_attente" && !(v.canDecide && !v.blocked)).length), 0)
 
   // ------------------------------------------------------------
   // Un refus porte sur une PIÈCE, jamais sur la ligne budgétaire
@@ -167,10 +176,16 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
     setError("")
     if (!file) { setError("Choisissez un fichier."); return }
     if (file.size > MAX_DOC_SIZE) { setError("Fichier trop lourd (10 Mo maximum)."); return }
-    // Le montant d'un devis n'est pas facultatif : c'est lui, et lui
-    // seul, qui deviendra l'engagé une fois la validation obtenue.
-    if (type === "devis" && !amount.trim()) {
-      setError("Indiquez le montant du devis : c'est ce montant qui sera engagé une fois le devis validé.")
+    // Le montant d'une pièce d'argent n'est pas facultatif : sur un
+    // devis c'est lui qui deviendra l'engagé une fois la validation
+    // obtenue, sur une facture ou un reçu c'est lui qui alimentera le
+    // payé. Sans lui, la pièce suit tout son parcours et le chiffre
+    // reste à zéro, sans que rien ne le dise (0070, qui pose la même
+    // règle côté serveur et en base).
+    if (isMoneyDoc(type) && !amount.trim()) {
+      setError(type === "devis"
+        ? "Indiquez le montant du devis : c'est ce montant qui sera engagé une fois le devis validé."
+        : "Indiquez le montant : c'est lui qui alimentera le « payé » une fois la pièce marquée réglée.")
       return
     }
     setBusy(true)
@@ -263,7 +278,21 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
       // et le clic. Le serveur le sait, l'écran ne le savait pas — on suit
       // sa réponse au lieu d'afficher un refus qu'on ne saurait pas lever.
       if (res.needsPurge) setPurging({ id: d.id, message: res.error ?? "" })
+      else if (res.needsWithdraw) { setWithdrawReason(""); setWithdrawing({ id: d.id, message: res.error ?? "" }) }
       else setError(res.error ?? "Suppression impossible.")
+    })
+  }
+
+  // Pièce en ATTENTE de décision : elle ne s'efface pas, elle se retire
+  // (0070). Le motif est facultatif et part dans la notification aux
+  // organisations sollicitées — c'est ce message, plus que le barré, qui
+  // répare la disparition silencieuse d'avant.
+  function confirmWithdraw(d: LineDoc) {
+    setError("")
+    startTransition(async () => {
+      const res = await withdrawDocument(d.id, withdrawReason)
+      if (!res.ok) setError(res.error ?? "Retrait impossible.")
+      else { setWithdrawing(null); setWithdrawReason(""); router.refresh() }
     })
   }
 
@@ -395,7 +424,9 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
                           {DOC_TYPE_LABELS[d.type] ?? d.type}
                         </span>
                         <button type="button" onClick={() => download(d.id)}
-                          className="text-sm underline decoration-dotted" style={{ color: "#17211D" }}>
+                          className="text-sm underline decoration-dotted"
+                          style={{ color: d.withdrawnAt ? "#9AA39D" : "#17211D",
+                            textDecoration: d.withdrawnAt ? "line-through" : undefined }}>
                           {d.filename}
                         </button>
                         {d.amount != null && (
@@ -413,7 +444,7 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
                           seulement pour qui peut la mener à bien. Un
                           bouton qui ne peut que refuser serait le bouton
                           mort que le dépôt s'interdit. */}
-                      {canManage && (isDecided(d) ? canPurge && (
+                      {canManage && !d.withdrawnAt && (isDecided(d) ? canPurge && (
                         <button type="button" onClick={() => askPurge(d)} disabled={pending}
                           className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg border flex-shrink-0 font-medium"
                           style={{ borderColor: "#E3E6E2", color: "#A3342C" }}
@@ -427,6 +458,43 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
                         </button>
                       ))}
                     </div>
+
+                    {/* Le retrait, en place lui aussi. Teinte ambre et
+                        non rouge : rien n'est détruit, une pièce sort du
+                        circuit et le dit. */}
+                    {withdrawing?.id === d.id && (
+                      <div className="mt-2 rounded-xl border p-2 space-y-2" style={{ borderColor: "#E8D5AE", background: "#FBF0E0" }}>
+                        <p className="text-xs" style={{ color: "#6E5518" }}>{withdrawing.message}</p>
+                        <label htmlFor={`withdraw-${d.id}`} className="block text-xs font-medium" style={{ color: "#6E5518" }}>
+                          Motif <span style={{ fontWeight: 400 }}>(facultatif, transmis aux organisations sollicitées)</span>
+                        </label>
+                        <textarea id={`withdraw-${d.id}`} rows={2} value={withdrawReason}
+                          onChange={e => setWithdrawReason(e.target.value)}
+                          placeholder="Devis erroné, remplacé par la version corrigée…"
+                          className="w-full px-2 py-1 rounded-lg border text-xs" style={{ borderColor: "#E8D5AE" }} />
+                        <div className="flex gap-2 flex-wrap">
+                          <button type="button" onClick={() => confirmWithdraw(d)} disabled={pending}
+                            className="px-2 py-1 rounded-lg text-xs font-semibold text-white"
+                            style={{ background: "#8A6A1F", opacity: pending ? 0.6 : 1 }}>
+                            {pending ? "Retrait…" : "Retirer la pièce"}
+                          </button>
+                          <button type="button" onClick={() => setWithdrawing(null)} disabled={pending}
+                            className="px-2 py-1 rounded-lg border text-xs font-medium" style={{ borderColor: "#E3E6E2", color: "#66716B" }}>
+                            Annuler
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Une pièce retirée : ce qu'il en reste à l'écran. */}
+                    {d.withdrawnAt && (
+                      <p className="mt-2 text-xs px-2 py-1 rounded" style={{ background: "#F7EDDD", color: "#8A6A1F" }}>
+                        Retirée par {d.withdrawerName ?? "son déposant"} le{" "}
+                        {new Date(d.withdrawnAt).toLocaleDateString("fr-FR")}
+                        {d.withdrawnReason ? ` — ${d.withdrawnReason}` : ""}. Aucune décision n&apos;est
+                        attendue ; pour repartir, déposez une nouvelle pièce sur cette ligne.
+                      </p>
+                    )}
 
                     {/* Le second temps de la purge, EN PLACE : ce panneau
                         est déjà un dialogue, en ouvrir un second par-dessus
@@ -486,8 +554,11 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
                       </p>
                     )}
 
-                    {/* Devis : état du circuit, une ligne par organisation sollicitée */}
-                    {d.type === "devis" && d.validations.length > 0 && (
+                    {/* Devis : état du circuit, une ligne par organisation
+                        sollicitée. Masqué pour une pièce retirée : plus
+                        personne n'a à se prononcer, et la mention du
+                        retrait le dit déjà. */}
+                    {d.type === "devis" && d.validations.length > 0 && !d.withdrawnAt && (
                       <ul className="mt-2 space-y-1">
                         {d.validations.map(v => (
                           <li key={v.id} className="flex items-center gap-2 text-xs">
@@ -617,7 +688,7 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
                         boutons sont juste au-dessus — et pour les DEUX sens :
                         une validation ne se reprend pas davantage qu'un
                         refus, et on l'oublie plus facilement. */}
-                    {d.type === "devis" && d.validations.some(v => v.decision === "en_attente" && v.canDecide && !v.blocked) && (
+                    {d.type === "devis" && !d.withdrawnAt && d.validations.some(v => v.decision === "en_attente" && v.canDecide && !v.blocked) && (
                       <p className="mt-1.5 text-xs" style={{ color: "#8A6A1F" }}>
                         Validation ou refus, la décision est définitive : elle ne se rejoue pas.
                         Reprendre ce devis demandera d&apos;en déposer un nouveau.

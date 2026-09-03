@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
-import { DOC_TYPES, DOC_TYPE_LABELS, DOC_MOMENTS, GALLERY_URL_TTL, type DocType, type DocMoment } from '@/lib/documents'
+import { DOC_TYPES, DOC_TYPE_LABELS, DOC_MOMENTS, GALLERY_URL_TTL, isMoneyDoc, type DocType, type DocMoment } from '@/lib/documents'
 import { notifyPeople, membersOfOrgs, projectMembers } from '@/lib/notify-circuit'
 import { isUserAdmin } from '@/lib/permissions'
 // Le montant se met en forme au même endroit que partout ailleurs : un
@@ -53,6 +53,35 @@ export async function saveDocument(input: SaveDocumentInput): Promise<{ ok: bool
   if (input.amount != null && String(input.amount).trim() !== '') {
     amount = Number(String(input.amount).replace(',', '.'))
     if (!Number.isFinite(amount) || amount < 0) return { ok: false, error: 'Montant invalide.' }
+  }
+
+  // 0070 — L'INVARIANT, tenu ici et non plus seulement par le choix des
+  // listes d'un composant. Une pièce d'argent porte sa ligne et son
+  // montant, quel que soit l'écran d'où elle vient : la ligne parce que
+  // c'est le seul endroit où le circuit s'affiche et où le montant se
+  // compare au prévisionnel ; le montant parce que `engaged` est la
+  // somme des montants des devis validés — sans lui, un devis validé
+  // engage zéro euro sans que rien ne le dise. La base pose la même
+  // règle (contrainte `documents_argent_sur_ligne`) ; ce contrôle-ci
+  // existe pour la DIRE, une contrainte violée ne remontant qu'un
+  // message Postgres.
+  if (isMoneyDoc(input.type)) {
+    const nature = DOC_TYPE_LABELS[input.type].toLowerCase()
+    if (!input.budgetLineId) {
+      return {
+        ok: false,
+        error: `Un ${nature} se rattache toujours à une ligne budgétaire : c'est là que son montant se compare au prévu, `
+          + `et là que le circuit de validation s'affiche. Choisissez la ligne concernée.`,
+      }
+    }
+    if (amount == null) {
+      return {
+        ok: false,
+        error: input.type === 'devis'
+          ? `Indiquez le montant du devis : c'est ce montant qui sera engagé une fois le devis validé.`
+          : `Indiquez le montant : c'est lui qui alimentera le « payé » une fois la pièce marquée réglée.`,
+      }
+    }
   }
 
   // Le droit de déposer est arbitré par la RLS (can_upload_document) :
@@ -212,9 +241,23 @@ export async function decideValidation(input: {
   if (!['valide', 'refuse'].includes(input.decision)) return { ok: false, error: 'Décision invalide.' }
 
   const { data: v } = await supabase.from('validations')
-    .select('id, document_id, org_id, decision, step, organizations:org_id(name), documents:document_id(filename, project_id)')
+    .select('id, document_id, org_id, decision, step, organizations:org_id(name), documents:document_id(filename, project_id, withdrawn_at)')
     .eq('id', input.validationId).maybeSingle()
   if (!v) return { ok: false, error: 'Validation introuvable.' }
+
+  // Retirée entre l'affichage de l'écran et le clic (0070). La policy
+  // « Decide validation » le refuse déjà ; un refus de RLS ne remonte
+  // pourtant aucune erreur sur un update — il touche zéro ligne et
+  // répond « succès ». Sans ce contrôle, l'écran annoncerait une
+  // décision qui n'a pas eu lieu.
+  const decidedDoc = Array.isArray(v.documents) ? v.documents[0] : v.documents
+  if ((decidedDoc as { withdrawn_at?: string | null } | null)?.withdrawn_at) {
+    return {
+      ok: false,
+      error: `Cette pièce a été retirée par son déposant : votre décision n'est plus attendue. `
+        + `Si un remplacement a été déposé, il apparaît sur la même ligne budgétaire.`,
+    }
+  }
 
   // Une décision déjà prise ne se rejoue pas en silence. Les boutons
   // n'apparaissent qu'en attente, mais deux personnes peuvent trancher
@@ -386,18 +429,24 @@ export async function setDocumentPaid(input: {
 // ------------------------------------------------------------
 // Retirer une pièce — et la purge administrateur (0059)
 // ------------------------------------------------------------
-// Trois gestes distincts sous un même bouton corbeille, et c'est le
+// Quatre gestes distincts sous un même bouton corbeille, et c'est le
 // serveur qui dit lequel a lieu :
 //
-//   1. pièce NON DÉCIDÉE (aucune validation, ou toutes `en_attente`) —
-//      elle part, comme avant. C'est le devis de test jamais soumis, et
+//   1. pièce HORS CIRCUIT (aucune validation) — elle part, comme avant.
+//      C'est la photo, le justificatif, le devis de test jamais soumis :
 //      le nettoyage de la recette ne doit pas coûter un dialogue par
 //      pièce ;
-//   2. pièce DÉCIDÉE, utilisateur ordinaire — refus FERME. La décision
+//   2. pièce EN ATTENTE de décision (0070) — refus LEVABLE, mais vers un
+//      AUTRE geste. Des organisations l'ont dans leur file « À valider » ;
+//      l'effacer la viderait sans un mot. Le serveur renvoie
+//      `needsWithdraw`, l'écran propose `withdrawDocument` : la pièce
+//      reste, barrée, et les sollicités sont prévenus. L'administrateur,
+//      lui, supprime toujours — c'est le nettoyage des données de test ;
+//   3. pièce DÉCIDÉE, utilisateur ordinaire — refus FERME. La décision
 //      est ce qui justifie la dépense devant le financeur ; elle ne peut
 //      pas dépendre du bon vouloir de celui qu'elle contraint. Le message
 //      dit la marche à suivre réelle : DÉPOSER UN NOUVEAU DEVIS ;
-//   3. pièce DÉCIDÉE, administrateur — autorisé, mais en DEUX TEMPS. Le
+//   4. pièce DÉCIDÉE, administrateur — autorisé, mais en DEUX TEMPS. Le
 //      premier appel mesure et refuse en nommant ce qu'il détruirait ; le
 //      second porte `purge: true`. Même protocole que `deletePhase` et
 //      `deleteBudgetLine` (voir DeleteInTwoSteps) : le dialogue n'est pas
@@ -417,6 +466,10 @@ export interface DeleteDocumentOutcome {
   // Absent, le refus est FERME — il n'y a rien à confirmer, et offrir de
   // forcer reviendrait au bouton mort que le dépôt s'interdit.
   needsPurge?: boolean
+  // Refus LEVABLE lui aussi, mais vers un AUTRE geste : la pièce attend
+  // une décision, elle ne s'efface pas — elle se retire, motif et
+  // notification compris (0070).
+  needsWithdraw?: boolean
   // Mesuré par le premier appel, pour que le dialogue nomme ce qu'il
   // efface sans le recompter côté client.
   validationCount?: number
@@ -453,7 +506,7 @@ export async function deleteDocument(
   if (!user) return { ok: false, error: 'Non authentifié.' }
 
   const { data: doc } = await supabase.from('documents')
-    .select('id, project_id, filename, type, amount, storage_path, validations(decision, organizations:org_id(name))')
+    .select('id, project_id, filename, type, amount, storage_path, withdrawn_at, validations(decision, organizations:org_id(name))')
     .eq('id', documentId).maybeSingle()
   if (!doc) return { ok: false, error: 'Document introuvable.' }
 
@@ -462,6 +515,33 @@ export async function deleteDocument(
   const nature = DOC_TYPE_LABELS[doc.type as DocType] ?? doc.type
   const montant = doc.amount != null ? ` — ${fmtEur(doc.amount)}` : ''
   const label = `« ${doc.filename} » (${nature}${montant})`
+
+  // 0070 — entre « rien n'a été jugé » et « une décision est prise », un
+  // troisième cas est apparu avec la mise en validation automatique : la
+  // pièce que des organisations ont dans leur file. L'effacer y ferait
+  // disparaître une décision attendue sans explication. L'administrateur
+  // garde la suppression, pour la même raison qu'en 0059 : nettoyer des
+  // données de test.
+  if (decided.length === 0 && validations.length > 0) {
+    const admin = await isUserAdmin(supabase, user.id)
+    if (!admin && doc.withdrawn_at) {
+      return {
+        ok: false,
+        error: `${label} a déjà été retiré : la pièce reste au dossier, barrée, pour que le retrait se lise. `
+          + `Pour repartir, déposez une nouvelle pièce sur la ligne.`,
+      }
+    }
+    if (!admin) {
+      const n = validations.length
+      return {
+        ok: false,
+        needsWithdraw: true,
+        error: `${label} attend une décision de ${n} organisation${plural(n)} : l'effacer viderait leur file « À valider » `
+          + `sans un mot. Utilisez « Retirer » : la pièce reste au dossier, barrée, avec votre motif, `
+          + `et les organisations sollicitées sont prévenues que leur décision n'est plus attendue.`,
+      }
+    }
+  }
 
   if (decided.length > 0) {
     // Le rôle plateforme, et lui seul (lib/permissions.ts). La policy SQL
@@ -582,6 +662,118 @@ export async function deleteDocument(
       JSON.stringify(trace), '—', auditErr.message)
   }
   revalidatePath(`/projets/${doc.project_id}`)
+  return { ok: true }
+}
+
+// ------------------------------------------------------------
+// Le retrait (0070) — se raviser sans effacer
+// ------------------------------------------------------------
+// Depuis la 38b, un devis part en validation dès son dépôt : « non
+// décidé » ne veut plus dire « jamais soumis ». Le supprimer vidait
+// donc, sans un mot, la file « À valider » de deux organisations.
+//
+// Le geste lui-même est légitime — mauvais PDF, version corrigée du
+// fournisseur — et l'interdire n'aurait produit qu'un contournement :
+// déposer un second devis et laisser le premier dormir dans la file de
+// quelqu'un. Il change donc de nature plutôt que de disparaître : la
+// pièce reste, barrée, avec qui l'a retirée, quand et pourquoi, et
+// ceux qui l'attendaient l'apprennent.
+//
+// Aucun chiffre ne bouge : un devis retiré n'a jamais été engagé,
+// puisque l'engagé ne compte que les devis dont TOUTES les
+// organisations ont validé.
+export async function withdrawDocument(
+  documentId: string,
+  reason?: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Non authentifié.' }
+
+  const { data: doc } = await supabase.from('documents')
+    .select('id, project_id, filename, type, amount, withdrawn_at, validations(decision, org_id)')
+    .eq('id', documentId).maybeSingle()
+  if (!doc) return { ok: false, error: 'Document introuvable.' }
+
+  const validations = (doc.validations ?? []) as { decision: string; org_id: string }[]
+  const nature = DOC_TYPE_LABELS[doc.type as DocType] ?? doc.type
+  const montant = doc.amount != null ? ` — ${fmtEur(doc.amount)}` : ''
+  const label = `« ${doc.filename} » (${nature}${montant})`
+
+  if (doc.withdrawn_at) {
+    return { ok: false, error: `${label} a déjà été retiré. Rafraîchissez la page.` }
+  }
+  if (validations.some(v => v.decision !== 'en_attente')) {
+    return {
+      ok: false,
+      error: `${label} a été décidé : la décision est la trace du circuit et reste au dossier. `
+        + `Pour repartir, déposez une nouvelle pièce sur la ligne.`,
+    }
+  }
+  if (!validations.length) {
+    // Rien n'attend personne : le retrait n'aurait rien à annoncer, et
+    // laisserait une pièce barrée sans raison lisible.
+    return {
+      ok: false,
+      error: `${label} n'est engagé dans aucun circuit de validation : il se supprime, il n'a pas à être retiré.`,
+    }
+  }
+
+  const motif = (reason ?? '').trim().slice(0, 500)
+
+  // `.select('id')` pour la raison documentée sur `deleteDocument` : un
+  // update écarté par la RLS ne remonte aucune erreur, il touche zéro
+  // ligne et répond « succès ». Le trigger `documents_retrait_garde`,
+  // lui, lève une exception nommée — elle remonte dans `error`.
+  const { data: updated, error } = await supabase.from('documents')
+    .update({ withdrawn_at: new Date().toISOString(), withdrawn_reason: motif || null })
+    .eq('id', documentId).select('id')
+  if (error) return { ok: false, error: `Retrait refusé : ${error.message}` }
+  if (!updated?.length) {
+    return {
+      ok: false,
+      error: `La base a écarté le retrait de ${label}. Soit quelqu'un vient de le retirer (rafraîchissez la page), `
+        + `soit ce geste ne vous revient pas : il appartient à l'auteur du dépôt, au chef de projet et au responsable financier.`,
+    }
+  }
+
+  const { error: auditErr } = await supabase.from('audit_log').insert({
+    project_id: doc.project_id, entity: 'document', entity_id: null,
+    label: doc.filename, action: 'archive', user_id: user.id,
+    comment: motif ? `Pièce retirée par son déposant — ${motif}` : 'Pièce retirée par son déposant',
+  })
+  if (auditErr) console.error('[audit] trace NON enregistrée:', auditErr.message)
+
+  // Ceux qui l'attendaient, et eux seuls : les membres des
+  // organisations encore sollicitées. Sans ce message, le retrait
+  // serait aussi muet que la suppression qu'il remplace — c'est lui,
+  // pas le barré, qui répare le défaut.
+  try {
+    const orgIds = [...new Set(validations.filter(v => v.decision === 'en_attente').map(v => v.org_id))]
+    const people = (await membersOfOrgs(orgIds)).filter(uid => uid !== user.id)
+    if (people.length) {
+      const [{ data: project }, { data: me }] = await Promise.all([
+        supabase.from('projects').select('name').eq('id', doc.project_id).maybeSingle(),
+        supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle(),
+      ])
+      await notifyPeople(people, {
+        type: 'document_retire',
+        title: `Décision annulée : la pièce a été retirée — ${project?.name ?? 'projet'}`,
+        body: [
+          `${label} a été retiré par ${me?.full_name ?? 'son déposant'}.`,
+          motif ? `Motif : ${motif}` : `Aucun motif n'a été précisé.`,
+          `Votre décision n'est plus attendue. Si un remplacement est déposé, il apparaîtra sur la même ligne budgétaire.`,
+        ],
+        path: `/a-valider`,
+        linkLabel: 'Ouvrir la file « À valider »',
+      })
+    }
+  } catch (e) {
+    console.error('[withdrawDocument] notification de retrait non émise:', e)
+  }
+
+  revalidatePath(`/projets/${doc.project_id}`)
+  revalidatePath('/a-valider')
   return { ok: true }
 }
 
