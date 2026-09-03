@@ -34,7 +34,11 @@
       "ar": "طوال السنة.",
       "en": "All year round."
     },
-    "langues": ["ar", "fr", "en"],
+    "langues": [
+      "ar",
+      "fr",
+      "en"
+    ],
     "photo": null,
     "statut": "publie",
     "ordre": 1,
@@ -75,11 +79,17 @@
       "ar": "من تشرين الأول إلى حزيران. في الصيف، انطلقوا باكرًا.",
       "en": "October to June. In summer, set off early."
     },
-    "langues": ["ar", "fr", "en"],
+    "langues": [
+      "ar",
+      "fr",
+      "en"
+    ],
     "photo": null,
     "statut": "publie",
     "ordre": 2,
-    "parcours_slugs": ["boucle-foret-falaise"]
+    "parcours_slugs": [
+      "boucle-foret-falaise"
+    ]
   },
   {
     "slug": "bisri-accompagnee",
@@ -116,11 +126,17 @@
       "ar": "من تشرين الأول إلى أيار. لا يُنصح بها في عزّ الصيف.",
       "en": "October to May. Not advised in high summer."
     },
-    "langues": ["ar", "fr", "en"],
+    "langues": [
+      "ar",
+      "fr",
+      "en"
+    ],
     "photo": null,
     "statut": "publie",
     "ordre": 3,
-    "parcours_slugs": ["azour-joubeh-bisri"]
+    "parcours_slugs": [
+      "azour-joubeh-bisri"
+    ]
   },
   {
     "slug": "hyrax-rock",
@@ -157,11 +173,17 @@
       "ar": "في الطقس الجافّ حصرًا.",
       "en": "Dry weather only."
     },
-    "langues": ["ar", "fr", "en"],
+    "langues": [
+      "ar",
+      "fr",
+      "en"
+    ],
     "photo": null,
     "statut": "publie",
     "ordre": 4,
-    "parcours_slugs": ["hyrax-rock"]
+    "parcours_slugs": [
+      "hyrax-rock"
+    ]
   },
   {
     "slug": "journee-a-azour",
@@ -176,9 +198,9 @@
       "en": "The village in the morning, the hike in the afternoon, a table in between."
     },
     "description": {
-      "fr": "Une journée complète, montée avec vous : la visite du village, une randonnée choisie selon vos jambes, et le déjeuner dans une des tables d'Azour. Les établissements sont indépendants du projet — le kiosque fait le lien, vous réglez sur place.",
-      "ar": "يوم كامل يُرتَّب معكم: جولة في القرية، ومشية تُختار على قدر ساقيكم، وغداء على إحدى موائد عازور. المنشآت مستقلّة عن المشروع — الكشك يصل بينكم، والدفع يتمّ هناك.",
-      "en": "A full day, put together with you: the village walk, a hike chosen to suit you, and lunch at one of Azour's tables. The establishments are independent from the project — the kiosk makes the introduction, you settle up on the spot."
+      "fr": "Une journée complète, montée avec vous : la visite du village, une randonnée choisie selon vos jambes, et le déjeuner à une table du village. Les établissements sont indépendants du projet — le kiosque fait le lien, vous réglez sur place.",
+      "ar": "يوم كامل يُرتَّب معكم: جولة في القرية، ومشية تُختار على قدر ساقيكم، وغداء على مائدة في القرية. المنشآت مستقلّة عن المشروع — الكشك يصل بينكم، والدفع يتمّ هناك.",
+      "en": "A full day, put together with you: the village walk, a hike chosen to suit you, and lunch at a village table. The establishments are independent from the project — the kiosk makes the introduction, you settle up on the spot."
     },
     "categorie": "journee",
     "duree_minutes": 360,
@@ -198,11 +220,17 @@
       "ar": "طوال السنة، بحسب الطقس.",
       "en": "All year round, weather permitting."
     },
-    "langues": ["ar", "fr", "en"],
+    "langues": [
+      "ar",
+      "fr",
+      "en"
+    ],
     "photo": null,
     "statut": "publie",
     "ordre": 5,
-    "parcours_slugs": ["boucle-foret-falaise"]
+    "parcours_slugs": [
+      "boucle-foret-falaise"
+    ]
   },
   {
     "slug": "groupes-et-scolaires",
@@ -239,7 +267,11 @@
       "ar": "طوال السنة، بموعد مسبق.",
       "en": "All year round, by arrangement."
     },
-    "langues": ["ar", "fr", "en"],
+    "langues": [
+      "ar",
+      "fr",
+      "en"
+    ],
     "photo": null,
     "statut": "publie",
     "ordre": 6,

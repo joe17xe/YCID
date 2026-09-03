@@ -73,6 +73,14 @@
     Hyrax Rock, journée complète, groupes et scolaires) ; la demande se
     dépose depuis l'app et se confirme au village. **L'entrée est sur la
     page d'accueil**, à côté du numéro.
+14. **La table d'Azour, c'est le restaurant de l'hôtel** (03/09).
+    Aucun établissement nommé « Lion » n'existe — la mention entendue au
+    cadrage était un artefact de dictée, rien n'a été créé sous ce nom.
+    La rubrique « Se restaurer » retient donc **Pineview Hotel** pour le
+    déjeuner et le dîner, et **Beit Mrad** pour le petit-déjeuner.
+    Blue Jay Valley redevient un **hébergement seul** : son service de
+    table est retiré, et la phrase qui l'annonçait aussi — une
+    description qui promet une table vaut une table promise.
 
 ## Encore ouvert
 

@@ -266,9 +266,9 @@
     ],
     "panneau_no": null,
     "texte": {
-      "fr": "Bungalows et tentes aménagées au creux d'une vallée de pins et de chênes, avec une table qui sert midi et soir. Établissement indépendant du projet — contact direct.",
-      "ar": "أكواخ وخيام مجهزة في وادٍ من الصنوبر والسنديان، مع مطعم يقدّم الغداء والعشاء. منشأة مستقلة عن المشروع — تواصل مباشر.",
-      "en": "Bungalows and furnished tents in a valley of pines and oaks, with a restaurant serving lunch and dinner. Independent from the project — contact directly."
+      "fr": "Bungalows et tentes aménagées au creux d'une vallée de pins et de chênes. Établissement indépendant du projet — contact direct.",
+      "ar": "أكواخ وخيام مجهزة في وادٍ من الصنوبر والسنديان. منشأة مستقلة عن المشروع — تواصل مباشر.",
+      "en": "Bungalows and furnished tents in a valley of pines and oaks. Independent from the project — contact directly."
     },
     "photo": null,
     "contact": {
@@ -276,10 +276,7 @@
     },
     "statut": "publie",
     "ordre": 12,
-    "services": [
-      "restaurant",
-      "bar"
-    ]
+    "services": []
   },
   {
     "slug": "pineview-hotel",
