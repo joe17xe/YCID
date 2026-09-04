@@ -34,10 +34,14 @@ try {
 // « blue-jay-valley-1.jpg » ne doit pas tomber dans « blue-jay ».
 const parPoi = new Map()
 const orphelins = []
+const hors = []
 const lourds = []
 for (const f of fichiers.sort()) {
   const m = IMAGE.exec(f)
-  if (!m) continue
+  if (!m) {
+    if (/\.(jpe?g|png|webp|avif)$/i.test(f)) hors.push(f)
+    continue
+  }
   const [, base, no] = m
   const prefixe = Object.keys(prefixes)
     .filter((p) => base === p || base.startsWith(p + '-') || base === p)
@@ -69,6 +73,11 @@ for (const o of pois) {
 
 if (orphelins.length)
   console.log(`\n${orphelins.length} fichier(s) sans préfixe connu : ${orphelins.join(', ')}`)
+if (hors.length)
+  console.log(
+    `\n${hors.length} image(s) hors convention « <prefixe>-<n>.jpg », donc non rattachée(s) :\n  ` +
+      hors.join('\n  '),
+  )
 if (lourds.length)
   console.log(`\n⚠ plus de 500 Ko, à recompresser : ${lourds.join(', ')}`)
 if (!touches) console.log('Aucune galerie composée.')

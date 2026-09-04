@@ -300,7 +300,7 @@
       "ar": "أكواخ وخيام مجهزة في وادٍ من الصنوبر والسنديان، ومطعم وبار تعمل تراسهما صيفًا وشتاءً — بحجز مسبق. منشأة مستقلة عن المشروع — تواصل مباشر.",
       "en": "Bungalows and furnished tents in a valley of pines and oaks, and a bar-restaurant whose terrace serves in summer and in winter — by reservation. Independent from the project — contact directly."
     },
-    "photo": null,
+    "photo": "/photos/blue-jay-1.jpeg",
     "contact": {
       "site": "https://bluejayvalley.com"
     },
@@ -310,7 +310,33 @@
       "restaurant",
       "bar"
     ],
-    "sur_reservation": true
+    "sur_reservation": true,
+    "photos": [
+      {
+        "src": "/photos/blue-jay-1.jpeg",
+        "credit": "Blue Jay Valley"
+      },
+      {
+        "src": "/photos/blue-jay-2.jpeg",
+        "credit": "Blue Jay Valley"
+      },
+      {
+        "src": "/photos/blue-jay-3.jpeg",
+        "credit": "Blue Jay Valley"
+      },
+      {
+        "src": "/photos/blue-jay-4.jpeg",
+        "credit": "Blue Jay Valley"
+      },
+      {
+        "src": "/photos/blue-jay-5.jpeg",
+        "credit": "Blue Jay Valley"
+      },
+      {
+        "src": "/photos/blue-jay-6.jpeg",
+        "credit": "Blue Jay Valley"
+      }
+    ]
   },
   {
     "slug": "pineview-hotel",
@@ -330,11 +356,29 @@
       "ar": "فندق القرية على طريق جزين، على ارتفاع ٩٥٠ مترًا تحت الصنوبر: مطعمه يقدّم مطبخًا لبنانيًا من منتجات طازجة. منشأة مستقلة عن المشروع — تواصل مباشر.",
       "en": "The village hotel, on the Jezzine road at 950 m under the pines: its kitchen serves Lebanese cooking from fresh produce. Independent from the project — contact directly."
     },
-    "photo": null,
+    "photo": "/photos/pineview-1.jpeg",
     "statut": "publie",
     "ordre": 13,
     "services": [
       "restaurant"
+    ],
+    "photos": [
+      {
+        "src": "/photos/pineview-1.jpeg",
+        "credit": "Pineview Hotel"
+      },
+      {
+        "src": "/photos/pineview-2.jpeg",
+        "credit": "Pineview Hotel"
+      },
+      {
+        "src": "/photos/pineview-3.jpeg",
+        "credit": "Pineview Hotel"
+      },
+      {
+        "src": "/photos/pineview-4.jpeg",
+        "credit": "Pineview Hotel"
+      }
     ]
   },
   {
@@ -358,13 +402,35 @@
       "ar": "بيت قروي مرمَّم تعود جدرانه إلى العام ١٧٥٠: غرف بأثاث عتيق وأشغال خشبية دقيقة، وساحة يُقدَّم فيها الفطور اللبناني على الصاج عند طرف المزرعة. منشأة مستقلة عن المشروع — تواصل مباشر.",
       "en": "A restored village house whose walls date back to 1750: rooms furnished with antiques, worked woodwork, and a courtyard where the Lebanese breakfast is served on the saj, beside the farm. Independent from the project — contact directly."
     },
-    "photo": null,
+    "photo": "/photos/beit-mrad-1.jpeg",
     "contact": {
       "tel": "+961 3 553 343",
       "site": "https://www.instagram.com/beitmrad/"
     },
     "statut": "publie",
-    "ordre": 14
+    "ordre": 14,
+    "photos": [
+      {
+        "src": "/photos/beit-mrad-1.jpeg",
+        "credit": "Beit Mrad"
+      },
+      {
+        "src": "/photos/beit-mrad-2.jpeg",
+        "credit": "Beit Mrad"
+      },
+      {
+        "src": "/photos/beit-mrad-3.jpeg",
+        "credit": "Beit Mrad"
+      },
+      {
+        "src": "/photos/beit-mrad-4.jpeg",
+        "credit": "Beit Mrad"
+      },
+      {
+        "src": "/photos/beit-mrad-5.jpeg",
+        "credit": "Beit Mrad"
+      }
+    ]
   },
   {
     "slug": "guides-azour",
