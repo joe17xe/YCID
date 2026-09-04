@@ -1,7 +1,7 @@
 "use client"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { LayoutDashboard, FolderKanban, Building2, Upload, PieChart, Lightbulb, Users, ShieldCheck, Settings, HardDrive, HelpCircle, LogOut, ChevronLeft, ChevronRight, CheckSquare, Layers, Megaphone, type LucideIcon } from "lucide-react"
+import { LayoutDashboard, FolderKanban, Building2, Upload, PieChart, Lightbulb, Users, ShieldCheck, Settings, HardDrive, HelpCircle, Presentation, LogOut, ChevronLeft, ChevronRight, CheckSquare, Layers, Megaphone, type LucideIcon } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { useState } from "react"
 import { useTranslations } from "next-intl"
@@ -35,6 +35,11 @@ export const NAV_GROUPS: NavGroup[] = [
       // Kit de communication (0057) : les supports du designer, pour
       // tout le monde.
       { href: "/kit", key: "kit", Icon: Megaphone },
+      // Les supports de présentation (04/09) n'étaient atteignables que
+      // par deux liens au milieu de l'Aide : on ne les retrouvait pas la
+      // veille d'une séance. Voisins du kit et de l'aide — c'est là
+      // qu'on cherche « comment j'explique l'outil aux autres ».
+      { href: "/presentations", key: "presentations", Icon: Presentation },
       { href: "/aide", key: "help", Icon: HelpCircle },
     ],
   },
