@@ -81,7 +81,10 @@ export default function ProjectDocUpload({ projectId, phases }: {
             rapport, étude. Les devis et factures se déposent sur leur ligne budgétaire,
             pour rester dans le circuit de validation.
           </p>
-          <input type="file" required onChange={e => setFile(e.target.files?.[0] ?? null)}
+          <label htmlFor="pdu-file" className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>
+            Fichier *
+          </label>
+          <input id="pdu-file" type="file" required onChange={e => setFile(e.target.files?.[0] ?? null)}
             className="w-full text-sm" />
           <div>
             <label htmlFor="pdu-type" className="block text-sm font-medium mb-1" style={{ color: "#17211D" }}>Nature *</label>

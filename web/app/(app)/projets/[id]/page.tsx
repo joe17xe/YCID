@@ -874,7 +874,16 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
             const phaseValo = valoByPhase.get(ph.id) ?? 0
             return (
               <div key={ph.id} className="bg-white rounded-2xl border" style={{ borderColor: "#E3E6E2" }}>
-                <div className="p-4 border-b" style={{ borderColor: "#E3E6E2" }}>
+                {/* L'en-tête d'une ACTION et ses TÂCHES étaient deux blocs
+                    blancs séparés par un filet : rien ne disait, d'un coup
+                    d'œil, ce qui était le contenant et ce qui était le
+                    contenu (retour de recette, 04/09). L'action reçoit donc
+                    une bande teintée, les tâches restent sur fond blanc.
+                    La teinte se DÉRIVE de la couleur de marque — 7 % suffit
+                    à la distinguer — plutôt que d'être un gris en dur qui
+                    jurerait sous une autre collectivité (white-label 0018). */}
+                <div className="p-4 border-b rounded-t-2xl"
+                  style={{ borderColor: "#E3E6E2", background: "color-mix(in oklab, var(--brand-accent, #0E6B5C) 7%, #FFFFFF)" }}>
                   {/* L'ancien en-tête empilait « 3 tâches / 26 600 € /
                       0 % pondéré / + Tâche » en colonne à droite du
                       titre : sur téléphone, une tour de chiffres sans
@@ -961,7 +970,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                     const ts = TASK_STATUS[t.status] ?? { label: t.status, fg: "#66716B", bg: "#EEF0EE" }
                     const rv = t.review ? (REVIEW_STATES[t.review] ?? null) : null
                     return (
-                      <div key={t.id} className="p-4 hover:bg-gray-50">
+                      <div key={t.id} className="p-4 bg-white hover:bg-gray-50">
                         {/* Le statut vivait dans une colonne fixe à
                             droite : elle comprimait la date sur trois
                             lignes et faisait flotter « À faire » hors de
