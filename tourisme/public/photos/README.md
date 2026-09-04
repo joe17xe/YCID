@@ -34,3 +34,29 @@ relire : `beit-mrad-1.jpg`, `beit-mrad-2.jpg`, `pineview-1.jpg`…
 Dans `/admin`, chaque lieu affiche la grille des images disponibles :
 on clique pour ajouter, les flèches réordonnent, la croix retire, et le
 crédit se saisit sous chaque vignette.
+
+## Déposer une série et laisser le script faire le reste
+
+Nommez `<prefixe>-<n>.jpg` selon `content/photos.json` — par exemple
+`beit-mrad-1.jpg` … `beit-mrad-5.jpg` — déposez les fichiers ici, puis :
+
+    node scripts/galeries.mjs            # aperçu
+    node scripts/galeries.mjs --ecrire   # applique
+    node scripts/gen-seed.mjs            # régénère le SQL
+
+Le numéro donne l'ordre, et le **n° 1 devient la couverture**. Le crédit
+vient de `content/photos.json`, une ligne par lieu. Le script est
+idempotent : il reconstruit la galerie depuis le disque, il ne l'empile
+pas — et il respecte les légendes déjà saisies à la main.
+
+Il signale au passage les fichiers dont le préfixe n'est rattaché à
+aucun lieu, et ceux qui dépassent 500 Ko.
+
+## Ce qu'on ne publie pas sans y avoir réfléchi
+
+- **Des visages identifiables** sans l'accord des personnes. Le site est
+  porté par des collectivités publiques françaises : une photo de groupe
+  demande le consentement de celles et ceux qui y figurent.
+- **Des images marquées** d'un logo, d'un slogan ou d'un numéro de
+  téléphone incrusté : elles se lisent comme des publicités au milieu du
+  reste. Demandez la version sans habillage à l'établissement.

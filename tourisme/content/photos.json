@@ -1,0 +1,14 @@
+{
+  "_lisez_moi": "Préfixe de fichier → lieu et crédit. Une photo nommée « beit-mrad-1.jpg » déposée dans public/photos rejoint la galerie de beit-mrad, créditée « Beit Mrad ». Le numéro donne l'ordre ; le n° 1 sert de couverture. Ajoutez une ligne pour chaque nouveau lieu.",
+  "prefixes": {
+    "beit-mrad": { "poi": "beit-mrad", "credit": "Beit Mrad" },
+    "pineview": { "poi": "pineview-hotel", "credit": "Pineview Hotel" },
+    "blue-jay": { "poi": "blue-jay-valley", "credit": "Blue Jay Valley" },
+    "place-du-village": { "poi": "place-du-village", "credit": "Municipalité d'Azour" },
+    "kiosque": { "poi": "kiosque", "credit": "Municipalité d'Azour" },
+    "eglise-saint-joseph": { "poi": "eglise-saint-joseph", "credit": "Municipalité d'Azour" },
+    "chir-el-joube": { "poi": "chir-el-joube", "credit": "Municipalité d'Azour" },
+    "village-bisri": { "poi": "village-bisri", "credit": "Municipalité d'Azour" },
+    "guides-azour": { "poi": "guides-azour", "credit": "Municipalité d'Azour" }
+  }
+}
