@@ -1607,7 +1607,15 @@ table.g tr.grp td{background:#F1F4F2;font-weight:600;color:var(--ink);font-size:
   // ---- 4. Mise à l'échelle 16:9 ---------------------------------------
   function fit() {
     var k = Math.min(window.innerWidth / 1280, window.innerHeight / 720);
-    stage.style.setProperty('--k', k);
+    // La transformation est écrite DIRECTEMENT, et non via une variable
+    // CSS : `setProperty` sur une propriété personnalisée attend une
+    // CHAÎNE, et WebKit ignore silencieusement une valeur numérique. Sur
+    // iPhone, `--k` restait donc vide, `var(--k,1)` valait 1, et la scène
+    // s'affichait à ses 1280 px réels, rognée par l'écran — sans la
+    // moindre erreur en console. Chromium, lui, convertit le nombre :
+    // le défaut ne se voyait qu'ailleurs.
+    stage.style.transform = 'translate(-50%,-50%) scale(' + k + ')';
+    stage.style.setProperty('--k', String(k));
   }
   window.addEventListener('resize', function () { fit(); fitShots(); });
 
