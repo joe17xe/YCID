@@ -832,7 +832,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
               il fallait déplier chaque phase et comparer les dates de
               tête. Cette liste traverse les phases et donne l'ordre dans
               lequel les ouvrir. */}
-          <NextSteps tasks={steps} today={todayISO} projectId={id} limit={8} />
+          <NextSteps tasks={steps} today={todayISO} projectId={id} limit={8} collapsedOnMobile />
           {(phases ?? []).map((ph: any) => {
             const phaseTasks = ph.tasks ?? []
             // Avancement pondéré par le budget, avec PLANCHER À 2 %

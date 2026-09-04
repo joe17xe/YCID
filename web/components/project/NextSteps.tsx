@@ -1,4 +1,7 @@
+"use client"
 import Link from "next/link"
+import { useEffect, useState } from "react"
+import { ChevronDown } from "lucide-react"
 
 // ============================================================
 // Prochaines étapes
@@ -11,6 +14,18 @@ import Link from "next/link"
 //
 // Cette liste traverse les phases et trie par urgence réelle. Elle ne
 // remplace pas le détail — elle donne l'ordre dans lequel l'ouvrir.
+//
+// REPLIABLE (retour de recette du 04/09). Sur téléphone, huit étapes
+// occupent l'écran entier et repoussent les ACTIONS hors de vue : « les
+// utilisateurs veulent aller sur les actions pour agir ». Une liste qui
+// aide à choisir ne doit pas empêcher de faire.
+//
+// Le défaut se règle SANS JavaScript, par les classes responsives :
+// tant qu'aucun choix n'a été exprimé, la liste est repliée sous 640 px
+// et dépliée au-dessus (`hidden sm:block`). Rien ne clignote donc au
+// chargement — un état décidé après coup aurait fait apparaître puis
+// disparaître huit lignes. Le JavaScript n'intervient que pour un choix
+// EXPLICITE, qui est alors retenu dans le navigateur.
 
 export interface StepTask {
   id: string
@@ -25,6 +40,11 @@ export interface StepTask {
 
 const fmtDate = (d: string) => new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })
 
+// La préférence de pliage vit dans le navigateur : elle ne regarde ni le
+// serveur ni les autres membres du projet. Une seule clé pour les deux
+// emplacements — replier « Prochaines étapes » est un geste, pas deux.
+const STORE_KEY = "solidpilot.next-steps.open"
+
 // Écart en jours pleins, indépendant de l'heure : comparer des
 // timestamps ferait basculer « aujourd'hui » en « hier » à midi.
 export function daysUntil(date: string, today: string): number {
@@ -33,7 +53,7 @@ export function daysUntil(date: string, today: string): number {
   return Math.round((a - b) / 86400000)
 }
 
-function Row({ t, today, projectId }: { t: StepTask; today: string; projectId: string }) {
+function Row({ t, today }: { t: StepTask; today: string }) {
   const d = t.endDate ? daysUntil(t.endDate, today) : null
   const late = d != null && d < 0
   const soon = d != null && d >= 0 && d <= 7
@@ -72,11 +92,15 @@ function Row({ t, today, projectId }: { t: StepTask; today: string; projectId: s
   )
 }
 
-export default function NextSteps({ tasks, today, projectId, limit = 6 }: {
+export default function NextSteps({ tasks, today, projectId, limit = 6, collapsedOnMobile = false }: {
   tasks: StepTask[]; today: string; projectId: string; limit?: number
+  // Vrai là où la liste PRÉCÈDE ce qu'on est venu faire — l'onglet
+  // Tâches, dont les actions sont juste en dessous. Sur l'Aperçu, elle
+  // est le contenu de l'écran : elle reste dépliée.
+  collapsedOnMobile?: boolean
 }) {
   // Ce qui est fait ne fait pas partie des prochaines étapes.
-  const open = tasks.filter(t => t.status !== "terminee")
+  const ongoing = tasks.filter(t => t.status !== "terminee")
 
   // En retard d'abord, du plus ancien au plus récent — un dépassement de
   // trois semaines passe avant un dépassement d'hier. Puis les échéances
@@ -87,14 +111,43 @@ export default function NextSteps({ tasks, today, projectId, limit = 6 }: {
     const d = daysUntil(t.endDate, today)
     return [d < 0 ? 0 : 1, d] as const
   }
-  const sorted = [...open].sort((a, b) => {
+  const sorted = [...ongoing].sort((a, b) => {
     const [ga, da] = rank(a); const [gb, db] = rank(b)
     return ga !== gb ? ga - gb : da - db
   })
 
   const mine = sorted.filter(t => t.ownerIsMe)
+  const lateCount = sorted.filter(t => t.endDate && daysUntil(t.endDate, today) < 0).length
   const shown = sorted.slice(0, limit)
   const rest = sorted.length - shown.length
+
+  // `null` = aucun choix exprimé : ce sont les classes responsives qui
+  // décident, pas nous.
+  const [open, setOpen] = useState<boolean | null>(null)
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem(STORE_KEY)
+      if (v === "0" || v === "1") setOpen(v === "1")
+    } catch { /* navigation privée, stockage refusé : le défaut suffit */ }
+  }, [])
+
+  function toggle() {
+    // Sans choix mémorisé, l'état visible dépend de la largeur — c'est
+    // elle qu'on interroge pour que le clic fasse l'inverse de ce qui
+    // est à l'écran, et non l'inverse d'un booléen imaginaire.
+    const visible = open ?? (typeof window !== "undefined" ? window.innerWidth >= 640 : true)
+    const next = !visible
+    setOpen(next)
+    try { localStorage.setItem(STORE_KEY, next ? "1" : "0") } catch { /* sans effet */ }
+  }
+
+  // Deux mondes : avant tout choix, les classes ; après, l'état.
+  const bodyClass = open === null
+    ? (collapsedOnMobile ? "hidden sm:block" : "block")
+    : (open ? "block" : "hidden")
+  const chevronClass = open === null
+    ? (collapsedOnMobile ? "-rotate-90 sm:rotate-0" : "rotate-0")
+    : (open ? "rotate-0" : "-rotate-90")
 
   if (!sorted.length) {
     return (
@@ -109,25 +162,43 @@ export default function NextSteps({ tasks, today, projectId, limit = 6 }: {
 
   return (
     <div className="bg-white rounded-2xl border p-6" style={{ borderColor: "#E3E6E2" }}>
-      <div className="flex items-baseline justify-between gap-3 mb-1">
-        <h2 className="font-semibold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>Prochaines étapes</h2>
-        <Link href={`/projets/${projectId}?tab=taches`} className="text-xs font-medium" style={{ color: "var(--brand-accent,#0E6B5C)" }}>
+      <div className="flex items-baseline justify-between gap-3">
+        {/* Le titre EST le bouton : replier se fait là où l'œil est déjà,
+            et la zone tactile occupe toute la largeur du titre. */}
+        <button type="button" onClick={toggle}
+          className="flex items-baseline gap-2 text-left min-w-0"
+          aria-expanded={open === null ? undefined : open}>
+          <ChevronDown size={16} aria-hidden="true"
+            className={`flex-shrink-0 transition-transform self-center ${chevronClass}`}
+            style={{ color: "#66716B" }} />
+          <h2 className="font-semibold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>Prochaines étapes</h2>
+          {/* Le compte reste lisible REPLIÉ : replier ne doit pas
+              escamoter l'alerte, seulement le détail. */}
+          <span className="text-xs" style={{ color: "#66716B" }}>
+            {sorted.length}
+            {lateCount > 0 && <span style={{ color: "#A3342C", fontWeight: 600 }}> · {lateCount} en retard</span>}
+          </span>
+        </button>
+        <Link href={`/projets/${projectId}?tab=taches`} className="text-xs font-medium flex-shrink-0" style={{ color: "var(--brand-accent,#0E6B5C)" }}>
           Toutes les tâches
         </Link>
       </div>
-      {mine.length > 0 && (
-        <p className="text-xs mb-2" style={{ color: "var(--brand-accent,#0E6B5C)" }}>
-          {mine.length} vous {mine.length > 1 ? "sont assignées" : "est assignée"}.
-        </p>
-      )}
-      <ul className="divide-y" style={{ borderColor: "#E3E6E2" }}>
-        {shown.map(t => <Row key={t.id} t={t} today={today} projectId={projectId} />)}
-      </ul>
-      {rest > 0 && (
-        <p className="text-xs mt-2" style={{ color: "#66716B" }}>
-          et {rest} autre{rest > 1 ? "s" : ""} tâche{rest > 1 ? "s" : ""} ouverte{rest > 1 ? "s" : ""}.
-        </p>
-      )}
+
+      <div className={bodyClass}>
+        {mine.length > 0 && (
+          <p className="text-xs mt-1 mb-2" style={{ color: "var(--brand-accent,#0E6B5C)" }}>
+            {mine.length} vous {mine.length > 1 ? "sont assignées" : "est assignée"}.
+          </p>
+        )}
+        <ul className="divide-y" style={{ borderColor: "#E3E6E2" }}>
+          {shown.map(t => <Row key={t.id} t={t} today={today} />)}
+        </ul>
+        {rest > 0 && (
+          <p className="text-xs mt-2" style={{ color: "#66716B" }}>
+            et {rest} autre{rest > 1 ? "s" : ""} tâche{rest > 1 ? "s" : ""} ouverte{rest > 1 ? "s" : ""}.
+          </p>
+        )}
+      </div>
     </div>
   )
 }
