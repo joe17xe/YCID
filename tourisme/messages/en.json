@@ -41,7 +41,9 @@
     "retour": "Back",
     "aPropos": "About",
     "kiosque": "Kiosk",
-    "appareilPhoto": "Open your camera and point it at the QR"
+    "appareilPhoto": "Open your camera and point it at the QR",
+    "galerie": "Photos",
+    "credit": "Photo: {credit}"
   },
   "itineraire": {
     "titre": "Getting there",

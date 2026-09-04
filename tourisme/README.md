@@ -80,7 +80,7 @@ Variables (voir `.env.example`) : `NEXT_PUBLIC_SUPABASE_URL`,
 publiques GeoJSON, 0003 fonctions et vues d'admin, 0004 services rendus
 sur place, 0005 formules et demandes de réservation, 0006 « sur
 réservation », 0007 accès et présentation du territoire, 0008 photo au
-back-office), puis
+back-office, 0009 galeries), puis
 `supabase/seed.sql`. Vérifiées rejouables sur un PostGIS 16 nu avec
 `supabase/dev/shim-auth-local.sql` (local uniquement — jamais sur un
 vrai projet Supabase). Les droits d'écriture s'attribuent en SQL :

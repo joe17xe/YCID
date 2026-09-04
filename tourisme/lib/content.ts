@@ -25,6 +25,13 @@ import poisJson from '@/content/pois.json'
 import evenementsJson from '@/content/evenements.json'
 import formulesJson from '@/content/formules.json'
 
+/** La couverture, résolue une bonne fois : si le champ « photo » est
+ *  vide, c'est la première de la galerie. Ainsi les listes, l'en-tête
+ *  et les vignettes n'ont jamais à connaître la galerie. */
+function couverture(p: Poi): Poi {
+  return p.photo ? p : { ...p, photo: p.photos?.[0]?.src ?? null }
+}
+
 export type ContentMode = 'supabase' | 'fichiers'
 
 export function contentMode(): ContentMode {
@@ -49,6 +56,7 @@ const fileParcours = (parcoursJson as unknown as Parcours[])
 const filePois = (poisJson as unknown as Poi[])
   .filter((p) => p.statut === 'publie')
   .sort((a, b) => a.ordre - b.ordre)
+  .map(couverture)
 const fileEvenements = (evenementsJson as unknown as Evenement[]).filter(
   (e) => e.statut === 'publie',
 )
@@ -132,9 +140,11 @@ async function dbPois(): Promise<Poi[]> {
     .select('*')
     .order('ordre')
   if (error) throw error
-  return ((data ?? []) as unknown as (Omit<Poi, 'geom'> & { geom_geojson: { coordinates: Position } | null })[]).map(
-    (r) => ({ ...r, geom: r.geom_geojson?.coordinates ?? [0, 0] }),
-  )
+  return (
+    (data ?? []) as unknown as (Omit<Poi, 'geom'> & {
+      geom_geojson: { coordinates: Position } | null
+    })[]
+  ).map((r) => couverture({ ...r, geom: r.geom_geojson?.coordinates ?? [0, 0] }))
 }
 
 async function dbFormules(): Promise<Formule[]> {

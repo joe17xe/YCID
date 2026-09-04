@@ -41,7 +41,9 @@
     "retour": "رجوع",
     "aPropos": "عن المشروع",
     "kiosque": "الكشك",
-    "appareilPhoto": "افتحوا الكاميرا ووجّهوها نحو رمز QR"
+    "appareilPhoto": "افتحوا الكاميرا ووجّهوها نحو رمز QR",
+    "galerie": "صور",
+    "credit": "الصورة: {credit}"
   },
   "itineraire": {
     "titre": "الوصول",

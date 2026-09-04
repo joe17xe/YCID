@@ -89,7 +89,13 @@
     "photo": "/photos/mycena.jpg",
     "statut": "publie",
     "ordre": 4,
-    "services": []
+    "services": [],
+    "photos": [
+      {
+        "src": "/photos/mycena.jpg",
+        "credit": "Étude des sentiers d'Azour (2026)"
+      }
+    ]
   },
   {
     "slug": "falaise-panoramique",
@@ -112,7 +118,13 @@
     "photo": "/photos/shir-falaise.jpg",
     "statut": "publie",
     "ordre": 5,
-    "services": []
+    "services": [],
+    "photos": [
+      {
+        "src": "/photos/shir-falaise.jpg",
+        "credit": "Étude des sentiers d'Azour (2026)"
+      }
+    ]
   },
   {
     "slug": "rocher-hyrax",
@@ -135,7 +147,13 @@
     "photo": "/photos/hyrax-rock.jpg",
     "statut": "publie",
     "ordre": 6,
-    "services": []
+    "services": [],
+    "photos": [
+      {
+        "src": "/photos/hyrax-rock.jpg",
+        "credit": "Étude des sentiers d'Azour (2026)"
+      }
+    ]
   },
   {
     "slug": "chir-el-joube",
@@ -181,7 +199,13 @@
     "photo": "/photos/vallee-bisri.jpg",
     "statut": "publie",
     "ordre": 8,
-    "services": []
+    "services": [],
+    "photos": [
+      {
+        "src": "/photos/vallee-bisri.jpg",
+        "credit": "Étude des sentiers d'Azour (2026)"
+      }
+    ]
   },
   {
     "slug": "chemin-agricole",
@@ -204,7 +228,13 @@
     "photo": "/photos/chemin-agricole.jpg",
     "statut": "publie",
     "ordre": 9,
-    "services": []
+    "services": [],
+    "photos": [
+      {
+        "src": "/photos/chemin-agricole.jpg",
+        "credit": "Étude des sentiers d'Azour (2026)"
+      }
+    ]
   },
   {
     "slug": "village-bisri",

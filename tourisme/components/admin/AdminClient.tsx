@@ -4,8 +4,9 @@ import type { Session } from '@supabase/supabase-js'
 import { gpx as gpxToGeoJson } from '@tmcw/togeojson'
 import { CircleCheck, LoaderCircle, LogOut, Upload } from 'lucide-react'
 import { parseCoordonnees, supabaseBrowser } from '@/lib/supabase-browser'
-import type { I18nText, Service } from '@/lib/types'
+import type { I18nText, Photo, Service } from '@/lib/types'
 import { tx } from '@/lib/i18n-text'
+import GaleriePoi from './GaleriePoi'
 
 /* Le back-office léger : le numéro du kiosque, l'état d'accès, les
    statuts, les coordonnées et les traces — tout ce qui fait vivre la
@@ -46,6 +47,7 @@ type PoiRow = {
   services: Service[] | null
   sur_reservation: boolean | null
   photo: string | null
+  photos: Photo[] | null
 }
 
 /* Ce qu'on trouve sur place — ce qui alimente « Se restaurer » côté
@@ -98,6 +100,7 @@ export default function AdminClient({ territoireSlug }: { territoireSlug: string
   const [pois, setPois] = useState<PoiRow[]>([])
   const [formules, setFormules] = useState<FormuleRow[]>([])
   const [demandes, setDemandes] = useState<DemandeRow[]>([])
+  const [images, setImages] = useState<string[]>([])
 
   useEffect(() => {
     if (!sb) return
@@ -111,6 +114,12 @@ export default function AdminClient({ territoireSlug }: { territoireSlug: string
 
   const charger = useCallback(async () => {
     if (!sb) return
+    // Le catalogue des images déposées sur le serveur : il alimente la
+    // grille de choix, et ne dépend pas de la base.
+    fetch('/api/photos')
+      .then((r) => r.json())
+      .then((v: string[]) => setImages(v))
+      .catch(() => setImages([]))
     const { data: t } = await sb
       .from('territoires')
       .select('id, slug, marque, contact_tel, contact_whatsapp, contact_email, etat_acces')
@@ -238,6 +247,7 @@ export default function AdminClient({ territoireSlug }: { territoireSlug: string
       {territoire ? (
         <SectionPois
           pois={pois}
+          images={images}
           onSaved={(m) => {
             setInfo(m)
             charger()
@@ -518,7 +528,15 @@ function LigneParcours({
 }
 
 /* ————— POI : coordonnées collées, n° de panneau, statut ————— */
-function SectionPois({ pois, onSaved }: { pois: PoiRow[]; onSaved: (m: string) => void }) {
+function SectionPois({
+  pois,
+  images,
+  onSaved,
+}: {
+  pois: PoiRow[]
+  images: string[]
+  onSaved: (m: string) => void
+}) {
   const sb = supabaseBrowser()!
   return (
     <section className="space-y-3">
@@ -528,7 +546,7 @@ function SectionPois({ pois, onSaved }: { pois: PoiRow[]; onSaved: (m: string) =
         point hors du Liban est refusé.
       </p>
       {pois.map((o) => (
-        <LignePoi key={o.id} o={o} sb={sb} onSaved={onSaved} />
+        <LignePoi key={o.id} o={o} images={images} sb={sb} onSaved={onSaved} />
       ))}
     </section>
   )
@@ -536,10 +554,12 @@ function SectionPois({ pois, onSaved }: { pois: PoiRow[]; onSaved: (m: string) =
 
 function LignePoi({
   o,
+  images,
   sb,
   onSaved,
 }: {
   o: PoiRow
+  images: string[]
   sb: NonNullable<ReturnType<typeof supabaseBrowser>>
   onSaved: (m: string) => void
 }) {
@@ -548,7 +568,7 @@ function LignePoi({
   const [statut, setStatut] = useState(o.statut)
   const [services, setServices] = useState<Service[]>(o.services ?? [])
   const [surResa, setSurResa] = useState(o.sur_reservation ?? false)
-  const [photo, setPhoto] = useState(o.photo ?? '')
+  const [photos, setPhotos] = useState<Photo[]>(o.photos ?? [])
   const [err, setErr] = useState<string | null>(null)
   return (
     <div className="card flex flex-wrap items-end gap-2.5 p-3.5">
@@ -571,17 +591,6 @@ function LignePoi({
           value={panneau}
           onChange={(e) => setPanneau(e.target.value)}
           className="mt-1 w-20 rounded-lg border border-[var(--ligne)] bg-[var(--surface)] px-2 py-2 font-normal"
-        />
-      </label>
-      {/* Chemin d'image : « /photos/beit-mrad.jpg » une fois le fichier
-          déposé dans public/photos, ou une URL de stockage Supabase. */}
-      <label className="w-full text-[12px] font-semibold sm:w-64">
-        Photo
-        <input
-          value={photo}
-          placeholder="/photos/…"
-          onChange={(e) => setPhoto(e.target.value)}
-          className="mono mt-1 w-full rounded-lg border border-[var(--ligne)] bg-[var(--surface)] px-2 py-2 font-normal"
         />
       </label>
       <label className="text-[12px] font-semibold">
@@ -626,6 +635,7 @@ function LignePoi({
           </label>
         </div>
       </fieldset>
+      <GaleriePoi photos={photos} disponibles={images} onChange={setPhotos} />
       <button
         className="btn btn-pin !min-h-[40px] !py-2 text-[13px]"
         onClick={async () => {

@@ -9,6 +9,7 @@ import { tx } from '@/lib/i18n-text'
 import MapView from '@/components/carte/MapView'
 import MapPanel from '@/components/ui/MapPanel'
 import Itineraire from '@/components/ui/Itineraire'
+import Galerie from '@/components/ui/Galerie'
 
 export async function generateMetadata(props: PageProps<'/explorer/[slug]'>): Promise<Metadata> {
   const { slug } = await props.params
@@ -86,6 +87,10 @@ export default async function FichePoi(props: PageProps<'/explorer/[slug]'>) {
           className="h-full w-full"
         />
       </MapPanel>
+
+      {poi.photos?.length ? (
+        <Galerie photos={poi.photos} couverture={poi.photo} locale={locale} />
+      ) : null}
 
       <Itineraire geom={poi.geom} nom={tx(poi.nom, locale)} />
 

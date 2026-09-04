@@ -41,8 +41,10 @@ Ce qui se renseigne au back-office — rien d'autre ne définit la carte :
   photos, statut (brouillon / publié / fermé temporairement).
 - **POI** : nom ×3, type (belvédère, patrimoine, panneau, départ,
   hébergement, restaurant, guide, urgence, point d'eau…), coordonnées,
-  numéro de panneau (le lien terrain ↔ app), texte court ×3, photos,
-  lien audio, **services rendus sur place** (petit-déjeuner, restaurant,
+  numéro de panneau (le lien terrain ↔ app), texte court ×3, **galerie
+  de photos** (liste ordonnée : la première sert de couverture, chacune
+  avec son crédit et sa légende ×3), lien audio, **services rendus sur
+  place** (petit-déjeuner, restaurant,
   bar, épicerie, point d'eau), **sur réservation** (oui / non),
   rattachement à 0..n parcours.
 

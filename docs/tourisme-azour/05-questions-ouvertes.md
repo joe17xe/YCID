@@ -97,6 +97,15 @@
     place du village — elle les affiche et propose de les ouvrir dans
     **Google Maps, Waze ou Plans** : trois URL universelles, aucune clé,
     aucun SDK.
+17. **Plusieurs photos par lieu** (03/09) : chaque POI porte une
+    **galerie ordonnée** (migration 0009) — la première sert de
+    couverture, les suivantes se déroulent sur la fiche. Le **crédit est
+    un champ**, pas une note perdue dans la légende : il s'affiche sous
+    chaque image. Dans `/admin`, une grille des fichiers réellement
+    présents dans `public/photos` (route `/api/photos`) permet de
+    **choisir en cliquant** plutôt que de taper un chemin ; les flèches
+    réordonnent, donc changent la couverture. Cinq images par lieu est
+    le bon ordre de grandeur.
 
 ## Encore ouvert
 
@@ -111,10 +120,12 @@
   à confirmer sur le terrain (information de sécurité à afficher).
 - Les **photos des établissements** (Beit Mrad, Blue Jay Valley,
   Pineview) et de plusieurs lieux du village : la place, le kiosque,
-  l'église Saint-Joseph, le Chir el-Joube, le village de Bisri. Le
-  champ `photo` les attend, POI par POI ; tant qu'il est vide la fiche
+  l'église Saint-Joseph, le Chir el-Joube, le village de Bisri. La
+  galerie les attend, lieu par lieu ; tant qu'elle est vide la fiche
   affiche une icône. **Rien ne sera illustré par une image de synthèse
-  ou empruntée** : il faut des clichés réels, avec leur crédit.
+  ou empruntée** : il faut des clichés réels, avec leur crédit. Une
+  vingtaine de photos est annoncée (03/09) — de quoi tenir cinq par
+  lieu sur les principaux.
 - Les **tables de Jezzine** à nommer, si l'on veut remplacer la mention
   générique « un peu plus loin » par de vraies adresses (le code les
   affiche dès qu'elles existent — il suffit de les créer avec le

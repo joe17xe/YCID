@@ -28,7 +28,8 @@ Le sous-domaine EST le modèle de duplication : demain,
    `0002_vues_publiques.sql` → `0003_admin.sql` →
    `0004_services.sql` → `0005_reservation.sql` →
    `0006_sur_reservation.sql` → `0007_venir.sql` →
-   `0008_photo_admin.sql` → `tourisme/supabase/seed.sql`.
+   `0008_photo_admin.sql` → `0009_galeries.sql` →
+   `tourisme/supabase/seed.sql`.
    (Ne jamais exécuter `supabase/dev/shim-auth-local.sql` ici — il ne
    sert qu'à la vérification sur un PostgreSQL local nu.)
 3. Authentication ▸ Providers : e-mail avec **lien magique** activé ;

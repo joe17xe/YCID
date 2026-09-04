@@ -110,6 +110,14 @@ export type PoiType =
  *  une table. C'est cette liste qui construit la section restauration. */
 export type Service = 'petit_dejeuner' | 'restaurant' | 'bar' | 'epicerie' | 'eau'
 
+/** Une photo de galerie. Le crédit est un champ, pas une note : une
+ *  image appartient à quelqu'un, et on l'écrit. */
+export interface Photo {
+  src: string
+  credit?: string | null
+  legende?: I18nText | null
+}
+
 export interface Poi {
   slug: string
   nom: I18nText
@@ -120,7 +128,9 @@ export interface Poi {
   geom: Position
   panneau_no?: number | null
   texte?: I18nText | null
+  /** Couverture. Vide, c'est la première de la galerie qui sert. */
   photo?: string | null
+  photos?: Photo[]
   audio_url?: string | null
   contact?: { tel?: string; whatsapp?: string; site?: string } | null
   statut: 'brouillon' | 'publie'

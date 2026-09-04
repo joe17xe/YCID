@@ -41,7 +41,9 @@
     "retour": "Retour",
     "aPropos": "À propos",
     "kiosque": "Kiosque",
-    "appareilPhoto": "Ouvrez l'appareil photo et visez le QR"
+    "appareilPhoto": "Ouvrez l'appareil photo et visez le QR",
+    "galerie": "Photos",
+    "credit": "Photo : {credit}"
   },
   "itineraire": {
     "titre": "S'y rendre",
