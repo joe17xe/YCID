@@ -8,6 +8,7 @@ import Link from "next/link"
 import { AlertTriangle, CalendarClock, MapPin } from "lucide-react"
 import { StatTile, AlertStatTile } from "@/components/ui/StatTile"
 import RowMenu from "@/components/pilotage/RowMenu"
+import Foldable from "@/components/ui/Foldable"
 
 // Tri du tableau (V1, Lot 2). « pays » est l'ordre historique : groupé
 // par pays (PR 27). Les deux autres répondent à une question qui
@@ -199,15 +200,21 @@ export default async function PilotagePage({ searchParams }: { searchParams: Pro
           : <StatTile label="Décisions en retard" mark="#9AA39D" value={0} sub="rien ne glisse" />}
       </div>
 
-      {/* Tableau projets */}
-      <div className="bg-white rounded-2xl border overflow-hidden mb-6" style={{ borderColor: "#E3E6E2" }}>
-        <div className="px-6 py-4 border-b flex flex-wrap items-center justify-between gap-3" style={{ borderColor: "#E3E6E2" }}>
-          <h2 className="font-semibold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>
-            {tri === "pays" ? "Projets par pays" : "Statut des projets"}
-          </h2>
-          {/* Même mécanique que le sélecteur de période du tableau de
-              bord : des liens serveur, pas d'état client. */}
-          <nav aria-label="Trier les projets" className="flex items-center gap-1 bg-white rounded-2xl border p-1" style={{ borderColor: "#E3E6E2" }}>
+      {/* Tableau projets. Repliable comme les autres blocs denses : sur
+          téléphone chaque ligne devient une carte, et quinze projets
+          repoussent les décisions ouvertes à deux écrans de là. Le tri,
+          lui, reste visible même replié — c'est une commande, pas un
+          détail. */}
+      <Foldable className="overflow-hidden mb-6"
+        title={tri === "pays" ? "Projets par pays" : "Statut des projets"}
+        badge={<span className="text-xs font-normal" style={{ color: "#66716B" }}>
+          {flat.length} projet{flat.length > 1 ? "s" : ""}
+        </span>}
+        rememberKey="pilotage-projets"
+        meta={
+          /* Même mécanique que le sélecteur de période du tableau de
+             bord : des liens serveur, pas d'état client. */
+          <nav aria-label="Trier les projets" className="flex items-center gap-1 bg-white rounded-2xl border p-1 w-fit" style={{ borderColor: "#E3E6E2" }}>
             <span className="pl-3 pr-1 text-xs" style={{ color: "#66716B" }}>Trier :</span>
             {Object.entries(TRIS).map(([key, label]) => (
               <Link
@@ -224,7 +231,8 @@ export default async function PilotagePage({ searchParams }: { searchParams: Pro
               </Link>
             ))}
           </nav>
-        </div>
+        }
+      >
         {/* Un tableau ne rétrécit pas : il déborde. Sans conteneur qui
             défile, c'est la PAGE ENTIÈRE qui glisse sous le doigt, et le
             reste de l'écran part avec elle. */}
@@ -280,14 +288,16 @@ export default async function PilotagePage({ searchParams }: { searchParams: Pro
           </tbody>
         </table>
         </div>
-      </div>
+      </Foldable>
 
       {/* Décisions ouvertes */}
       {(decisions ?? []).length > 0 && (
-        <div className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor: "#E3E6E2" }}>
-          <div className="px-6 py-4 border-b" style={{ borderColor: "#E3E6E2" }}>
-            <h2 className="font-semibold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>Décisions ouvertes ({decisions?.length})</h2>
-          </div>
+        <Foldable className="overflow-hidden" title="Décisions ouvertes"
+          badge={<span className="text-xs font-normal" style={{ color: "#66716B" }}>{decisions?.length}</span>}
+          summary={overdueDecisions.length > 0
+            ? `${overdueDecisions.length} au-delà de leur échéance`
+            : undefined}
+          rememberKey="pilotage-decisions">
           <div className="divide-y" style={{ borderColor: "#E3E6E2" }}>
             {(decisions ?? []).slice(0, 10).map((d: any) => {
               const isLate = d.due_date && d.due_date < today
@@ -311,7 +321,7 @@ export default async function PilotagePage({ searchParams }: { searchParams: Pro
               )
             })}
           </div>
-        </div>
+        </Foldable>
       )}
     </div>
   )
