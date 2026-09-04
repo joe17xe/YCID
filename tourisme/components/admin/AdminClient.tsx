@@ -45,6 +45,7 @@ type PoiRow = {
   lat: number
   services: Service[] | null
   sur_reservation: boolean | null
+  photo: string | null
 }
 
 /* Ce qu'on trouve sur place — ce qui alimente « Se restaurer » côté
@@ -547,6 +548,7 @@ function LignePoi({
   const [statut, setStatut] = useState(o.statut)
   const [services, setServices] = useState<Service[]>(o.services ?? [])
   const [surResa, setSurResa] = useState(o.sur_reservation ?? false)
+  const [photo, setPhoto] = useState(o.photo ?? '')
   const [err, setErr] = useState<string | null>(null)
   return (
     <div className="card flex flex-wrap items-end gap-2.5 p-3.5">
@@ -569,6 +571,17 @@ function LignePoi({
           value={panneau}
           onChange={(e) => setPanneau(e.target.value)}
           className="mt-1 w-20 rounded-lg border border-[var(--ligne)] bg-[var(--surface)] px-2 py-2 font-normal"
+        />
+      </label>
+      {/* Chemin d'image : « /photos/beit-mrad.jpg » une fois le fichier
+          déposé dans public/photos, ou une URL de stockage Supabase. */}
+      <label className="w-full text-[12px] font-semibold sm:w-64">
+        Photo
+        <input
+          value={photo}
+          placeholder="/photos/…"
+          onChange={(e) => setPhoto(e.target.value)}
+          className="mono mt-1 w-full rounded-lg border border-[var(--ligne)] bg-[var(--surface)] px-2 py-2 font-normal"
         />
       </label>
       <label className="text-[12px] font-semibold">
