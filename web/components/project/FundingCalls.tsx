@@ -3,6 +3,7 @@ import { useId, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { Plus, Pencil, BellRing, Send, CheckCircle2, Paperclip, Trash2, Download } from "lucide-react"
 import BaseModal, { ErrorMessage } from "@/components/ui/Modal"
+import Foldable from "@/components/ui/Foldable"
 import { fmtEur } from "@/lib/budget"
 import { fmtDate } from "@/lib/constants"
 import { saveFundingCall, setFundingCallStatus, deleteFundingCall, sendFundingReminder } from "@/app/(app)/projets/[id]/actions"
@@ -543,28 +544,36 @@ export default function FundingCalls({ projectId, calls, orgs, budgetRef, canMan
     else years.push({ year: c.year, rows: [c] })
   }
 
+  // Repliable, mais OUVERT par défaut, y compris sur téléphone : le
+  // bandeau du haut de l'onglet Budget pointe ici par une ancre, et une
+  // ancre qui mène à un bloc fermé ne mène nulle part.
+  const promis = calls.reduce((s, c) => s + c.amount, 0)
+  const recu = calls.reduce((s, c) => s + (c.status === "recu" ? c.amount : 0), 0)
+
   return (
-    <div id="appels-de-fonds" className="bg-white rounded-2xl border mt-6 overflow-hidden scroll-mt-4" style={border}>
-      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
-        <div>
-          <h2 className="font-semibold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>
-            Appels de fonds{calls.length > 0 && ` (${calls.length})`}
-          </h2>
-          <p className="text-xs mt-0.5" style={{ color: "#66716B" }}>
-            Qui s&apos;est engagé à verser quoi, à qui, chaque année — et les relances. Le budget reste la référence, la promesse s&apos;y compare.
-          </p>
-        </div>
-        {canManage && (
-          <button type="button" onClick={() => setDialog("create")}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold text-white flex-shrink-0"
-            style={{ background: "var(--brand-accent,#0E6B5C)" }}>
-            <Plus size={14} aria-hidden="true" /> Appel de fonds
-          </button>
-        )}
-      </div>
+    <Foldable id="appels-de-fonds" className="mt-6 overflow-hidden scroll-mt-4"
+      title="Appels de fonds"
+      badge={calls.length > 0 ? (
+        <span className="text-xs font-normal" style={{ color: "#66716B" }}>{calls.length}</span>
+      ) : undefined}
+      summary={calls.length > 0
+        ? `${fmtEur(recu)} reçus sur ${fmtEur(promis)} promis`
+        : "Qui s’est engagé à verser quoi, à qui, chaque année — et les relances."}
+      actions={canManage ? (
+        <button type="button" onClick={() => setDialog("create")}
+          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold text-white flex-shrink-0"
+          style={{ background: "var(--brand-accent,#0E6B5C)" }}>
+          <Plus size={14} aria-hidden="true" /> Appel de fonds
+        </button>
+      ) : undefined}
+      rememberKey="appels-de-fonds">
+      <p className="px-4 pt-3 text-xs" style={{ color: "#66716B" }}>
+        Qui s&apos;est engagé à verser quoi, à qui, chaque année — et les relances.
+        Le budget reste la référence, la promesse s&apos;y compare.
+      </p>
 
       {!calls.length && (
-        <p className="px-4 pb-4 text-sm" style={{ color: "#66716B" }}>
+        <p className="px-4 pb-4 pt-2 text-sm" style={{ color: "#66716B" }}>
           Aucun appel de fonds. Exemple : « la mairie de Villepreux verse 2 000 € à LEY pour 2026 » — saisi ici, relancé d&apos;un bouton.
         </p>
       )}
@@ -594,6 +603,6 @@ export default function FundingCalls({ projectId, calls, orgs, budgetRef, canMan
         <FundingCallDialog projectId={projectId} orgs={orgs} budgetRef={budgetRef}
           call={dialog === "create" ? undefined : dialog} onClose={() => setDialog("closed")} />
       )}
-    </div>
+    </Foldable>
   )
 }

@@ -53,6 +53,60 @@ select {
   background-color: #FFFFFF;
 }
 
+/* ------------------------------------------------------------
+   Le champ « choisir un fichier », rendu visible
+   ------------------------------------------------------------
+   Le contrôle natif ne se voit pas : un texte gris « Choisir un
+   fichier / Aucun fichier choisi », sans bordure, sans couleur, sans
+   rien qui ressemble à un bouton — perdu au milieu d'un dialogue.
+   Signalé en recette le 04/09 sur le dépôt d'un devis, c'est-à-dire à
+   l'endroit le plus important de l'outil : la pièce qui justifie
+   l'argent. Un utilisateur qui ne trouve pas ce champ ne dépose rien.
+
+   Le contrôle natif est CONSERVÉ — accessibilité, glisser-déposer,
+   `required`, libellés traduits par le navigateur : le remplacer par
+   un faux bouton coûterait tout cela. On lui donne seulement
+   l'apparence qui lui manque, une zone de dépôt et un bouton à la
+   couleur de la marque (jamais une couleur en dur : une autre
+   collectivité a la sienne, 0018).
+
+   `::file-selector-button` est le sélecteur standard, compris de
+   Chrome, Safari et Firefox ; là où il ne le serait pas, il ne reste
+   que le cadre — le champ est visible quand même. */
+input[type="file"] {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 13px;
+  color: #66716B;
+  background: var(--brand-accent-soft, #E4F0EC);
+  border: 1.5px dashed color-mix(in oklab, var(--brand-accent, #0E6B5C) 40%, #FFFFFF);
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+input[type="file"]::file-selector-button {
+  margin-right: 12px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--brand-accent, #0E6B5C);
+  color: #FFFFFF;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+input[type="file"]:hover {
+  border-color: var(--brand-accent, #0E6B5C);
+}
+
+input[type="file"]:focus-visible {
+  outline: 2px solid var(--brand-accent, #0E6B5C);
+  outline-offset: 2px;
+}
+
 input::placeholder,
 textarea::placeholder {
   color: #9AA39D;

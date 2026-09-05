@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
+import Link from "next/link"
 import { ACCESS_ROLES, REVIEW_STATES } from "@/lib/constants"
 import { HELP_INTRO, HELP_SECURITY, HELP_ROLES, HELP_STEPS, HELP_FAQ } from "@/lib/help-content"
 import { BookOpen, ShieldCheck, Users, MessageCircleQuestion } from "lucide-react"
@@ -35,25 +36,21 @@ export default async function AidePage() {
         <h1 className="text-2xl font-bold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>Aide et prise en main</h1>
         <p className="mt-1 text-sm leading-relaxed" style={{ color: "#66716B" }}>{HELP_INTRO}</p>
         {/* La visite guidée s'adresse à une personne devant son écran ;
-            le support de présentation s'adresse à une SALLE — la séance
-            de prise en main d'une commune partenaire. Deux usages, deux
-            portes, au même endroit : c'est ici qu'on vient chercher
-            « comment on explique l'outil aux autres ». Le support est un
-            fichier statique (public/presentation) : il s'ouvre sans
-            connexion, donc aussi depuis le vidéoprojecteur d'une mairie. */}
+            les supports de présentation s'adressent à une SALLE — la
+            séance de prise en main d'une commune partenaire, le point
+            d'étape avec la coordination. Deux usages, deux portes, au
+            même endroit : c'est ici qu'on vient chercher « comment on
+            explique l'outil aux autres ».
+
+            Un seul lien, vers la page qui les rassemble : les lister ici
+            AUSSI aurait fait deux endroits à corriger le jour où un
+            troisième support arrive. */}
         <div className="mt-3 flex flex-wrap items-center gap-4">
           <WelcomeTour userId={user.id} steps={tourSteps} mode="button" />
-          <a href="/presentation/communes.html" target="_blank" rel="noopener noreferrer"
+          <Link href="/presentations"
             className="text-sm underline" style={{ color: "var(--brand-accent,#0E6B5C)" }}>
-            Support de présentation aux partenaires (30 min)
-          </a>
-          {/* Deux publics, deux supports : la commune demande « comment je
-              m'en sers », la coordination « ce que je vois, décide et dois
-              prouver ». Un support unique aurait mal répondu aux deux. */}
-          <a href="/presentation/ycid.html" target="_blank" rel="noopener noreferrer"
-            className="text-sm underline" style={{ color: "var(--brand-accent,#0E6B5C)" }}>
-            Support de présentation à la coordination (25 min)
-          </a>
+            Supports de présentation — aux communes (30 min), à la coordination (25 min)
+          </Link>
         </div>
       </div>
 

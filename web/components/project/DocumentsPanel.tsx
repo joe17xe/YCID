@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { Download, Trash2, Archive, FilterX } from "lucide-react"
 import Modal, { ErrorMessage } from "@/components/ui/Modal"
+import Foldable from "@/components/ui/Foldable"
 import { DOC_TYPE_LABELS, DOC_MOMENT_LABELS, type DocType, type DocMoment } from "@/lib/documents"
 import {
   getDocumentUrl, getDocumentUrls, deleteDocument, getDocumentPurgeState,
@@ -214,7 +215,23 @@ export default function DocumentsPanel({ projectId, projectName, docs, canManage
 
   return (
     <div className="space-y-4">
-      <div className="bg-white rounded-2xl border p-4 space-y-3" style={border}>
+      {/* Cinq champs de filtre occupent un écran entier de téléphone
+          AVANT la liste qu'on est venu consulter. Repliés sous 640 px :
+          le compte de pièces et le bouton d'archive, eux, restent
+          visibles — c'est ce qu'on lit et ce qu'on clique. */}
+      <Foldable className="overflow-hidden" title="Filtrer les pièces"
+        badge={<span className="text-xs font-normal" style={{ color: "#66716B" }}>
+          {filtered.length}{hasFilter && <> sur {docs.length}</>}
+        </span>}
+        actions={
+          <button type="button" onClick={downloadZip} disabled={busy || filtered.length === 0}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl text-white text-sm font-semibold"
+            style={{ background: "var(--brand-accent,#0E6B5C)", opacity: busy || !filtered.length ? 0.5 : 1 }}>
+            <Archive size={14} aria-hidden="true" />
+            {busy ? (progress || "…") : `Télécharger (${filtered.length})`}
+          </button>
+        }
+        rememberKey="documents-filtres" collapsedOnMobile bodyClassName="p-4 space-y-3">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           <div>
             <label htmlFor="doc-f-q" className="block text-xs mb-1" style={{ color: "#66716B" }}>Rechercher</label>
@@ -249,19 +266,11 @@ export default function DocumentsPanel({ projectId, projectName, docs, canManage
             {filtered.length} pièce{filtered.length > 1 ? "s" : ""}
             {hasFilter && <> sur {docs.length}</>}
           </span>
-          <div className="flex items-center gap-2">
-            {hasFilter && (
-              <button type="button" onClick={reset} className="flex items-center gap-1 text-sm" style={{ color: "#66716B" }}>
-                <FilterX size={14} aria-hidden="true" /> Réinitialiser
-              </button>
-            )}
-            <button type="button" onClick={downloadZip} disabled={busy || filtered.length === 0}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold"
-              style={{ background: "var(--brand-accent,#0E6B5C)", opacity: busy || !filtered.length ? 0.5 : 1 }}>
-              <Archive size={14} aria-hidden="true" />
-              {busy ? (progress || "…") : `Télécharger (${filtered.length})`}
+          {hasFilter && (
+            <button type="button" onClick={reset} className="flex items-center gap-1 text-sm" style={{ color: "#66716B" }}>
+              <FilterX size={14} aria-hidden="true" /> Réinitialiser
             </button>
-          </div>
+          )}
         </div>
         {/* Le ZIP reprend la SÉLECTION FILTRÉE, pas tout le projet :
             l'écrire évite de télécharger 200 pièces en croyant en tirer 12. */}
@@ -269,7 +278,7 @@ export default function DocumentsPanel({ projectId, projectName, docs, canManage
           L&apos;archive reprend exactement les pièces affichées ci-dessous, filtres compris.
         </p>
         {error && <p className="text-sm rounded-lg px-3 py-2" style={{ background: "#F6E7E5", color: "#A3342C" }}>{error}</p>}
-      </div>
+      </Foldable>
 
       <div className="bg-white rounded-2xl border overflow-hidden" style={border}>
         <div className="overflow-x-auto">

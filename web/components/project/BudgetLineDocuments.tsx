@@ -715,7 +715,11 @@ export default function BudgetLineDocuments({ projectId, phaseId, lineId, poste,
             {canManage && (
               <form onSubmit={upload} className="rounded-xl border p-3 space-y-3" style={{ borderColor: "#E3E6E2" }}>
                 <p className="text-sm font-medium" style={{ color: "#17211D" }}>Déposer une pièce</p>
-                <input type="file" required onChange={e => setFile(e.target.files?.[0] ?? null)} className="w-full text-sm" />
+                <label htmlFor={`bl-file-${lineId}`} className="block text-xs mb-1" style={{ color: "#66716B" }}>
+                  Fichier *
+                </label>
+                <input id={`bl-file-${lineId}`} type="file" required
+                  onChange={e => setFile(e.target.files?.[0] ?? null)} className="w-full text-sm" />
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label htmlFor={`bl-type-${lineId}`} className="block text-xs mb-1" style={{ color: "#66716B" }}>Nature</label>

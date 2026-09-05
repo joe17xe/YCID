@@ -18,6 +18,7 @@ import BudgetLineDocuments from "@/components/project/BudgetLineDocuments"
 import FundingCalls, { type FundingCallRow } from "@/components/project/FundingCalls"
 import ProjectPulse from "@/components/project/ProjectPulse"
 import { StatTile } from "@/components/ui/StatTile"
+import Foldable from "@/components/ui/Foldable"
 import NextSteps, { daysUntil, type StepTask } from "@/components/project/NextSteps"
 import PhasePhotos, { type PhasePhoto } from "@/components/project/PhasePhotos"
 import DocumentsPanel, { type ProjectDoc } from "@/components/project/DocumentsPanel"
@@ -737,9 +738,12 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
             plus visible. Les prochaines étapes passent devant. */}
         <NextSteps tasks={steps} today={todayISO} projectId={id} />
         <div className="grid lg:grid-cols-2 gap-6">
-          {/* Organisations */}
-          <div className="bg-white rounded-2xl border p-6" style={{ borderColor: "#E3E6E2" }}>
-            <h2 className="font-semibold mb-4" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>Organisations ({(project.project_organizations ?? []).length})</h2>
+          {/* Organisations — la donnée la plus STABLE du projet : elle ne
+              demande jamais d'action, et occupait pourtant un écran entier
+              sur téléphone avant les membres. Repliée sous 640 px. */}
+          <Foldable className="overflow-hidden" title="Organisations"
+            badge={<span className="text-xs font-normal" style={{ color: "#66716B" }}>{(project.project_organizations ?? []).length}</span>}
+            rememberKey="projet-organisations" collapsedOnMobile bodyClassName="p-4">
             <div className="space-y-2">
               {(project.project_organizations ?? []).map((po: any) => {
                 const r = PROJECT_ROLES[po.role] ?? { label: po.role, fg: "#66716B", bg: "#EEF0EE" }
@@ -757,18 +761,17 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                 )
               })}
             </div>
-          </div>
+          </Foldable>
           {/* Membres */}
-          <div className="bg-white rounded-2xl border p-6" style={{ borderColor: "#E3E6E2" }}>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-semibold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>Membres ({(project.project_members ?? []).length})</h2>
-              {canMembers && (
-                <span className="flex items-center gap-1.5">
-                  <InviteUserDialog projectId={id} canAuditor={canAuditorSeat} />
-                  <MemberDialog projectId={id} candidates={memberCandidates} canAuditor={canAuditorSeat} />
-                </span>
-              )}
-            </div>
+          <Foldable className="overflow-hidden" title="Membres"
+            badge={<span className="text-xs font-normal" style={{ color: "#66716B" }}>{(project.project_members ?? []).length}</span>}
+            actions={canMembers ? (
+              <>
+                <InviteUserDialog projectId={id} canAuditor={canAuditorSeat} />
+                <MemberDialog projectId={id} candidates={memberCandidates} canAuditor={canAuditorSeat} />
+              </>
+            ) : undefined}
+            rememberKey="projet-membres" collapsedOnMobile bodyClassName="p-4">
             <div className="space-y-2">
               {(project.project_members ?? []).map((pm: any) => {
                 const r = ACCESS_ROLES[pm.role] ?? { label: pm.role.replace(/_/g, " "), short: pm.role, fg: "#66716B", bg: "#EEF0EE" }
@@ -814,7 +817,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                 </p>
               )}
             </div>
-          </div>
+          </Foldable>
         </div>
         </div>
       )}
@@ -832,7 +835,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
               il fallait déplier chaque phase et comparer les dates de
               tête. Cette liste traverse les phases et donne l'ordre dans
               lequel les ouvrir. */}
-          <NextSteps tasks={steps} today={todayISO} projectId={id} limit={8} />
+          <NextSteps tasks={steps} today={todayISO} projectId={id} limit={8} collapsedOnMobile />
           {(phases ?? []).map((ph: any) => {
             const phaseTasks = ph.tasks ?? []
             // Avancement pondéré par le budget, avec PLANCHER À 2 %
@@ -872,87 +875,102 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
             // pour le MEAE la valorisation est du COFINANCEMENT, et une
             // phase portée par du bénévolat mérite qu'on le voie.
             const phaseValo = valoByPhase.get(ph.id) ?? 0
+            // L'en-tête d'une ACTION et ses TÂCHES étaient deux blocs
+            // blancs séparés par un filet : rien ne disait, d'un coup
+            // d'œil, ce qui était le contenant et ce qui était le contenu
+            // (retour de recette, 04/09). L'action reçoit donc une bande
+            // teintée, les tâches restent sur fond blanc. La teinte se
+            // DÉRIVE de la couleur de marque — 7 % suffit à la distinguer
+            // — plutôt que d'être un gris en dur qui jurerait sous une
+            // autre collectivité (white-label 0018).
+            //
+            // Et elle se REPLIE, le même jour : cinq actions de six
+            // tâches font douze écrans sur un téléphone, où l'on ne
+            // cherche qu'une action précise. Repliée, l'action garde ce
+            // qui permet de CHOISIR — nom, nombre de tâches, montant,
+            // avancement ; ce sont les tâches, le détail, qui s'effacent.
             return (
-              <div key={ph.id} className="bg-white rounded-2xl border" style={{ borderColor: "#E3E6E2" }}>
-                <div className="p-4 border-b" style={{ borderColor: "#E3E6E2" }}>
-                  {/* L'ancien en-tête empilait « 3 tâches / 26 600 € /
-                      0 % pondéré / + Tâche » en colonne à droite du
-                      titre : sur téléphone, une tour de chiffres sans
-                      libellés. Le titre prend la largeur, l'action reste
-                      en haut à droite, et les chiffres deviennent des
-                      pastilles nommées qui passent à la ligne. */}
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <h3 className="font-semibold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>{ph.name}</h3>
-                      {canPhases && (
-                        <>
-                          <PhaseDialog projectId={id} phase={{
-                            id: ph.id, name: ph.name, start_date: ph.start_date ?? null,
-                            end_date: ph.end_date ?? null, status: ph.status,
-                          }} />
-                          {/* Une phase créée par erreur — ou une phase
-                              d'essai — n'avait aucun moyen de partir : il
-                              fallait la garder à l'écran, vide, pour
-                              toujours. Le bouton ne décide de rien ; c'est
-                              l'action qui, selon qu'elle porte des tâches
-                              ou non, supprime tout de suite ou demande la
-                              recopie du nom. */}
-                          <DeletePhaseButton projectId={id} phaseId={ph.id} phaseName={ph.name} />
-                        </>
-                      )}
-                    </div>
-                    {canTasks && <span className="flex-shrink-0"><TaskDialog phaseId={ph.id} members={memberOptions} /></span>}
-                  </div>
-                  <div className="flex flex-wrap items-center gap-1.5 mt-2 text-xs">
-                    <span className="px-2 py-1 rounded-lg" style={{ background: "#F5F6F4", color: "#66716B" }}>
-                      {phaseTasks.length} tâche{phaseTasks.length > 1 ? "s" : ""}
-                    </span>
-                    {phaseLinesTotal > 0 && (
-                      <span className="px-2 py-1 rounded-lg" style={{ background: "#F5F6F4", color: "#66716B" }}
-                        title="Somme des lignes budgétaires de la phase, hors valorisation">
-                        {fmtEur(phaseLinesTotal)}
-                      </span>
+              <Foldable key={ph.id} className="overflow-hidden" titleAs="h3"
+                headerBackground="color-mix(in oklab, var(--brand-accent, #0E6B5C) 7%, #FFFFFF)"
+                rememberKey={`phase:${ph.id}`} collapsedOnMobile
+                title={ph.name}
+                actions={
+                  <>
+                    {canPhases && (
+                      <>
+                        <PhaseDialog projectId={id} phase={{
+                          id: ph.id, name: ph.name, start_date: ph.start_date ?? null,
+                          end_date: ph.end_date ?? null, status: ph.status,
+                        }} />
+                        {/* Une phase créée par erreur — ou une phase
+                            d'essai — n'avait aucun moyen de partir : il
+                            fallait la garder à l'écran, vide, pour
+                            toujours. Le bouton ne décide de rien ; c'est
+                            l'action qui, selon qu'elle porte des tâches
+                            ou non, supprime tout de suite ou demande la
+                            recopie du nom. */}
+                        <DeletePhaseButton projectId={id} phaseId={ph.id} phaseName={ph.name} />
+                      </>
                     )}
-                    {/* Une pastille SÉPARÉE, dans la gamme beige de la
-                        valorisation, et le signe « + » pour dire qu'elle
-                        s'ajoute au projet sans s'ajouter au prévu. La
-                        fondre dans le montant précédent est exactement le
-                        défaut qu'on corrige. */}
-                    {phaseValo > 0 && (
-                      <span className="px-2 py-1 rounded-lg" style={{ background: "#F5EFE2", color: "#8A6A1F" }}
-                        title="Contributions en nature rattachées à cette phase (bénévolat, locaux, matériel prêtés). Elles comptent dans le cofinancement, jamais dans le prévu : personne ne les paiera.">
-                        + {fmtEur(phaseValo)} en nature
+                    {canTasks && <TaskDialog phaseId={ph.id} members={memberOptions} />}
+                  </>
+                }
+                meta={
+                  <>
+                    <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                      <span className="px-2 py-1 rounded-lg" style={{ background: "#F5F6F4", color: "#66716B" }}>
+                        {phaseTasks.length} tâche{phaseTasks.length > 1 ? "s" : ""}
                       </span>
-                    )}
-                    <span className="px-2 py-1 rounded-lg font-medium"
-                      style={{ background: "var(--brand-accent-soft,#E4F0EC)", color: "var(--brand-accent,#0E6B5C)" }}
-                      title={weighted
-                        ? "Moyenne pondérée par le budget des tâches, avec un poids plancher de 2 % du budget de la phase : une tâche à 0 € compte tout de même, la phase ne peut donc pas afficher 100 % tant qu'elle n'est pas faite."
-                        : "Moyenne des tâches, à parts égales — la phase n'a pas encore de budget réparti."}>
-                      {phProg} %{weighted ? " pondéré" : ""}
-                    </span>
-                    {/* Preuve de réalisation (PR 38e) : compte agrégé,
-                        pour qu'on n'ait pas à déplier chaque tâche. */}
-                    {(() => {
-                      const n = phaseTasks.filter((t: any) => t.status === "terminee" && !(t.documents ?? []).length).length
-                      return n > 0 ? (
-                        <span className="px-2 py-1 rounded-lg" style={{ background: "#F7EDDD", color: "#8A6A1F" }}
-                          title="Tâches déclarées terminées sans aucune pièce justificative">
-                          {n} sans justificatif
+                      {phaseLinesTotal > 0 && (
+                        <span className="px-2 py-1 rounded-lg" style={{ background: "#F5F6F4", color: "#66716B" }}
+                          title="Somme des lignes budgétaires de la phase, hors valorisation">
+                          {fmtEur(phaseLinesTotal)}
                         </span>
-                      ) : null
-                    })()}
-                  </div>
-                  {/* Plus d'écart possible ici depuis la PR 39 : le budget
-                      d'une phase EST la somme de ses lignes. On montre
-                      donc son exécution plutôt qu'une divergence. */}
-                  {phaseFin.planned > 0 && (
-                    <p className="mt-2 text-xs" style={{ color: "#66716B" }}>
-                      Prévu {fmtEur(phaseFin.planned)} · engagé {fmtEur(phaseFin.engaged)} · payé {fmtEur(phaseFin.paid)}
-                    </p>
-                  )}
-                  <div className="mt-2"><ProgressBar value={phProg} /></div>
-                  {/* Photos avant / pendant / après de la phase (PR 38c) */}
+                      )}
+                      {/* Une pastille SÉPARÉE, dans la gamme beige de la
+                          valorisation, et le signe « + » pour dire qu'elle
+                          s'ajoute au projet sans s'ajouter au prévu. La
+                          fondre dans le montant précédent est exactement le
+                          défaut qu'on corrige. */}
+                      {phaseValo > 0 && (
+                        <span className="px-2 py-1 rounded-lg" style={{ background: "#F5EFE2", color: "#8A6A1F" }}
+                          title="Contributions en nature rattachées à cette phase (bénévolat, locaux, matériel prêtés). Elles comptent dans le cofinancement, jamais dans le prévu : personne ne les paiera.">
+                          + {fmtEur(phaseValo)} en nature
+                        </span>
+                      )}
+                      <span className="px-2 py-1 rounded-lg font-medium"
+                        style={{ background: "var(--brand-accent-soft,#E4F0EC)", color: "var(--brand-accent,#0E6B5C)" }}
+                        title={weighted
+                          ? "Moyenne pondérée par le budget des tâches, avec un poids plancher de 2 % du budget de la phase : une tâche à 0 € compte tout de même, la phase ne peut donc pas afficher 100 % tant qu'elle n'est pas faite."
+                          : "Moyenne des tâches, à parts égales — la phase n'a pas encore de budget réparti."}>
+                        {phProg} %{weighted ? " pondéré" : ""}
+                      </span>
+                      {/* Preuve de réalisation (PR 38e) : compte agrégé,
+                          pour qu'on n'ait pas à déplier chaque tâche. */}
+                      {(() => {
+                        const n = phaseTasks.filter((t: any) => t.status === "terminee" && !(t.documents ?? []).length).length
+                        return n > 0 ? (
+                          <span className="px-2 py-1 rounded-lg" style={{ background: "#F7EDDD", color: "#8A6A1F" }}
+                            title="Tâches déclarées terminées sans aucune pièce justificative">
+                            {n} sans justificatif
+                          </span>
+                        ) : null
+                      })()}
+                    </div>
+                    {/* Plus d'écart possible ici depuis la PR 39 : le budget
+                        d'une phase EST la somme de ses lignes. On montre
+                        donc son exécution plutôt qu'une divergence. */}
+                    {phaseFin.planned > 0 && (
+                      <p className="mt-2 text-xs" style={{ color: "#66716B" }}>
+                        Prévu {fmtEur(phaseFin.planned)} · engagé {fmtEur(phaseFin.engaged)} · payé {fmtEur(phaseFin.paid)}
+                      </p>
+                    )}
+                    <div className="mt-2"><ProgressBar value={phProg} /></div>
+                  </>
+                }
+              >
+                {/* Photos avant / pendant / après de la phase (PR 38c) */}
+                <div className="px-4 pt-3">
                   <PhasePhotos projectId={id} phaseId={ph.id} canUpload={canTasks}
                     photos={photosByPhase.get(ph.id) ?? []} />
                 </div>
@@ -961,7 +979,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                     const ts = TASK_STATUS[t.status] ?? { label: t.status, fg: "#66716B", bg: "#EEF0EE" }
                     const rv = t.review ? (REVIEW_STATES[t.review] ?? null) : null
                     return (
-                      <div key={t.id} className="p-4 hover:bg-gray-50">
+                      <div key={t.id} className="p-4 bg-white hover:bg-gray-50">
                         {/* Le statut vivait dans une colonne fixe à
                             droite : elle comprimait la date sur trois
                             lignes et faisait flotter « À faire » hors de
@@ -1139,7 +1157,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                   })}
                   {!phaseTasks.length && <div className="p-4 text-sm text-center" style={{ color: "#66716B" }}>Aucune tâche</div>}
                 </div>
-              </div>
+              </Foldable>
             )
           })}
         </div>
@@ -1275,14 +1293,19 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
               avant le détail : en COPIL on lit le total, puis qui finance
               quoi, puis seulement la ligne à la ligne. */}
           {funderRows.length > 0 && (
-            <div className="bg-white rounded-2xl border overflow-hidden mb-6" style={{ borderColor: "#E3E6E2" }}>
-              <div className="px-4 py-3" style={{ borderBottom: "1px solid #E3E6E2" }}>
-                <h3 className="text-sm font-semibold" style={{ color: "#17211D" }}>Répartition par financeur</h3>
-                <p className="text-xs mt-0.5" style={{ color: "#66716B" }}>
-                  Hors valorisations. C&apos;est cette vue qui sert au compte rendu :
-                  chaque financeur y lit ce qui a été prévu sur son enveloppe, engagé, et réglé.
-                </p>
-              </div>
+            <Foldable className="overflow-hidden mb-6" titleAs="h3"
+              title="Répartition par financeur"
+              badge={<span className="text-xs font-normal" style={{ color: "#66716B" }}>
+                {funderRows.length} financeur{funderRows.length > 1 ? "s" : ""}
+              </span>}
+              /* Replié, le bloc doit encore répondre à « faut-il
+                 l'ouvrir ? » : le prévu et le payé du projet suffisent. */
+              summary={`${fmtEur(projectFin.planned)} prévus · ${fmtEur(projectFin.paid)} payés — hors valorisations`}
+              rememberKey="budget-financeurs" collapsedOnMobile>
+              <p className="px-4 pt-3 text-xs" style={{ color: "#66716B" }}>
+                C&apos;est cette vue qui sert au compte rendu : chaque financeur y lit
+                ce qui a été prévu sur son enveloppe, engagé, et réglé.
+              </p>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm table-cards tc-560">
                   <thead>
@@ -1332,7 +1355,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                   </tfoot>
                 </table>
               </div>
-            </div>
+            </Foldable>
           )}
 
           {/* Contributions en nature. Elles ne sont ni engagées ni
@@ -1344,13 +1367,27 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
             const partNature = coutTotal > 0 ? Math.round((totalValorisation / coutTotal) * 100) : 0
             const nonJustifiees = valoLines.length - valoRows.reduce((s, r) => s + r.justified, 0)
             return (
-              <div className="bg-white rounded-2xl border overflow-hidden mb-6" style={{ borderColor: "#E3E6E2" }}>
-                <div className="px-4 py-3" style={{ borderBottom: "1px solid #E3E6E2" }}>
-                  <h3 className="text-sm font-semibold" style={{ color: "#17211D" }}>Contributions en nature</h3>
+              <Foldable className="overflow-hidden mb-6" titleAs="h3"
+                title="Contributions en nature"
+                badge={<span className="text-xs font-normal" style={{ color: "#66716B" }}>
+                  {fmtEur(totalValorisation)}
+                </span>}
+                /* L'ALERTE reste dans le résumé : replier doit escamoter
+                   le détail, jamais le fait qu'une pièce manque. */
+                summary={<>
+                  {partNature} % du coût total
+                  {nonJustifiees > 0 && (
+                    <span style={{ color: "#B4690E", fontWeight: 600 }}>
+                      {" · "}{nonJustifiees} sans pièce
+                    </span>
+                  )}
+                </>}
+                rememberKey="budget-valorisations" collapsedOnMobile>
+                <div className="px-4 pt-3">
                   {/* Le coût total du projet — monétaire + nature — n'était
                       affiché nulle part. C'est pourtant le chiffre que lit
                       un financeur : ce que le projet représente réellement. */}
-                  <p className="text-xs mt-0.5" style={{ color: "#66716B" }}>
+                  <p className="text-xs" style={{ color: "#66716B" }}>
                     Coût total du projet <strong style={{ color: "#17211D" }}>{fmtEur(coutTotal)}</strong> —
                     dont <strong style={{ color: "#8A6A1F" }}>{fmtEur(totalValorisation)}</strong> apportés
                     en nature, soit <strong style={{ color: "#8A6A1F" }}>{partNature} %</strong>.
@@ -1400,7 +1437,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                     par le bouton « Pièces ».
                   </div>
                 )}
-              </div>
+              </Foldable>
             )
           })()}
 
@@ -1409,7 +1446,14 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
               « Prévu » — qui porte l'accès aux pièces — devenait
               inatteignable. Constaté en recette : un devis ne pouvait pas
               être déposé depuis un mobile. */}
-          <div className="bg-white rounded-2xl border overflow-x-auto" style={{ borderColor: "#E3E6E2" }}>
+          <Foldable className="overflow-hidden" titleAs="h3"
+            title="Lignes budgétaires"
+            badge={<span className="text-xs font-normal" style={{ color: "#66716B" }}>
+              {(budgetLines ?? []).length}
+            </span>}
+            summary="Le détail poste par poste, regroupé par action — c’est ici que se déposent devis et factures."
+            rememberKey="budget-lignes">
+            <div className="overflow-x-auto">
             {/* `table-cards` : sous 640 px chaque ligne devient un bloc et
                 chaque cellule porte son intitulé (voir globals.css). Un
                 seul balisage — rendre en plus une liste de cartes aurait
@@ -1601,8 +1645,9 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                 </tbody>
               ))}
             </table>
+            </div>
             {!(budgetLines ?? []).length && <div className="p-8 text-center text-sm" style={{ color: "#66716B" }}>Aucune ligne budgétaire</div>}
-          </div>
+          </Foldable>
           {/* Appels de fonds (0066) : les promesses annuelles, sous le
               budget qu'elles financent — jamais dedans. */}
           {fundingReady ? (
@@ -1696,52 +1741,58 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
             const mk = MEETING_KINDS[m.kind] ?? { label: m.kind, fg: "#66716B", bg: "#EEF0EE" }
             const invitees = participantsByMeeting.get(m.id) ?? []
             const mine = invitees.find(p => p.user_id === user.id)
+            // Une réunion tenue se relit rarement en entier — on cherche
+            // « celle du 12 mars », pas les huit précédentes. Repliée,
+            // elle garde ce qui permet de la RECONNAÎTRE : nature, titre,
+            // date, lieu et nombre de décisions. Le lien de visio reste
+            // hors du bouton de repli : un lien ne s'imbrique pas dans un
+            // bouton, et surtout il doit rester cliquable d'un geste le
+            // jour de la réunion.
             return (
-              <div key={m.id} className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor: "#E3E6E2" }}>
-                <div className="p-5 border-b flex items-center justify-between" style={{ borderColor: "#E3E6E2" }}>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <Badge label={mk.label} fg={mk.fg} bg={mk.bg} />
-                      <span className="font-semibold" style={{ fontFamily: "var(--font-sora)", color: "#17211D" }}>{m.title}</span>
-                    </div>
-                    <div className="text-xs mt-1" style={{ color: "#66716B" }}>
-                      {fmtDate(m.date)}
-                      {m.start_time ? ` · ${String(m.start_time).slice(0, 5)}` : ""}
-                      {m.location ? ` · ${m.location}` : ""}
-                      {/* Lien visio (0054) : collé par l'organisateur,
-                          jamais généré — il part aussi dans l'email
-                          d'invitation. */}
-                      {m.video_url && (
-                        <>
-                          {" · "}
-                          <a href={m.video_url} target="_blank" rel="noopener noreferrer"
-                            className="font-medium hover:underline" style={{ color: "var(--brand-accent,#0E6B5C)" }}>
-                            Rejoindre la visio
-                          </a>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
+              <Foldable key={m.id} className="overflow-hidden"
+                title={m.title}
+                badge={
+                  <>
+                    <Badge label={mk.label} fg={mk.fg} bg={mk.bg} />
                     {(m.decisions ?? []).length > 0 && (
-                      <span className="text-xs px-2 py-1 rounded-full" style={{ background: "#E8ECF5", color: "#3B5488" }}>
+                      <span className="text-xs px-2 py-1 rounded-full font-normal" style={{ background: "#E8ECF5", color: "#3B5488" }}>
                         {m.decisions.length} décision{m.decisions.length > 1 ? "s" : ""}
                       </span>
                     )}
-                    {/* Modifier la réunion (28/07 soir) : même dialogue
-                        qu'à la création, déclenché au crayon. */}
-                    {canMeetings && (
-                      <MeetingDialog projectId={id} members={memberOptions} participantsReady={participantsReady} orgGroups={orgGroups}
-                        meeting={{
-                          id: m.id, title: m.title, kind: m.kind, date: m.date ?? "",
-                          start_time: m.start_time ? String(m.start_time).slice(0, 5) : "",
-                          location: m.location ?? "", video_url: m.video_url ?? "",
-                          minutes: m.minutes ?? "",
-                          participantIds: invitees.map(p => p.user_id),
-                        }} />
+                  </>
+                }
+                meta={
+                  <div className="text-xs" style={{ color: "#66716B" }}>
+                    {fmtDate(m.date)}
+                    {m.start_time ? ` · ${String(m.start_time).slice(0, 5)}` : ""}
+                    {m.location ? ` · ${m.location}` : ""}
+                    {/* Lien visio (0054) : collé par l'organisateur,
+                        jamais généré — il part aussi dans l'email
+                        d'invitation. */}
+                    {m.video_url && (
+                      <>
+                        {" · "}
+                        <a href={m.video_url} target="_blank" rel="noopener noreferrer"
+                          className="font-medium hover:underline" style={{ color: "var(--brand-accent,#0E6B5C)" }}>
+                          Rejoindre la visio
+                        </a>
+                      </>
                     )}
                   </div>
-                </div>
+                }
+                /* Modifier la réunion (28/07 soir) : même dialogue
+                   qu'à la création, déclenché au crayon. */
+                actions={canMeetings ? (
+                  <MeetingDialog projectId={id} members={memberOptions} participantsReady={participantsReady} orgGroups={orgGroups}
+                    meeting={{
+                      id: m.id, title: m.title, kind: m.kind, date: m.date ?? "",
+                      start_time: m.start_time ? String(m.start_time).slice(0, 5) : "",
+                      location: m.location ?? "", video_url: m.video_url ?? "",
+                      minutes: m.minutes ?? "",
+                      participantIds: invitees.map(p => p.user_id),
+                    }} />
+                ) : undefined}
+                rememberKey={`copil:${m.id}`} collapsedOnMobile>
                 {/* Invités et réponses (0051) : chaque pastille porte un
                     nom, sa couleur dit la réponse — acceptée (accent),
                     refusée (rouge), en attente (neutre). L'invité
@@ -1797,7 +1848,7 @@ export default async function ProjetDetailPage({ params, searchParams }: { param
                     <DecisionDialog projectId={id} meetingId={m.id} members={memberOptions} />
                   </div>
                 )}
-              </div>
+              </Foldable>
             )
           })}
           {!(meetings ?? []).length && <div className="text-center py-12 text-sm" style={{ color: "#66716B" }}>Aucune réunion enregistrée</div>}

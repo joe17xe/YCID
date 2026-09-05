@@ -7,7 +7,17 @@
 <title>Solid'Pilot — Le programme vu de la coordination (YCID)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- Chargement NON BLOQUANT des polices. En `rel=stylesheet` simple, une
+     feuille externe bloque l'exécution des scripts qui la suivent : si le
+     réseau de la salle filtre ou ralentit fonts.googleapis.com, la requête
+     pend, le script de la présentation n'est jamais atteint et l'écran
+     reste vide — constaté sur un réseau qui fait pendre Google Fonts. Avec
+     `media="print"`, la feuille est chargée sans bloquer, puis promue en
+     `all` une fois arrivée. Sans elle, la présentation s'affiche dans les
+     polices de secours : moins jolie, mais projetable. -->
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700&family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>
 <style>
 /* ============================================================
    Support de présentation — 25 min, coordination du programme
